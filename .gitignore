@@ -1,1 +1,9 @@
 *.sh
+parser.out
+parsetab.py
+parselog.txt
+*.pyc
+__pycache__
+*.png
+*.jpeg
+*.dot
