@@ -1,3 +1,6 @@
+#!/usr/bin/python3
+
+import sys
 import ply.lex as lex
 from ply.lex import TOKEN
 
@@ -134,9 +137,14 @@ class MyLexer(object):
 			print(tok)
 
 
-
 # Build the lexer and try it out
+cpp_scanner = MyLexer()
+cpp_scanner.build()
 if __name__ == "__main__":
-	m = MyLexer()
-	m.build()
-	lex.runmain(m.lexer)
+	if(len(sys.argv) == 2):
+		filename = sys.argv[1]
+		a = open(filename)
+		data = a.read()
+		cpp_scanner.test(data)
+	else:
+		lex.runmain(cpp_scanner.lexer)
