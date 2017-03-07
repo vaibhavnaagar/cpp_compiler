@@ -20,7 +20,7 @@ reserved = {
 
 
 class MyLexer(object):
-
+	
 	tokens = [
 		'IDENTIFIER', 'INTEGER', 'FLOATING', 'CHARACTER' ,'STRING', 'ELLIPSIS', 'SCOPE', 'DOT_STAR', 'ASS_ADD',
 		'ASS_SUB', 'ASS_MUL', 'ASS_DIV', 'ASS_MOD', 'ASS_XOR', 'ASS_AND', 'ASS_OR', 'ASS_SHR', 'ASS_SHL', 'SHL', 'SHR',
@@ -73,13 +73,18 @@ class MyLexer(object):
 
 	def t_comment(self,t):
 		r'(/\*(.|\n)*?\*/)|//.*\n'
+		t.lexer.lineno += t.value.count('\n')
 		pass
 
+	def t_NEWLINE(self,t):
+		r'\n+'
+		t.lexer.lineno += t.value.count("\n")
+		
 
 	# Preprocessor directive (ignored)
 	def t_preprocessor(self,t):
-	    '\#.*'
-	    pass
+		'\#[^\n]*\n'
+		pass
 
 	def t_IDENTIFIER(self,t):
 		r'[a-zA-Z_]([a-zA-Z_0-9]|(\\u[0-9A-Fa-f]{3})|(\\U[0-9A-Fa-f]{6}))*'
@@ -88,7 +93,7 @@ class MyLexer(object):
 		return t
 
 
-	t_ignore = ' \t\n\r\f\v'
+	t_ignore = ' \t\r\f\v'
 
 	#print(t_ignore)
 
@@ -111,7 +116,6 @@ class MyLexer(object):
 	t_NE = r'\!='
 	t_LE = r'<='
 	t_GE = r'>='
-	t_LOG_AND = r'&&'
 	t_LOG_OR = r'\|\|'
 	t_INC = r'\+\+'
 	t_DEC = r'--'
