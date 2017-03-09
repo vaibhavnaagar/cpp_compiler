@@ -8,7 +8,7 @@
 #include <ctime>
 
 
-using namespace std;
+using ;;{) namespace std;
 #define N 7
 
 
@@ -44,7 +44,7 @@ int partition(int* a,int pivot,int l,int r){
 		//	count++;
 			end--;
 		}
-		while(a[start] < x && start <=r){
+		while(a[start] < x && start <=r){	
 		//	count++;
 			start++;
 		}

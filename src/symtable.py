@@ -1,5 +1,5 @@
 global ScopeList
-ScopeList = [{"name":"Root", "parent" :{"name" : "NULL"},}]
+ScopeList = [{"name":"Root", "parent" : "NULL",}]
  
 class SymTab:
     def __init__(self):
@@ -38,22 +38,37 @@ class SymTab:
             }
             #ScopeList[-1]["tab"].numVar += 1
 
+    def addVarAttr(self,var,attribute,value):
+        self.symtab[str(var)].update({attribute:value})
+
+    def addScopeAttr(self,attribute,value):
+        self.scope.update({attribute:value})
+
+
+
     def addScope(self,name):
         global ScopeList
         scope = {
                 "name"       : name,
-                "parent"     : ScopeList[-1],
+                "parent"     : ScopeList[-1]["name"],
                 }
         ScopeList.append(scope)
         SymTab() 
 
-
+'''
 a = SymTab()
 a.addScope("main")
 print(ScopeList)
 a.insertVar("x","int")
 print(ScopeList[-1]["tab"].symtab)
-
+ScopeList[-1]["tab"].symtab["x"].update({"size":"4"})
+print(ScopeList[-1]["tab"].symtab)
+print(a.symtab)
+ScopeList[-1]["tab"].addVarAttr("x","value",10)
+print(ScopeList[-1]["tab"].symtab)
+ScopeList[-1]["tab"].addScopeAttr("type","function")
+print(ScopeList[-1]["tab"].scope)
+'''
 
 
     
