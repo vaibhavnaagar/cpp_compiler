@@ -34,8 +34,8 @@ void main()
      clrscr();
      fn obj;
      cout<<"\n\t\tFunction Overloading";
-     cout<<"\n1.Area of Circle\n2.Area of Rectangle\n3.Area of Triangle\n4.Exit\n:”;
-     cout<<”Enter your Choice:";
+     cout<<"\n1.Area of Circle\n2.Area of Rectangle\n3.Area of Triangle\n4.Exit\n:";
+     cout<<"Enter your Choice:";
      cin>>ch;
 
      switch(ch)

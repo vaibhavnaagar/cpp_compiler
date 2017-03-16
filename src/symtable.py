@@ -1,6 +1,7 @@
 global ScopeList, currentScope
 ScopeList = { "NULL" : None, "global" : {"name":"global", "parent" : "NULL",}, }
 currentScope = "global"
+scope_ctr = 1
 
 class SymTab:
     def __init__(self):
@@ -18,7 +19,7 @@ class SymTab:
 
     def lookup(self, lexeme):
         if lexeme in self.symtab:
-            return self.symtab[lexeme]
+            return self.symtab[str(lexeme)]
         return None
 
     def lookupComplete(self, lexeme):
@@ -30,15 +31,16 @@ class SymTab:
             scope = ScopeList[scope["parent"]]
         return None
 
-    def insertID(self, name, id_type):
+    def insertID(self, name, data_type):
         currtable = ScopeList[currentScope]["table"]
         #print("[Symbol Table]", currtable.symtab)
-        if currtable.lookup(name):
+        if currtable.lookup(str(name)):
             print("[Symbol Table] Entry already exists")
         else:
-            currtable.symtab[name] = {
-                "name"      : name,
-                "type"      : id_type,
+            currtable.symtab[str(name)] = {
+                "name"      : str(name),
+                "type"      : data_type,    # List of data_types
+        #        "size"      : size
             }
             print("[Symbol Table] Inserting new identifier: ", name, " type: ", id_type)
             #ScopeList[-1]["table"].numVar += 1
@@ -52,22 +54,23 @@ class SymTab:
     def addScope(self,name):
         global ScopeList, currentScope
         new_scope = {
-                "name"       : name,
+                "name"       : str(name),
                 "parent"     : ScopeList[currentScope]["name"],
                 "table"      : None
                 }
-        ScopeList[name] =  new_scope
-        currentScope = name
+        ScopeList[str(name)] =  new_scope
+        currentScope = str(name)
         SymTab()
-        print("[Symbol Table](addScope)", name)
+        print("[Symbol Table](addScope) Adding New Scope: ", name)
 
     def endScope(self):
         """
         Changes current scope to parent scope  when '}' is received
         """
         global currentScope
+        print("[Symbol Table](endScope) End Scope of: ", currentScope, end='')
         currentScope = ScopeList[currentScope]["parent"]
-        print("[Symbol Table](endScope)", currentScope)
+        print(" Current Scope: ", currentScope)
         if ScopeList[currentScope] is None:
             print("[Symbol Table] Error: This line should not be printed")
 
