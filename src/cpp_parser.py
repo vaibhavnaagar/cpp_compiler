@@ -77,8 +77,12 @@ def p_identifier(p):
 	else:
 		p[0] = {
 			"name" : p[1],
+			"id_type" : "variable"
 			"is_decl" : False,
-			"type" : None
+			"type" : None,
+			"specifier" : None,
+			"num"	: 1,
+			"value" : None
 		}
 	pass
 
@@ -201,10 +205,10 @@ def p_declarator_id3(p):
 # */
 
 def p_built_in_type_id1(p):
-    "built_in_type_id : built_in_type_specifier"
-    add_children(len(p[1:]),"built_in_type_id")
+	"built_in_type_id : built_in_type_specifier"
+	add_children(len(p[1:]),"built_in_type_id")
 	p[0] = p[1]
-    pass
+	pass
 
 def p_built_in_type_id2(p):
     "built_in_type_id : built_in_type_id built_in_type_specifier"
@@ -263,6 +267,11 @@ def p_string(p):
 def p_literal1(p):
 	"literal : INTEGER"
 	create_child("literal - int",p[1])
+	p[0] = {
+		"name"	: p[1]
+		"type"  : ["literal_int"]
+		"value" : int(p[1])
+	}
 	pass
 
 def p_literal2(p):
@@ -273,6 +282,11 @@ def p_literal2(p):
 def p_literal3(p):
 	"literal : FLOATING"
 	create_child("literal - float",p[1])
+	p[0] = {
+		"name"	: p[1]
+		"type"  : ["literal_float"]
+		"value" : float(p[1])
+	}
 	pass
 
 def p_literal4(p):
@@ -317,6 +331,7 @@ def p_translation_unit(p):
 def p_primary_expression1(p):
 	"primary_expression : literal"
 	add_children(len(p[1:]),"primary expression")
+	p[0] = p[1]
 	pass
 
 def p_primary_expression2(p):
@@ -396,6 +411,22 @@ def p_postfix_expression6(p):
 	create_child("None","[")
 	create_child("None","]")
 	add_children(len(p[1:]),"postfix_expression")
+	p[0] = p[1]
+	if p[1].get("is_decl") is None:		# If no identifier received
+		st.print_error(yacc.YaccProduction.lineno(p, 1), {}, 3, p[2])
+	elif p[1]["is_decl"]:				# Identifier is already declared, now expression_opt should have integral type
+		if p[1]["id_type"] != "array":
+			st.print_error(yacc.YaccProduction.lineno(p, 1), p[1], 7)
+		elif not set(p[3]["type"]).issubset(st.integral_types):
+			st.print_error(yacc.YaccProduction.lineno(p, 1), p[1], 8, p[3]["type"])
+	else:								# Identifier is not declared
+		p[0]["id_type"] = "array"
+		if not set(p[3]["type"]).issubset(st.integral_types):
+			st.print_error(yacc.YaccProduction.lineno(p, 1), p[1], 8, p[3]["type"])
+		elif (p[3]["type"] != ["literal_int"]) and ("CONST" not in p[3].get("specifier")):
+			st.print_error(yacc.YaccProduction.lineno(p, 1), p[1], 9)
+		else:
+			p[0]["num"] *= p[3]["value"]
 	pass
 
 def p_postfix_expression7(p):
@@ -923,11 +954,13 @@ def p_expression_opt1(p):
 def p_expression_opt2(p):
 	"expression_opt : expression"
 	add_children(len(p[1:]),"expression_opt")
+	p[0] = p[1]
 	pass
 
 def p_expression1(p):
 	"expression : assignment_expression"
 	add_children(len(p[1:]),"expression")
+	p[0] = p[1]
 	pass
 
 def p_expression2(p):
@@ -1042,7 +1075,6 @@ def p_compound_statement1(p):
 
 def p_new_scope(p):
 	"new_scope :"
-	print("Creating new scope", p[0], p[-1], p[-2])
 	SymbolTable.addScope(str(st.scope_ctr))
 	st.scope_ctr += 1
 	pass
@@ -1308,38 +1340,54 @@ def p_simple_declaration2(p):
 	"simple_declaration : init_declaration ';'"
 	create_child("None",p[2])
 	add_children(len(p[1:]),"simple_declaration")
-	if p[1]["is_decl"]:
-		#p[0] = p[1]
-		pass
-	elif p[1]["type"] is not None:
-		SymbolTable.insertID(p[1]["name"], p[1]["type"])
-		#p[0] = p[1]
-		#p[0]["is_decl"] = True
+	if "is_decl" not in p[1].keys():	# i.e. built_in_type_specifier ; (Illegal statement)
+		st.print_error(yacc.YaccProduction.lineno(p,1), p[1], 2)	# error: declaration does not declare anything
+		p[0] = None
 	else:
-		entry = SymbolTable.lookupComplete(p[1]["name"])
-		if entry is not None:
-			#p[0] = dict(entry)
-			#p[0]["is_decl"] = True
-			pass
-		else:
-			print_error(p[1])			# error: p[1]["name"] was not declared in this scope
-			#p[0] = p[1]
+		if (not p[1]["is_decl"]) and (p[1]["type"] is not None):
+			SymbolTable.insertID(p[1]["name"], p[1]["id_type"], types=p[1]["type"], specifiers=p[1]["specifier"], value=p[1]["value"])
+		elif (not p[1]["is_decl"]) and (SymbolTable.lookupComplete(p[1]["name"]) is None):
+			st.print_error(yacc.YaccProduction.lineno(p,1), p[1], 1)
+			SymbolTable.insertID(p[1]["name"], p[1]["id_type"], types=p[1]["type"], specifiers=p[1]["specifier"], value=p[1]["value"])
+		p[0] = [p[1]]
+	print("$$$$$4$$$$", st.ScopeList[st.currentScope]["table"].symtab)
 	pass
 
 def p_simple_declaration3(p):
 	"simple_declaration : init_declarations ';'"
 	create_child("None",p[2])
 	add_children(len(p[1:]),"simple_declaration")
+	p[0] = []
 	for decl in p[1]:
-		if (not decl["is_decl"]) and (decl["type"] is not None):
-			SymbolTable.insertID(decl["name"], decl["type"])
-		elif (not decl["is_decl"]) and (SymbolTable.lookupComplete(decl["name"]) is None):
-			print_error(decl)
+		if "is_decl" not in decl.keys():
+			st.print_error(yacc.YaccProduction.lineno(p,1), decl, 2)
+		else:
+			if (not decl["is_decl"]) and (decl["type"] is not None):
+				SymbolTable.insertID(decl["name"], decl["id_type"], types=decl["type"], specifiers=decl["specifier"], value=decl["value"])
+			elif (not decl["is_decl"]) and (SymbolTable.lookupComplete(decl["name"]) is None):
+				st.print_error(yacc.YaccProduction.lineno(p,1), decl, 1)
+				SymbolTable.insertID(decl["name"], decl["id_type"], types=decl["type"], specifiers=decl["specifier"], value=decl["value"])
+		p[0] += [decl]
+	if not p[0]:
+		p[0] = None
+	print("$$$$$4$$$$", st.ScopeList[st.currentScope]["table"].symtab)
 	pass
 
 def p_simple_declaration4(p):
 	"simple_declaration : decl_specifier_prefix simple_declaration"
 	add_children(len(p[1:]),"simple_declaration")
+	if p[2] is None:			# i.e. decl_specifier_prefix ;
+		st.print_error(yacc.YaccProduction.lineno(p,1), {}, 2)
+	else:
+		for decl in p[2]:
+			if decl.get("is_decl") is True:		# already declared before
+				st.print_error(yacc.YaccProduction.lineno(p,1), decl, 6)
+			elif decl.get("is_decl") is False:
+				SymbolTable.addIDAttr(decl["name"], "specifier", [p[1]])
+				if ("CONST" == p[1]) and (decl["value"] is None):
+					st.print_error(yacc.YaccProduction.lineno(p,1), decl, 5)
+	p[0] = p[2]
+	print("$$$$$4$$$$", st.ScopeList[st.currentScope]["table"].symtab)
 	pass
 
 #/*  A decl-specifier following a ptr_operator provokes a shift-reduce conflict for
@@ -1351,19 +1399,25 @@ def p_simple_declaration4(p):
 def p_suffix_built_in_decl_specifier_raw1(p):
 	"suffix_built_in_decl_specifier_raw : built_in_type_specifier"
 	add_children(len(p[1:]),"suffix_built_in_decl_specifier_raw ")
-	p[0] = [p[1]]			# List of data types
+	p[0] = dict()
+	p[0]["type"] = [p[1]]			# List of data types
+	p[0]["specifier"] = []
 	pass
 
 def p_suffix_built_in_decl_specifier_raw2(p):
 	"suffix_built_in_decl_specifier_raw : suffix_built_in_decl_specifier_raw built_in_type_specifier"
 	add_children(len(p[1:]),"suffix_built_in_decl_specifier_raw ")
-	p[0] = p[1] + [p[2]]	# Adding new type specifier in list of data types
+	p[0] = dict()
+	p[0]["type"] = p[1]["type"] + [p[2]]	# Adding new type specifier in list of data types
+	p[0]["specifier"] = p[1]["specifier"]
 	pass
 
 def p_suffix_built_in_decl_specifier_raw3(p):
 	"suffix_built_in_decl_specifier_raw : suffix_built_in_decl_specifier_raw decl_specifier_suffix"
 	add_children(len(p[1:]),"suffix_built_in_decl_specifier_raw ")
-	p[0] = p[1] + [p[2]]
+	p[0] = dict()
+	p[0]["type"] = p[1]["type"]
+	p[0]["specifier"] = p[1]["specifier"] + [p[2]]
 	pass
 
 def p_suffix_built_in_decl_specifier1(p):
@@ -1430,17 +1484,19 @@ def p_suffix_named_decl_specifiers_sf3(p):
 def p_suffix_decl_specified_ids1(p):
 	"suffix_decl_specified_ids : suffix_built_in_decl_specifier"
 	add_children(len(p[1:]),"suffix_decl_specified_ids")
+	p[0] = p[1]
 	pass
 
 def p_suffix_decl_specified_ids2(p):
 	"suffix_decl_specified_ids : suffix_built_in_decl_specifier suffix_named_decl_specifiers_sf"
 	add_children(len(p[1:]),"suffix_decl_specified_ids")
 	if p[2]["is_decl"]:			# Identifier is already declared in the currentScope
-		print_error(p[2], p[1])	# error: conflicting declaration 'p[1] p[2]["name"]' / error:  redeclaration of 'p[2]["name"]'
+		st.print_error(yacc.YaccProduction.lineno(p,1), p[2], 4, p[1]["type"])	# error: conflicting declaration 'p[1] p[2]["name"]' / error:  redeclaration of 'p[2]["name"]'
 		p[0] = p[2]				# Considering first declaration only
 	else:
 		p[0] = p[2]
-		p[0]["type"] = p[1]		# List of data_types
+		p[0]["type"] = p[1]["type"]		# List of data_types
+		p[0]["specifier"] = p[1]["specifier"]
 	pass
 
 def p_suffix_decl_specified_ids3(p):
@@ -1480,81 +1536,81 @@ def p_decl_specifier_affix2(p):
 	pass
 
 def p_decl_specifier_affix3(p):
-    "decl_specifier_affix : FRIEND"
-    create_child("None",p[1])
-    add_children(len(p[1:]),"decl_specifier_affix")
+	"decl_specifier_affix : FRIEND"
+	create_child("None",p[1])
+	add_children(len(p[1:]),"decl_specifier_affix")
 	p[0] = p[1]
-    pass
+	pass
 
 def p_decl_specifier_affix4(p):
-    "decl_specifier_affix : TYPEDEF"
-    create_child("None",p[1])
-    add_children(len(p[1:]),"decl_specifier_affix")
+	"decl_specifier_affix : TYPEDEF"
+	create_child("None",p[1])
+	add_children(len(p[1:]),"decl_specifier_affix")
 	p[0] = p[1]
-    pass
+	pass
 
 def p_decl_specifier_affix5(p):
-    "decl_specifier_affix : cv_qualifier"
-    add_children(len(p[1:]),"decl_specifier_affix")
+	"decl_specifier_affix : cv_qualifier"
+	add_children(len(p[1:]),"decl_specifier_affix")
 	p[0] = p[1]
-    pass
+	pass
 
 def p_decl_specifier_suffix(p):
-    "decl_specifier_suffix : decl_specifier_affix"
-    add_children(len(p[1:]),"decl_specifier_suffix")
+	"decl_specifier_suffix : decl_specifier_affix"
+	add_children(len(p[1:]),"decl_specifier_suffix")
 	p[0] = p[1]
-    pass
+	pass
 
 def p_decl_specifier_prefix1(p):
-    "decl_specifier_prefix : decl_specifier_affix"
-    add_children(len(p[1:]),"decl_specifier_prefix")
+	"decl_specifier_prefix : decl_specifier_affix"
+	add_children(len(p[1:]),"decl_specifier_prefix")
 	p[0] = p[1]
-    pass
+	pass
 
 
 def p_storage_class_specifier1(p):
-    '''storage_class_specifier : REGISTER
-                               | STATIC
-                               | MUTABLE'''
-    create_child("None",p[1])
-    add_children(len(p[1:]),"storage_class_specifier")
+	'''storage_class_specifier : REGISTER
+	                           | STATIC
+	                           | MUTABLE'''
+	create_child("None",p[1])
+	add_children(len(p[1:]),"storage_class_specifier")
 	p[0] = p[1]
-    pass
+	pass
 
 def p_storage_class_specifier2(p):
-    "storage_class_specifier : EXTERN                  %prec SHIFT_THERE"
-    create_child("None",p[1])
-    add_children(len(p[1:]),"storage_class_specifier")
+	"storage_class_specifier : EXTERN                  %prec SHIFT_THERE"
+	create_child("None",p[1])
+	add_children(len(p[1:]),"storage_class_specifier")
 	p[0] = p[1]
-    pass
+	pass
 
 def p_storage_class_specifier3(p):
-    "storage_class_specifier : AUTO"
-    create_child("None",p[1])
-    add_children(len(p[1:]),"storage_class_specifier")
+	"storage_class_specifier : AUTO"
+	create_child("None",p[1])
+	add_children(len(p[1:]),"storage_class_specifier")
 	p[0] = p[1]
-    pass
+	pass
 
 def p_function_specifier1(p):
-    "function_specifier : EXPLICIT"
-    create_child("None",p[1])
-    add_children(len(p[1:]),"function_specifier")
+	"function_specifier : EXPLICIT"
+	create_child("None",p[1])
+	add_children(len(p[1:]),"function_specifier")
 	p[0] = p[1]
-    pass
+	pass
 
 def p_function_specifier2(p):
-    "function_specifier : INLINE"
-    create_child("None",p[1])
-    add_children(len(p[1:]),"function_specifier")
+	"function_specifier : INLINE"
+	create_child("None",p[1])
+	add_children(len(p[1:]),"function_specifier")
 	p[0] = p[1]
-    pass
+	pass
 
 def p_function_specifier3(p):
-    "function_specifier : VIRTUAL"
-    create_child("None",p[1])
-    add_children(len(p[1:]),"function_specifier")
+	"function_specifier : VIRTUAL"
+	create_child("None",p[1])
+	add_children(len(p[1:]),"function_specifier")
 	p[0] = p[1]
-    pass
+	pass
 
 def p_type_specifier1(p):
     "type_specifier : simple_type_specifier"
@@ -1593,10 +1649,10 @@ def p_simple_type_specifier1(p):
     pass
 
 def p_simple_type_specifier2(p):
-    "simple_type_specifier : built_in_type_specifier"
-    add_children(len(p[1:]),"simple_type_specifier")
+	"simple_type_specifier : built_in_type_specifier"
+	add_children(len(p[1:]),"simple_type_specifier")
 	p[0] = p[1]
-    pass
+	pass
 
 def p_built_in_type_specifier(p):
 	'''built_in_type_specifier : CHAR
@@ -1810,16 +1866,28 @@ def p_init_declarations1(p):
 	"init_declarations : assignment_expression ',' init_declaration"
 	create_child("None",'COMMA')
 	add_children(len(p[1:]),"init_declarations")
-	p[2]["type"] = p[1]["type"]
-	p[0] = [p[1], p[2]]			# List of declarations
+	if p[3].get("is_decl"):
+		st.print_error(yacc.YaccProduction.lineno(p,1), p[3], 4, p[1]["type"])
+	else:
+		if p[3]["type"] is not None:
+			st.print_error(yacc.YaccProduction.lineno(p,1), {}, 3, p[3]["type"])
+		p[3]["type"] = p[1]["type"]			# Consider first type only
+		p[3]["specifier"] = p[1]["specifier"]
+	p[0] = [p[1], p[3]]			# List of declarations
 	pass
 
 def p_init_declarations2(p):
 	"init_declarations : init_declarations ',' init_declaration"
 	create_child("None",'COMMA')
 	add_children(len(p[1:]),"init_declarations")
-	p[2]["type"] = p[1][0]["type"]		# Assign type of new init_declaration from first element of list of declarations
-	p[0] = p[1] + [p[2]]				# List of declarations
+	if p[3].get("is_decl"):
+		st.print_error(yacc.YaccProduction.lineno(p,1), p[3], 4, p[1][0]["type"])
+	else:
+		if p[3]["type"] is not None:
+			st.print_error(yacc.YaccProduction.lineno(p,1), {}, 3, p[3]["type"])
+		p[3]["type"] = p[1][0]["type"]		# Assign type of new init_declaration from first element of list of declarations
+		p[3]["specifier"] = p[1][0]["specifier"]
+	p[0] = p[1] + [p[3]]				# List of declarations
 	pass
 
 def p_init_declaration(p):
@@ -2778,13 +2846,12 @@ if __name__ == "__main__":
 	#a = open(filename)
 	#data = a.read()
 	data = '''
+	char z;
      int main()
-    {  int x;
-		if(x==1)
-		{
-		;
-		}
+    {	//sd
+	int x;
+	long int y,x,z;
     }
     '''
 	yacc.parse(data, lexer=lex.cpp_scanner.lexer)
-	graph.write_jpeg('parse_tree_old.jpeg')
+#	graph.write_jpeg('parse_tree_old.jpeg')

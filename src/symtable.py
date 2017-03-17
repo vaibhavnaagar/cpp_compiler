@@ -2,11 +2,12 @@ global ScopeList, currentScope
 ScopeList = { "NULL" : None, "global" : {"name":"global", "parent" : "NULL",}, }
 currentScope = "global"
 scope_ctr = 1
+integral_types = ["INT", "LONG", "literal_int", "SHORT", "UNSIGNED", "SIGNED"]
 
 class SymTab:
     def __init__(self):
         global ScopeList
-        self.symtab = {}
+        self.symtab = dict()
        # self.numVar = 0
 
        # I think, there is no need of this self.scope
@@ -31,22 +32,40 @@ class SymTab:
             scope = ScopeList[scope["parent"]]
         return None
 
-    def insertID(self, name, data_type):
+    def insertID(self, name, id_type, types=None, specifiers=[], num=1, value=None):
         currtable = ScopeList[currentScope]["table"]
         #print("[Symbol Table]", currtable.symtab)
-        if currtable.lookup(str(name)):
+        #check_datatype(data_type)
+
+        if currtable.lookup(str(name)):         # No need to check again
             print("[Symbol Table] Entry already exists")
         else:
             currtable.symtab[str(name)] = {
                 "name"      : str(name),
-                "type"      : data_type,    # List of data_types
+                "id_type"   : str(id_type),
+                "type"      : list([] if types is None else types),        # List of data_types
+                "specifier" : list([] if specifiers is None else specifiers),    # List of type specifiers
+                "num"       : int(num),            # Number of such id
+                "value"     : value,           # Mostly required for const type variable
         #        "size"      : size
             }
-            print("[Symbol Table] Inserting new identifier: ", name, " type: ", id_type)
+            warning = ''
+            if types is None:
+                warning = "(warning: Type is None)"
+            print("[Symbol Table] ", warning, " Inserting new identifier: ", name, " type: ", types, "specifier: ", specifiers)
             #ScopeList[-1]["table"].numVar += 1
 
-    def addVarAttr(self,var,attribute,value):
-        self.symtab[str(var)].update({attribute:value})
+    def addIDAttr(self, name, attribute, value):
+        currtable = ScopeList[currentScope]["table"]
+        if attribute in currtable.symtab[str(name)].keys():
+            if currtable.symtab[str(name)][str(attribute)] is not None:
+                currtable.symtab[str(name)][str(attribute)] += list(value)
+            else:
+                currtable.symtab[str(name)][str(attribute)] = list(value)
+        else:
+            currtable.symtab[str(name)].update({attribute : value})
+        print("[Symbol Table] Adding attribute of identifier: ", name, " attribute: ", attribute, "value: ", value)
+
 
     def addScopeAttr(self,attribute,value):
         self.scope.update({attribute:value})
@@ -80,6 +99,42 @@ class SymTab:
     #    """
     #    print("Removing Scope %s", ScopeList[-1]["name"])
     #    del ScopeList[-1]
+
+
+# Helper functions
+
+def check_datatype(types):
+    """
+    types: List of data types
+    """
+    if True:
+        pass
+
+
+def print_error(lineno, id1, errno, *args):
+    if errno == 1:
+        print("Line No.:", lineno, ": Error: ", id1.get("name"), "was not declared in this scope")
+    elif errno == 2:
+        print("Line No.:", lineno, ": Error: declaration does not declare anything")
+    elif errno == 3:
+        print("Line No.:", lineno, ": Error: expected unqualified-id before \'", args[0], "\'")
+    elif errno == 4:
+        if id1["type"] == args[0]:
+            print("Line No.:", lineno, ": Error: ", "redeclaration of ", id1["name"])
+        else:
+            print("Line No.:", lineno, ": Error: ", "conflicting declaration ", id1["name"], ", previously declared as", id1["type"])
+    elif errno == 5:
+        print("Line No.:", lineno, ": Error: uninitialized const \'", id1["name"], "\'")
+    elif errno == 6:
+        print("Line No.:", lineno, ": Error: ", "conflicting declaration ", id1["name"], ", previously declared as", id1["specifier"])
+    elif errno == 7:
+        print("Line No.:", lineno, ": Error: ", id1["name"], "is not of array type")
+    elif errno == 8:
+        print("Line No.:", lineno, ": Error: index type: ", args[0] " for array \'", id1["name"], "\' is not of integral type")
+    elif errno == 9:
+        print("Line No.:", lineno, ": Error: index type is not const expression for array \'", id1["name"], "\'")
+    pass
+
 
 
 if __name__ == '__main__':
