@@ -88,7 +88,6 @@ class MyLexer(object):
 
 	def t_IDENTIFIER(self,t):
 		r'[a-zA-Z_]([a-zA-Z_0-9]|(\\u[0-9A-Fa-f]{3})|(\\U[0-9A-Fa-f]{6}))*'
-		print(t.value)
 		t.type = reserved.get(t.value,'IDENTIFIER')    # Check for reserved words
 		return t
 

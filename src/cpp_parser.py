@@ -15,31 +15,43 @@ import ply.yacc as yacc
 import pydot
 import symtable as sym
 
+type_list = { "int":{"size":32} ,
+	
+
+}
 orphan_children = []
 i = 0
 graph = pydot.Dot(graph_type='graph')
 def add_children(n,name):
-	print("Adding " + name + "  " + str(n))
+	#print("Adding " + name + "  " + str(n))
 	global i
 	global orphan_children
 	if n > len(orphan_children):
-		print("==============================================================ERROR " + name)
+		print("===========================================ERROR============================> " + name)
 		for child in orphan_children:
 			print(child.get_label())
 		print(n)
 	node_a = pydot.Node(str(i),label=str(name))
 	if n==0:
 		return
-	if n!=1:
+	if n==1:
+		if name == 'return':
+			graph.add_node(node_a)
+			i+=1
+			child = orphan_children[-1]
+			graph.add_edge(pydot.Edge(node_a, child))
+			orphan_children.remove(child)
+			orphan_children.append(node_a)
+
+	if n>1:
 		graph.add_node(node_a)
 		i+=1
-		if n>1 :
-			children = orphan_children[-n:]
-			for child in children:
-				if child == None:
-					print("Error")
-				graph.add_edge(pydot.Edge(node_a, child))
-				orphan_children.remove(child)
+		children = orphan_children[-n:]
+		for child in children:
+			if child == None:
+				print("Error")
+			graph.add_edge(pydot.Edge(node_a, child))
+			orphan_children.remove(child)
 		orphan_children.append(node_a)
 	return
 
@@ -51,6 +63,7 @@ def create_child(label,name):
 	i+=1
 	graph.add_node(node_a)
 	orphan_children.append(node_a)
+	
 	#else:
 	#	node_a = pydot.Node(str(i),label=str(name))
 	#	i+=1
@@ -78,6 +91,7 @@ def p_identifier(p):
 	"identifier : IDENTIFIER"
 	#print(yacc.YaccProduction.lineno(p,1))
 	#print(p.slice[1].type)
+	#print(p[:])
 	create_child("identifier",p[1])
 	if len(list(filter(None, p[1:]))) > 0:
 		p[0] = ' '.join(p[1:])
@@ -737,8 +751,8 @@ def p_expression_list1(p):
 
 def p_expression_list2(p):
 	"expression_list : expression_list ',' assignment_expression"
-	create_child("None",'COMMA')
-	add_children(len(list(filter(None, p[1:]))),"expression_list")
+	
+	add_children(len(list(filter(None, p[1:]))) - 1,"expression_list")
 	if len(list(filter(None, p[1:]))) > 0:
 		p[0] = ' '.join(p[1:])
 	else :
@@ -1414,8 +1428,8 @@ def p_expression1(p):
 
 def p_expression2(p):
 	"expression : expression_list ',' assignment_expression"
-	create_child("None",'COMMA')
-	add_children(len(list(filter(None, p[1:]))),"expression")
+	
+	add_children(len(list(filter(None, p[1:]))) - 1,"expression")
 	if len(list(filter(None, p[1:]))) > 0:
 		p[0] = ' '.join(p[1:])
 	else :
@@ -1707,7 +1721,7 @@ def p_iteration_statement2(p):
 
 def p_iteration_statement3(p):
 	"iteration_statement : FOR '(' for_init_statement condition_opt ';' expression_opt ')' looping_statement"
-	add_children(3,"FOR")
+	add_children(4,"FOR")
 	if len(list(filter(None, p[1:]))) > 0:
 		p[0] = ' '.join(p[1:])
 	else :
@@ -1725,9 +1739,7 @@ def p_for_init_statement(p):
 
 def p_jump_statement1(p):
 	"jump_statement : BREAK ';'"
-	create_child("None",p[1])
-	create_child("None",p[2])
-	add_children(len(list(filter(None, p[1:]))),"jump_statement")
+	create_child("None", p[1])
 	if len(list(filter(None, p[1:]))) > 0:
 		p[0] = ' '.join(p[1:])
 	else :
@@ -1736,9 +1748,7 @@ def p_jump_statement1(p):
 
 def p_jump_statement2(p):
 	"jump_statement : CONTINUE ';'"
-	create_child("None",p[1])
-	create_child("None",p[2])
-	add_children(len(list(filter(None, p[1:]))),"jump_statement")
+	create_child("None", p[1])
 	if len(list(filter(None, p[1:]))) > 0:
 		p[0] = ' '.join(p[1:])
 	else :
@@ -1747,9 +1757,10 @@ def p_jump_statement2(p):
 
 def p_jump_statement3(p):
 	"jump_statement : RETURN expression_opt ';'"
-	create_child("None",p[1])
-	create_child("None",p[3])
-	add_children(len(list(filter(None, p[1:]))),"jump_statement")
+	if p[2] != '':
+		add_children(1,"return")
+	else:
+		create_child("None", p[1])
 	if len(list(filter(None, p[1:]))) > 0:
 		p[0] = ' '.join(p[1:])
 	else :
@@ -2499,8 +2510,8 @@ def p_enumerator_clause2(p):
 def p_enumerator_clause3(p):
 	"enumerator_clause : '{' enumerator_list ',' enumerator_definition_ecarb"
 	create_child("None",p[1])
-	create_child("None",'COMMA')
-	add_children(len(list(filter(None, p[1:]))),"enumerator_clause")
+	
+	add_children(len(list(filter(None, p[1:]))) - 1,"enumerator_clause")
 	if len(list(filter(None, p[1:]))) > 0:
 		p[0] = ' '.join(p[1:])
 	else :
@@ -2557,8 +2568,8 @@ def p_enumerator_definition_filler1(p):
 
 def p_enumerator_definition_filler2(p):
 	"enumerator_definition_filler : bang error ','"
-	create_child("None",'COMMA')
-	add_children(len(list(filter(None, p[1:]))),"enumerator_definiton_filler")
+	
+	add_children(len(list(filter(None, p[1:]))) -1 ,"enumerator_definiton_filler")
 	if len(list(filter(None, p[1:]))) > 0:
 		p[0] = ' '.join(p[1:])
 	else :
@@ -2576,8 +2587,8 @@ def p_enumerator_list_head1(p):
 
 def p_enumerator_list_head2(p):
 	"enumerator_list_head : enumerator_list ',' enumerator_definition_filler"
-	create_child("None",'COMMA')
-	add_children(len(list(filter(None, p[1:]))),"enumerator_list_head")
+	
+	add_children(len(list(filter(None, p[1:]))) -1,"enumerator_list_head")
 	if len(list(filter(None, p[1:]))) > 0:
 		p[0] = ' '.join(p[1:])
 	else :
@@ -2643,7 +2654,7 @@ def p_namespace_definition2(p):
 def p_namespace_alias_definition(p):
 	"namespace_alias_definition : NAMESPACE scoped_id '=' scoped_id ';'"
 	create_child("None",p[1])
-	add_children(len(list(filter(None, p[1:]))) - 1,p[3])
+	add_children(len(list(filter(None, p[1:]))) - 2,p[3])
 	if len(list(filter(None, p[1:]))) > 0:
 		p[0] = ' '.join(p[1:])
 	else :
@@ -2653,20 +2664,18 @@ def p_namespace_alias_definition(p):
 def p_using_declaration1(p):
 	"using_declaration : USING declarator_id ';'"
 	create_child("None",p[1])
-	create_child("None",p[3])
-	add_children(len(list(filter(None, p[1:]))),"using_declaration")
+	add_children(len(list(filter(None, p[1:]))) - 1,"using_declaration")
 	if len(list(filter(None, p[1:]))) > 0:
 		p[0] = ' '.join(p[1:])
 	else :
 		p[0] = ''
 	pass
-
+1111
 def p_using_declaration2(p):
 	"using_declaration : USING TYPENAME declarator_id ';'"
 	create_child("None",p[1])
 	create_child("None",p[2])
-	create_child("None",p[4])
-	add_children(len(list(filter(None, p[1:]))),"using_declaration")
+	add_children(len(list(filter(None, p[1:]))) - 1,"using_declaration")
 	if len(list(filter(None, p[1:]))) > 0:
 		p[0] = ' '.join(p[1:])
 	else :
@@ -2677,8 +2686,7 @@ def p_using_directive(p):
 	"using_directive : USING NAMESPACE scoped_id ';'"
 	create_child("None",p[1])
 	create_child("None",p[2])
-	create_child("None",p[4])
-	add_children(len(list(filter(None, p[1:]))),"using_directive")
+	add_children(len(list(filter(None, p[1:]))) - 1,"using_directive")
 	if len(list(filter(None, p[1:]))) > 0:
 		p[0] = ' '.join(p[1:])
 	else :
@@ -2687,11 +2695,11 @@ def p_using_directive(p):
 
 def p_asm_definition(p):
 	"asm_definition : ASM '(' string ')' ';'"
-	create_child("None",p[1])
-	create_child("None",p[2])
-	create_child("None",p[4])
-	create_child("None",p[5])
-	add_children(len(list(filter(None, p[1:]))),"asm_definition")
+	#create_child("None",p[1])
+	#create_child("None",p[2])
+	#create_child("None",p[4])
+	#create_child("None",p[5])
+	add_children(1,"ASM")
 	if len(list(filter(None, p[1:]))) > 0:
 		p[0] = ' '.join(p[1:])
 	else :
@@ -2724,8 +2732,8 @@ def p_linkage_specification2(p):
 
 def p_init_declarations1(p):
 	"init_declarations : assignment_expression ',' init_declaration"
-	create_child("None",'COMMA')
-	add_children(len(list(filter(None, p[1:]))),"init_declarations")
+	
+	add_children(len(list(filter(None, p[1:]))) -1,"init_declarations")
 	if len(list(filter(None, p[1:]))) > 0:
 		p[0] = ' '.join(p[1:])
 	else :
@@ -2734,8 +2742,8 @@ def p_init_declarations1(p):
 
 def p_init_declarations2(p):
 	"init_declarations : init_declarations ',' init_declaration"
-	create_child("None",'COMMA')
-	add_children(len(list(filter(None, p[1:]))),"init_declarations")
+	
+	add_children(len(list(filter(None, p[1:]))) - 1,"init_declarations")
 	if len(list(filter(None, p[1:]))) > 0:
 		p[0] = ' '.join(p[1:])
 	else :
@@ -3032,8 +3040,8 @@ def p_parameter_declaration_list1(p):
 
 def p_parameter_declaration_list2(p):
 	"parameter_declaration_list : parameter_declaration_list ',' parameter_declaration"
-	create_child("None",'COMMA')
-	add_children(len(list(filter(None, p[1:]))),"parameter_declaration_list")
+	
+	add_children(len(list(filter(None, p[1:]))) -1,"parameter_declaration_list")
 	if len(list(filter(None, p[1:]))) > 0:
 		p[0] = ' '.join(p[1:])
 	else :
@@ -3230,8 +3238,8 @@ def p_constructor_head1(p):
 
 def p_constructor_head2(p):
 	"constructor_head : constructor_head ',' assignment_expression"
-	create_child("None",'COMMA')
-	add_children(len(list(filter(None, p[1:]))),"constructor_head")
+	
+	add_children(len(list(filter(None, p[1:]))) - 1,"constructor_head")
 	if len(list(filter(None, p[1:]))) > 0:
 		p[0] = ' '.join(p[1:])
 	else :
@@ -3292,9 +3300,7 @@ def p_initializer_clause2(p):
 
 def p_braced_initializer1(p):
 	"braced_initializer : '{' initializer_list '}'"
-	create_child("None",p[1])
-	create_child("None",p[3])
-	add_children(len(list(filter(None, p[1:]))),"braced_initializer")
+	add_children(len(list(filter(None, p[1:]))) - 2,"braced_initializer")
 	if len(list(filter(None, p[1:]))) > 0:
 		p[0] = ' '.join(p[1:])
 	else :
@@ -3303,10 +3309,7 @@ def p_braced_initializer1(p):
 
 def p_braced_initializer2(p):
 	"braced_initializer : '{' initializer_list ',' '}'"
-	create_child("None",p[1])
-	create_child("None",'COMMA')
-	create_child("None",p[4])
-	add_children(len(list(filter(None, p[1:]))),"braced_initializer")
+	add_children(len(list(filter(None, p[1:]))) - 3,"braced_initializer")
 	if len(list(filter(None, p[1:]))) > 0:
 		p[0] = ' '.join(p[1:])
 	else :
@@ -3336,9 +3339,9 @@ def p_braced_initializer4(p):
 
 def p_braced_initializer5(p):
 	"braced_initializer : '{' initializer_list ',' looping_initializer_clause '#' bang error '}'"
-	create_child("None",'COMMA')
+	
 	create_child("None",p[5])
-	add_children(len(list(filter(None, p[1:]))) - 2,"braced_initializer")
+	add_children(len(list(filter(None, p[1:]))) - 3,"braced_initializer")
 	if len(list(filter(None, p[1:]))) > 0:
 		p[0] = ' '.join(p[1:])
 	else :
@@ -3356,8 +3359,8 @@ def p_initializer_list1(p):
 
 def p_initializer_list2(p):
 	"initializer_list : initializer_list ',' looping_initializer_clause"
-	create_child("None",'COMMA')
-	add_children(len(list(filter(None, p[1:]))),"initializer_list")
+	
+	add_children(len(list(filter(None, p[1:])))  -1 ,"initializer_list")
 	if len(list(filter(None, p[1:]))) > 0:
 		p[0] = ' '.join(p[1:])
 	else :
@@ -3535,8 +3538,7 @@ def p_member_specification_opt2(p):
 def p_member_specification_opt3(p):
 	"member_specification_opt : member_specification_opt util looping_member_declaration '#' bang error ';'"
 	create_child("None",p[4])
-	create_child("None",p[7])
-	add_children(len(list(filter(None, p[1:]))),"member_specification_opt")
+	add_children(len(list(filter(None, p[1:]))) - 1,"member_specification_opt")
 	if len(list(filter(None, p[1:]))) > 0:
 		p[0] = ' '.join(p[1:])
 	else :
@@ -3629,8 +3631,7 @@ def p_simple_member_declaration1(p):
 
 def p_simple_member_declaration2(p):
 	"simple_member_declaration : assignment_expression ';'"
-	create_child("None",p[2])
-	add_children(len(list(filter(None, p[1:]))),"simple_member_declaration")
+	add_children(len(list(filter(None, p[1:]))) - 1,"simple_member_declaration")
 	if len(list(filter(None, p[1:]))) > 0:
 		p[0] = ' '.join(p[1:])
 	else :
@@ -3639,8 +3640,8 @@ def p_simple_member_declaration2(p):
 
 def p_simple_member_declaration3(p):
 	"simple_member_declaration : constructor_head ';'"
-	create_child("None",p[2])
-	add_children(len(list(filter(None, p[1:]))),"simple_member_declaration")
+	#create_child("None",p[2])
+	add_children(len(list(filter(None, p[1:]))) -1,"simple_member_declaration")
 	if len(list(filter(None, p[1:]))) > 0:
 		p[0] = ' '.join(p[1:])
 	else :
@@ -3649,8 +3650,8 @@ def p_simple_member_declaration3(p):
 
 def p_simple_member_declaration4(p):
 	"simple_member_declaration : member_init_declarations ';'"
-	create_child("None",p[2])
-	add_children(len(list(filter(None, p[1:]))),"simple_member_declaration")
+	#create_child("None",p[2])
+	add_children(len(list(filter(None, p[1:]))) - 1,"simple_member_declaration")
 	if len(list(filter(None, p[1:]))) > 0:
 		p[0] = ' '.join(p[1:])
 	else :
@@ -3668,8 +3669,8 @@ def p_simple_member_declaration5(p):
 
 def p_member_init_declarations1(p):
 	"member_init_declarations : assignment_expression ',' member_init_declaration"
-	create_child("None",'COMMA')
-	add_children(len(list(filter(None, p[1:]))),"member_init_declarations")
+	
+	add_children(len(list(filter(None, p[1:]))) -1 ,"member_init_declarations")
 	if len(list(filter(None, p[1:]))) > 0:
 		p[0] = ' '.join(p[1:])
 	else :
@@ -3678,8 +3679,8 @@ def p_member_init_declarations1(p):
 
 def p_member_init_declarations2(p):
 	"member_init_declarations : constructor_head ',' bit_field_init_declaration"
-	create_child("None",'COMMA')
-	add_children(len(list(filter(None, p[1:]))),"member_init_declarations")
+	
+	add_children(len(list(filter(None, p[1:]))) - 1,"member_init_declarations")
 	if len(list(filter(None, p[1:]))) > 0:
 		p[0] = ' '.join(p[1:])
 	else :
@@ -3688,8 +3689,8 @@ def p_member_init_declarations2(p):
 
 def p_member_init_declarations3(p):
 	"member_init_declarations : member_init_declarations ',' member_init_declaration"
-	create_child("None",'COMMA')
-	add_children(len(list(filter(None, p[1:]))),"member_init_declarations")
+	
+	add_children(len(list(filter(None, p[1:]))) - 1,"member_init_declarations")
 	if len(list(filter(None, p[1:]))) > 0:
 		p[0] = ' '.join(p[1:])
 	else :
@@ -3795,8 +3796,8 @@ def p_base_specifier_list1(p):
 
 def p_base_specifier_list2(p):
 	"base_specifier_list : base_specifier_list ',' base_specifier"
-	create_child("None",'COMMA')
-	add_children(len(list(filter(None, p[1:]))),"base_specifier_list")
+	
+	add_children(len(list(filter(None, p[1:]))) -1,"base_specifier_list")
 	if len(list(filter(None, p[1:]))) > 0:
 		p[0] = ' '.join(p[1:])
 	else :
@@ -3931,8 +3932,8 @@ def p_mem_initializer_list2(p):
 
 def p_mem_initializer_list_head1(p):
 	"mem_initializer_list_head : mem_initializer_list ','"
-	create_child("None",'COMMA')
-	add_children(len(list(filter(None, p[1:]))),"mem_initializer_list_head")
+	
+	add_children(len(list(filter(None, p[1:]))) - 1,"mem_initializer_list_head")
 	if len(list(filter(None, p[1:]))) > 0:
 		p[0] = ' '.join(p[1:])
 	else :
@@ -3941,8 +3942,8 @@ def p_mem_initializer_list_head1(p):
 
 def p_mem_initializer_list_head2(p):
 	"mem_initializer_list_head : mem_initializer_list bang error ','"
-	create_child("None",'COMMA')
-	add_children(len(list(filter(None, p[1:]))),"mem_initializer_list_head")
+	
+	add_children(len(list(filter(None, p[1:]))) -1,"mem_initializer_list_head")
 
 	if len(list(filter(None, p[1:]))) > 0:
 		p[0] = ' '.join(p[1:])
@@ -4142,8 +4143,7 @@ def p_type_id_list1(p):
 
 def p_type_id_list2(p):
 	"type_id_list : type_id_list ',' type_id"
-	create_child("None","COMMA")
-	add_children(len(list(filter(None, p[1:]))),"type_id_list")
+	add_children(len(list(filter(None, p[1:]))) - 1,"type_id_list")
 	if len(list(filter(None, p[1:]))) > 0:
 		p[0] = ' '.join(p[1:])
 	else :
@@ -4242,14 +4242,29 @@ if __name__ == "__main__":
 	#log = logging.getLogger('ply')
 
 	parser = yacc.yacc(errorlog=yacc.NullLogger())
-	if(len(sys.argv) == 2):
-		filename = sys.argv[1]
-	else:
-		filename = "../tests/test5.cpp"
-	a = open(filename)
-	data = a.read()
-	#data = 
-	'''
+	#if(len(sys.argv) == 2):
+	#	filename = sys.argv[1]
+	#else:
+	#	filename = "../tests/test5	.cpp"
+	#a = open(filename)
+	#data = a.read()
+	data = 	'''
+	
+	int main()
+	{
+	int x[5] = {1,1,1,1,1,1};
+	for(i=0;i<8;i--)
+	x = y;
+	
+	return ; 
+	} 
 	'''
 	yacc.parse(data, lexer=lex.cpp_scanner.lexer)
 	graph.write_jpeg('parse_tree.jpeg')
+	graph.write_dot('parse_tree.dot')
+	grapht_to_string
+
+"""{
+		for(i=0;i<6;i++)
+			x = x*i;
+	}"""
