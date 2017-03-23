@@ -30,7 +30,7 @@ def add_children(n,name):
 	if n==0:
 		return
 	if n==1:
-		if name == 'return':
+		if name == 'return' or name =="asm":
 			graph.add_node(node_a)
 			i+=1
 			child = orphan_children[-1]
@@ -1151,13 +1151,13 @@ def p_statement_seq_opt3(p):
 def p_selection_statement1(p):
 	"selection_statement : IF '(' condition ')' looping_statement    %prec SHIFT_THERE"
 	create_child("None",p[1])
-	add_children(2,"selection_statement")
+	add_children(len(list(filter(None, p[1:]))) -3,"selection_statement")
 	
 	pass
 
 def p_selection_statement2(p):
 	"selection_statement : IF '(' condition ')' looping_statement ELSE looping_statement"
-	add_children(3,"Condition - If - Else")
+	add_children(len(list(filter(None, p[1:]))) - 4,"Condition - If - Else")
 	
 	pass
 
@@ -1186,19 +1186,19 @@ def p_condition(p):
 
 def p_iteration_statement1(p):
 	"iteration_statement : WHILE '(' condition ')' looping_statement"
-	add_children(2,"WHILE")
+	add_children(len(list(filter(None, p[1:]))) - 3,"WHILE")
 	
 	pass
 
 def p_iteration_statement2(p):
 	"iteration_statement : DO looping_statement WHILE '(' expression ')' ';'"
-	add_children(2,"DO - WHILE")
+	add_children(len(list(filter(None, p[1:]))) - 5,"DO - WHILE")
 	
 	pass
 
 def p_iteration_statement3(p):
 	"iteration_statement : FOR '(' for_init_statement condition_opt ';' expression_opt ')' looping_statement"
-	add_children(4,"FOR")
+	add_children(len(list(filter(None, p[1:]))) - 4,"FOR")
 	
 	pass
 
@@ -1876,8 +1876,10 @@ def p_asm_definition(p):
 	#create_child("None",p[2])
 	#create_child("None",p[4])
 	#create_child("None",p[5])
-	add_children(1,"ASM")
-	
+	if p[3] != '':
+		add_children(1,"ASM")
+	else:
+		create_child("None", p[1])
 	pass
 
 def p_linkage_specification1(p):
