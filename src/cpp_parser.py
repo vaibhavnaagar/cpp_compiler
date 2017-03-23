@@ -128,7 +128,8 @@ def p_identifier(p):
 			"specifier" : None,
 			"star"	: 0,
 			"num"	: 1,
-			"value" : None
+			"value" : None,
+			"order"	: []
 		}
 	pass
 
@@ -499,7 +500,6 @@ def p_postfix_expression6(p):
 			if p[1]["id_type"] in ["function", "literal"]:
 				st.print_error(yacc.YaccProduction.lineno(p,1), p[1], 10, p[1]["id_type"])
 				return
-			p[0]["id_type"] = "array"
 			if p[3] is None:
 				st.print_error(yacc.YaccProduction.lineno(p, 1), p[1], 11)
 			elif type(p[3]) is list:
@@ -509,15 +509,22 @@ def p_postfix_expression6(p):
 			elif (p[3]["type"] != ["literal_int"]) and ("const" not in p[3].get("specifier")):
 				st.print_error(yacc.YaccProduction.lineno(p, 1), p[1], 9)
 			else:
+				p[0]["id_type"] = "array"
+				p[0]["order"].append(p[3]["value"])
 				p[0]["num"] *= p[3]["value"]
 	if p[0]["is_decl"] is True:				# Identifier is already declared, now expression_opt should have integral type
 		if p[0]["id_type"] != "array":
 			st.print_error(yacc.YaccProduction.lineno(p, 1), p[0], 7)
+		elif len(p[0]["order"]) == 0:
+			st.print_error(yacc.YaccProduction.lineno(p, 1), {}, 23, p[0]["name"])
 		elif type(p[3]) is list:
 			st.print_error(yacc.YaccProduction.lineno(p, 1), {}, 12, ',', ']')
 		elif not set(p[3]["type"]).issubset(st.integral_types):
 			st.print_error(yacc.YaccProduction.lineno(p, 1), p[1], 8, p[3]["type"])
-		p[0]["id_type"] = "variable"
+		else:
+			p[0]["order"].pop()
+			if len(p[0]["order"]) == 0:
+				p[0]["id_type"] = "variable"		# Array is completely dereferenced to a single memory location
 	pass
 
 def p_postfix_expression7(p):
@@ -1070,7 +1077,8 @@ def p_assignment_expression2(p):
 				st.print_error(yacc.YaccProduction.lineno(p,1), {}, 18, p[1]["id_type"], p[3]["id_type"])
 		elif p[1]["id_type"] == p[3]["id_type"]:
 			if p[1]["type"]:
-				st.expression_type(p[1]["type"], p[1].get("star", 0) , p[3]["type"], p[3].get("star", 0), op=str(p[2]))
+				if st.expression_type(p[1]["type"], p[1].get("star", 0) , p[3]["type"], p[3].get("star", 0), op=str(p[2])):
+					p[0]["value"] = p[3]["value"]
 		else:
 			st.print_error(yacc.YaccProduction.lineno(p,1), {}, 15, ' '.join([p[1]["name"], p[2], p[3]["name"]]))
 	else:
@@ -1106,14 +1114,50 @@ def p_assignment_expression2(p):
 
 def p_assignment_expression3(p):
 	"assignment_expression : logical_or_expression '=' braced_initializer"
-	create_child("None",p[2])
-	add_children(len(p[1:]),"assignment_expression")
 	p[0] = p[1]
+	inits = p[3]["inits"]
+	if (p[1].get("id_type") in ["variable"]) and (p[1].get("is_decl") is False) and p[1].get("type"):
+		if p[3]["dim"] > 1:
+			st.print_error(yacc.YaccProduction.lineno(p,1), {}, 22, p[1]["type"])
+		elif len(inits) == 0:
+			st.print_error(yacc.YaccProduction.lineno(p,1), {}, 20)
+		elif len(inits) > 1:
+			st.print_error(yacc.YaccProduction.lineno(p,1), {}, 21, p[1]["name"])
+		else:
+			if inits[0]["id_type"] in ["literal", "variable"]:
+				if st.expression_type(p[1]["type"], p[1].get("star", 0) , inits[0]["type"], inits[0].get("star", 0), op=str(p[2])):
+					p[0]["value"] = inits[0]["value"]
+			else:
+				st.print_error(yacc.YaccProduction.lineno(p,1), {}, 15, ' '.join([p[1]["name"], p[2], inits[0]["name"]]))
+	elif (p[1].get("id_type") in ["array"]) and (p[1].get("is_decl") is False) and p[1].get("type"):
+		if p[3]["dim"] > len(p[1]["order"]):
+			st.print_error(yacc.YaccProduction.lineno(p,1), {}, 22, p[1]["type"])
+		elif len(inits) == 0:
+			p[0]["value"] = [0]*p[0]["num"]
+		elif len(inits) == 1:
+			if inits[0]["id_type"] in ["literal", "variable"]:
+				if st.expression_type(p[1]["type"], p[1].get("star", 0) , inits[0]["type"], inits[0].get("star", 0), op=str(p[2])):
+					p[0]["value"] = [inits[0]["value"]]*p[0]["num"]
+		else:
+			p[0]["value"] = [0]*p[0]["num"]
+			if len(inits) == p[0]["num"]:
+				for i,exp in enumerate(inits):
+					if type(exp) is list:
+						st.print_error(yacc.YaccProduction.lineno(p,1), {}, 22, p[1]["type"])
+						break
+					else:
+						if exp["id_type"] in ["literal", "variable"]:
+							if st.expression_type(p[1]["type"], p[1].get("star", 0) , exp["type"], exp.get("star", 0), op=str(p[2])):
+								p[0]["value"][i] = exp["value"]
+			else:
+				st.print_error(yacc.YaccProduction.lineno(p,1), {}, 22, p[1]["type"])
+	else:
+		st.print_error(yacc.YaccProduction.lineno(p,1), p[1], 24)
 	pass
 
 def p_assignment_expression4(p):
 	"assignment_expression : throw_expression"
-	add_children(len(p[1:]),"assignment_expression")
+	p[0] = p[1]
 	pass
 
 def p_assignment_operator(p):
@@ -1536,10 +1580,10 @@ def p_simple_declaration2(p):
 		p[0] = None
 	else:
 		if (not p[1]["is_decl"]) and (p[1]["type"] is not None):
-			SymbolTable.insertID(p[1]["name"], p[1]["id_type"], types=p[1]["type"], specifiers=p[1]["specifier"], value=p[1]["value"], num=p[1]["num"])
+			SymbolTable.insertID(p[1]["name"], p[1]["id_type"], types=p[1]["type"], specifiers=p[1]["specifier"], value=p[1]["value"], num=p[1]["num"], order=p[1]["order"])
 		elif (not p[1]["is_decl"]) and (SymbolTable.lookupComplete(p[1]["name"]) is None):
 			st.print_error(yacc.YaccProduction.lineno(p,1), p[1], 1)
-			SymbolTable.insertID(p[1]["name"], p[1]["id_type"], types=p[1]["type"], specifiers=p[1]["specifier"], value=p[1]["value"], num=p[1]["num"])
+			SymbolTable.insertID(p[1]["name"], p[1]["id_type"], types=p[1]["type"], specifiers=p[1]["specifier"], value=p[1]["value"], num=p[1]["num"], order=p[1]["order"])
 		p[0] = [p[1]]
 	pass
 
@@ -1553,10 +1597,10 @@ def p_simple_declaration3(p):
 			st.print_error(yacc.YaccProduction.lineno(p,1), decl, 2)
 		else:
 			if (not decl["is_decl"]) and (decl["type"] is not None):
-				SymbolTable.insertID(decl["name"], decl["id_type"], types=decl["type"], specifiers=decl["specifier"], value=decl["value"], num=decl["num"])
+				SymbolTable.insertID(decl["name"], decl["id_type"], types=decl["type"], specifiers=decl["specifier"], value=decl["value"], num=decl["num"], order=decl["order"])
 			elif (not decl["is_decl"]) and (SymbolTable.lookupComplete(decl["name"]) is None):
 				st.print_error(yacc.YaccProduction.lineno(p,1), decl, 1)
-				SymbolTable.insertID(decl["name"], decl["id_type"], types=decl["type"], specifiers=decl["specifier"], value=decl["value"], num=decl["num"])
+				SymbolTable.insertID(decl["name"], decl["id_type"], types=decl["type"], specifiers=decl["specifier"], value=decl["value"], num=decl["num"], order=decl["order"])
 		p[0] += [decl]
 	if not p[0]:
 		p[0] = None
@@ -2394,76 +2438,112 @@ def p_function_body(p):
 
 def p_initializer_clause1(p):
 	"initializer_clause : assignment_expression"
-	add_children(len(p[1:]),"initializer_clause")
+	p[0] = dict(inits=[p[1]], is_checked=False, dim=0)
 	pass
 
 def p_initializer_clause2(p):
 	"initializer_clause : braced_initializer"
-	add_children(len(p[1:]),"initializer_clause")
+	p[0] = p[1]			# It is a dictionary with keys inits and is_checked
+	p[0]["is_checked"] = True	# Well! It should be True in p[1] already
 	pass
 
 def p_braced_initializer1(p):
 	"braced_initializer : '{' new_scope initializer_list '}'"
-	create_child("None",p[1])
-	create_child("None",p[3])
-	add_children(len(p[1:]),"braced_initializer")
 	SymbolTable.endScope()
+	p[0] = p[3]
+	p[0]["dim"] += 1
 	pass
 
 def p_braced_initializer2(p):
 	"braced_initializer : '{' new_scope initializer_list ',' '}'"
-	create_child("None",p[1])
-	create_child("None",'COMMA')
-	create_child("None",p[4])
-	add_children(len(p[1:]),"braced_initializer")
 	SymbolTable.endScope()
+	p[0] = p[3]
+	p[0]["dim"] += 1
 	pass
 
 def p_braced_initializer3(p):
 	"braced_initializer : '{' '}'"
-	create_child("None",p[1])
-	create_child("None",p[2])
-	add_children(len(p[1:]),"braced_initializer")
+	p[0] = dict(inits=[], is_checked=True, dim=1)	# Empty list "inits" will indicate to initialize all elements like in array
 	pass
 
 def p_braced_initializer4(p):
 	"braced_initializer : '{' new_scope looping_initializer_clause '#' bang error '}'"
-	create_child("None",p[1])
-	create_child("None",p[3])
-	create_child("None",p[6])
-	add_children(len(p[1:]),"braced_initializer")
 	SymbolTable.endScope()
+	print("[PARSER] This line should not be printed")
 	pass
 
 def p_braced_initializer5(p):
 	"braced_initializer : '{' new_scope initializer_list ',' looping_initializer_clause '#' bang error '}'"
-	create_child("None",p[1])
-	create_child("None",'COMMA')
-	create_child("None",p[5])
-	create_child("None",p[8])
-	add_children(len(p[1:]),"braced_initializer")
 	SymbolTable.endScope()
+	print("[PARSER] This line should not be printed")
 	pass
 
 def p_initializer_list1(p):
 	"initializer_list : looping_initializer_clause"
-	add_children(len(p[1:]),"initializer_list")
+	if p[1]["is_checked"]:
+		p[0] = p[1]
+		return
+	# If p[1]["is_checked"] is False then there must be only one element in "inits" keys
+	exp = p[1]["inits"][0]
+	if exp.get("id_type") in ["type_specifier", "array", "function"]:
+		st.print_error(yacc.YaccProduction.lineno(p, 1), {}, 15, exp["name"])
+		p[0] = dict(inits=[dict(name="0", id_type="literal", value=0, type=["literal_int"])], is_checked=True, dim=0)	# Default 0
+		return
+	if exp.get("is_decl", True) is False:
+		if exp["type"]:		# i.e.  {int x}
+			st.print_error(yacc.YaccProduction.lineno(p, 1), {}, 15, ' '.join(exp["type"].append(exp["name"])))
+			p[0] = dict(inits=[dict(name="0", id_type="literal", value=0, type=["literal_int"])], is_checked=True, dim=0)	# Default 0
+			return
+		entry = dict(SymbolTable.lookupComplete(exp["name"]))
+		if entry is None:
+			st.print_error(lineno, exp["name"], 1)
+			p[0] = dict(inits=[dict(name="0", id_type="literal", value=0, type=["literal_int"])], is_checked=True, dim=0)	# Default 0
+			return
+		else:
+			entry["is_decl"] = True
+			p[0] = dict(inits=[entry], is_checked=True, dim=0)
+	else:		# Either literal or declared expression
+		p[0] = dict(inits=[exp], is_checked=True, dim=0)
 	pass
 
 def p_initializer_list2(p):
 	"initializer_list : initializer_list ',' looping_initializer_clause"
-	create_child("None",'COMMA')
-	add_children(len(p[1:]),"initializer_list")
+	p[0] = p[1]		# p[1]["is_checked"] should be True
+	if p[3]["is_checked"]:
+		p[0]["inits"] += p[3]["inits"]
+		p[0]["dim"] = max(p[1]["dim"], p[3]["dim"])
+		return
+	# If p[3]["is_checked"] is False then there must be only one element in "inits" keys
+	exp = p[3]["inits"][0]
+	if exp.get("id_type") in ["type_specifier", "array", "function"]:
+		st.print_error(yacc.YaccProduction.lineno(p, 1), {}, 15, exp["name"])
+		p[0]["inits"] += [dict(name="0", id_type="literal", value=0, type=["literal_int"])] 	# Default 0
+		return
+	if exp.get("is_decl", True) is False:
+		if exp["type"]:		# i.e.  {int x}
+			st.print_error(yacc.YaccProduction.lineno(p, 1), {}, 15, ' '.join(exp["type"].append(exp["name"])))
+			p[0]["inits"] += [dict(name="0", id_type="literal", value=0, type=["literal_int"])]		# Default 0
+			return
+		entry = dict(SymbolTable.lookupComplete(exp["name"]))
+		if entry is None:
+			st.print_error(lineno, exp["name"], 1)
+			p[0]["inits"] += [dict(name="0", id_type="literal", value=0, type=["literal_int"])]		# Default 0
+			return
+		else:
+			entry["is_decl"] = True
+			p[0]["inits"] += [entry]
+	else:		# Either literal or declared expression
+		p[0]["inits"] += [exp]
 	pass
 
 def p_looping_initializer_clause(p):
 	"looping_initializer_clause : start_search looped_initializer_clause"
-	add_children(len(p[1:]),"looping_initializer_clause")
+	p[0] = p[2]
 	pass
 
 def p_looped_initializer_clause1(p):
 	"looped_initializer_clause : initializer_clause"
-	add_children(len(p[1:]),"looped_initializer_clause")
+	p[0] = p[1]		# p[1] will be dict in which inits could be list in cases like { x, {y}}
 	pass
 
 def p_looped_initializer_clause2(p):
@@ -3031,7 +3111,7 @@ if __name__ == "__main__":
 	#if(len(sys.argv) == 2):
 	#	filename = sys.argv[1]
 	#else:
-	filename = "../tests/small_test1.cpp"
+	filename = "../tests/sm_test1.cpp"
 	a = open(filename)
 	data = a.read()
 	#data = '''

@@ -114,7 +114,7 @@ class SymTab:
             scope = ScopeList[scope["parent"]]
         return None
 
-    def insertID(self, name, id_type, types=None, specifiers=[], num=1, value=None, stars=0):
+    def insertID(self, name, id_type, types=None, specifiers=[], num=1, value=None, stars=0, order=[]):
         currtable = ScopeList[currentScope]["table"]
         #print("[Symbol Table]", currtable.symtab)
 
@@ -129,6 +129,7 @@ class SymTab:
                 "star"      : int(stars),
                 "num"       : int(num),            # Number of such id
                 "value"     : value,           # Mostly required for const type variable
+                "order"     : list([] if order is None else order)          # order of array in case of array
         #        "size"      : size
             }
             check_datatype(currtable.symtab[str(name)]["type"], name)
@@ -259,7 +260,7 @@ def expression_type(l1,s1,l2,s2,op=None):
         if s1 == s2:
             return l1,s1
         else :
-            return None,None
+            return None
     if s1 != s2:
         print("Error - Different leveles of dereferencing in the operands, Ignoring operation")
         return l1,s1
@@ -342,6 +343,18 @@ def print_error(lineno, id1, errno, *args):
         print("Line No.:", lineno, ": Error: \'", args[0], "\' cannot be assigned \'", args[1], "\'")
     elif errno == 19:
         print("Line No.:", lineno, ": Error: const identifier \'", id1["name"], "\' cannot be modified")
+    elif errno == 20:
+        print("Line No.:", lineno, ": Error: empty braced declaration for variables are not allowed")
+    elif errno == 21:
+        print("Line No.:", lineno, ": Error: scalar object \'", args[0], "\' requires one element in initializer")
+    elif errno == 22:
+        print("Line No.:", lineno, ": Error: braces around scalar initializer for type \'", args[0], "\'")
+    elif errno == 23:
+        print("Line No.:", lineno, ": Error: invalid types for array \'", args[0], "\' subscript")
+    elif errno == 24:
+        print("Line No.:", lineno, ": Error: braced array \'", args[0], "\' subscript")
+    elif errno == 25:
+        print("Line No.:", lineno, ": Error: incorrect braced declaration \'", args[0], "\' subscript")
     pass
 
 

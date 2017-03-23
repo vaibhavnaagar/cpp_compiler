@@ -1,0 +1,481 @@
+* 941d7fc (origin/Semantic_Analysis, Semantic_Analysis) Little bugs corrected
+* a0d1a19 semantic of pointer declarations, arrays and expressions
+* 6d7f7be Semantics of Variable and array declarations
+* 0f3b6b7 Partial Scope resolution and simple declarations
+| * 874390e (HEAD -> master, origin/master) AST errors corrected and tested
+| * a0d88e3 AST printing basic structure made
+|/  
+* 4042e12 Symbol Table updated and new methods are added
+* 4258f98 Symtable updated and verified
+* 5fd6b10 Added basic symbol table file
+* fc5805b Updated makefile
+* bb9cf4f Added new test files
+* c8e4a99 Readme updated
+*   62cec68 Merge branch 'master' of https://bitbucket.org/vaibhavngit/cpp_compiler
+|\  
+| * ae3df7a Minor corrections and updates
+* | 10baa86 test1 and test2 modified
+|/  
+* 4153e09 .gitignore added
+* 2873dae CPP Tests files
+* a48ae26 New parser created and lexer updated
+* 6e3926e Grammar changed and switched to E.d. Willink's grammar
+* ca5764e c++ yacc parser
+* 623ee79 c++ grammar and lexer
+| * e8bc440 (origin/Tushant---Lexer) Added Typespace,enum etc..
+| * 51d9058 (Tushant---Lexer) Lexer Almost Done, buggy Parser
+| * b5a6da9 Incomplete lexer
+|/  
+* e266499 Readme added
+
+
+* commit 941d7fc558e32069b107ce38a564045612b39396 (origin/Semantic_Analysis, Semantic_Analysis)
+| Author: Vaibhav Nagar <vaibhavn@iitk.ac.in>
+| Date:   Thu Mar 23 11:12:33 2017 +0530
+| 
+|     Little bugs corrected
+|  
+* commit a0d1a193cbfebcb8fae96dd4d4d868418e262cd4
+| Author: Vaibhav Nagar <vaibhavn@iitk.ac.in>
+| Date:   Thu Mar 23 10:29:57 2017 +0530
+| 
+|     semantic of pointer declarations, arrays and expressions
+|  
+* commit 6d7f7bef4bb0945cc93b41e9a2229f45d617e23d
+| Author: Vaibhav Nagar <vaibhavn@iitk.ac.in>
+| Date:   Sat Mar 18 03:54:35 2017 +0530
+| 
+|     Semantics of Variable and array declarations
+|  
+* commit 0f3b6b7ad96839427e3ac02f0e58b471074bf5ad
+| Author: Vaibhav Nagar <vaibhavn@iitk.ac.in>
+| Date:   Fri Mar 17 03:27:23 2017 +0530
+| 
+|     Partial Scope resolution and simple declarations
+|    
+| * commit 874390eb2248e1ccf7ea5c5a44c5c57499b8b7f9 (HEAD -> master, origin/master)
+| | Author: Tushant Mittal <mittaltushant@gmail.com>
+| | Date:   Fri Mar 17 02:54:37 2017 +0530
+| | 
+| |     AST errors corrected and tested
+| |   
+| * commit a0d88e3b501c5b827d77b8879f8189a27fad5254
+|/  Author: Tushant Mittal <mittaltushant@gmail.com>
+|   Date:   Fri Mar 17 00:48:42 2017 +0530
+|   
+|       AST printing basic structure made
+|  
+* commit 4042e12b90a94a0acb2ceecef5e3a1260c45224b
+| Author: Vaibhav Nagar <vaibhavn@iitk.ac.in>
+| Date:   Thu Mar 16 01:19:04 2017 +0530
+| 
+|     Symbol Table updated and new methods are added
+|  
+* commit 4258f983fc981f01af16eab3c95c65f1fee51d4f
+| Author: Tushant Mittal <mittaltushant@gmail.com>
+| Date:   Thu Mar 9 21:07:37 2017 +0530
+| 
+|     Symtable updated and verified
+|  
+* commit 5fd6b10f8177586294c7d92abd6662f0d86c8f02
+| Author: Tushant Mittal <mittaltushant@gmail.com>
+| Date:   Wed Mar 8 01:33:50 2017 +0530
+| 
+|     Added basic symbol table file
+|  
+* commit fc5805bb48d0bf225ca7cf0424be98f334eb5869
+| Author: Tushant Mittal <mittaltushant@gmail.com>
+| Date:   Sun Feb 12 20:47:18 2017 +0530
+| 
+|     Updated makefile
+|  
+* commit bb9cf4faf5345188e456cbe12c03118fb194e65c
+| Author: Tushant Mittal <mittaltushant@gmail.com>
+| Date:   Sun Feb 12 20:44:19 2017 +0530
+| 
+|     Added new test files
+|  
+* commit c8e4a99024778f035ae6d49aad5f6aca3d6a3012
+| Author: Vaibhav Nagar <vaibhavn@iitk.ac.in>
+| Date:   Sun Feb 12 17:08:56 2017 +0530
+| 
+|     Readme updated
+|    
+*   commit 62cec68240e07495357faeb02fb36f80b35c98f8
+|\  Merge: 10baa86 ae3df7a
+| | Author: Vaibhav Nagar <vaibhavn@iitk.ac.in>
+| | Date:   Sun Feb 12 17:02:07 2017 +0530
+| | 
+| |     Merge branch 'master' of https://bitbucket.org/vaibhavngit/cpp_compiler
+| |   
+| * commit ae3df7ae40aad1d95bcb50acb74b315706325609
+| | Author: Vaibhav Nagar <vaibhavn@iitk.ac.in>
+| | Date:   Sun Feb 12 16:47:53 2017 +0530
+| | 
+| |     Minor corrections and updates
+| |   
+* | commit 10baa86baf3b366bc3f188e0b16dc8d2c3dfbe33
+|/  Author: Vaibhav Nagar <vaibhavn@iitk.ac.in>
+|   Date:   Sun Feb 12 16:58:45 2017 +0530
+|   
+|       test1 and test2 modified
+|  
+* commit 4153e091a18b4f95799dd64041c63c877f4bee24
+| Author: Vaibhav Nagar <vaibhavn@iitk.ac.in>
+| Date:   Thu Feb 9 15:40:42 2017 +0530
+| 
+|     .gitignore added
+|  
+* commit 2873dae4059a7d0c213b6b24fe16ac193fea69a6
+| Author: Vaibhav Nagar <vaibhavn@iitk.ac.in>
+| Date:   Thu Feb 9 15:37:51 2017 +0530
+| 
+|     CPP Tests files
+|  
+* commit a48ae261e014503fd59080e2655d26f0209243ae
+| Author: Vaibhav Nagar <vaibhavn@iitk.ac.in>
+| Date:   Thu Feb 9 15:36:46 2017 +0530
+| 
+|     New parser created and lexer updated
+|  
+* commit 6e3926e10ada4df0bb2e03c3ee3955e1efe69002
+| Author: Vaibhav Nagar <vaibhavn@iitk.ac.in>
+| Date:   Thu Feb 9 15:33:48 2017 +0530
+| 
+|     Grammar changed and switched to E.d. Willink's grammar
+|  
+* commit ca5764e99fbc4f8bf7fa4a70161d114eff0c8738
+| Author: Vaibhav Nagar <vaibhavn@iitk.ac.in>
+| Date:   Tue Feb 7 05:10:17 2017 +0530
+| 
+|     c++ yacc parser
+|  
+* commit 623ee79f7b90b235f05ff22c5e41fab44cda072b
+| Author: Vaibhav Nagar <vaibhavn@iitk.ac.in>
+| Date:   Tue Feb 7 05:08:20 2017 +0530
+| 
+|     c++ grammar and lexer
+|    
+| * commit e8bc4403045be69bdab1805626ec6845e942b3ee (origin/Tushant---Lexer)
+| | Author: Tushant Mittal <mittaltushant@gmail.com>
+| | Date:   Tue Feb 7 23:44:18 2017 +0530
+| | 
+| |     Added Typespace,enum etc..
+| |   
+| * commit 51d9058438cb43760984c6fc0d3e50326688293d (Tushant---Lexer)
+| | Author: Tushant Mittal <mittaltushant@gmail.com>
+| | Date:   Tue Feb 7 21:54:34 2017 +0530
+| | 
+| |     Lexer Almost Done, buggy Parser
+| |   
+| * commit b5a6da99257430a292a7f8dda7cb39f569a351a0
+|/  Author: Tushant Mittal <mittaltushant@gmail.com>
+|   Date:   Tue Feb 7 00:58:04 2017 +0530
+|   
+|       Incomplete lexer
+|  
+* commit e266499127a1ce50769b85c1230739482ab5833a
+  Author: Vaibhav Nagar <vaibhavn@iitk.ac.in>
+  Date:   Mon Feb 6 21:50:41 2017 +0530
+  
+      Readme added
+commit 941d7fc558e32069b107ce38a564045612b39396
+Author: Vaibhav Nagar <vaibhavn@iitk.ac.in>
+Date:   Thu Mar 23 11:12:33 2017 +0530
+
+    Little bugs corrected
+
+commit a0d1a193cbfebcb8fae96dd4d4d868418e262cd4
+Author: Vaibhav Nagar <vaibhavn@iitk.ac.in>
+Date:   Thu Mar 23 10:29:57 2017 +0530
+
+    semantic of pointer declarations, arrays and expressions
+
+commit 6d7f7bef4bb0945cc93b41e9a2229f45d617e23d
+Author: Vaibhav Nagar <vaibhavn@iitk.ac.in>
+Date:   Sat Mar 18 03:54:35 2017 +0530
+
+    Semantics of Variable and array declarations
+
+commit 0f3b6b7ad96839427e3ac02f0e58b471074bf5ad
+Author: Vaibhav Nagar <vaibhavn@iitk.ac.in>
+Date:   Fri Mar 17 03:27:23 2017 +0530
+
+    Partial Scope resolution and simple declarations
+
+commit 874390eb2248e1ccf7ea5c5a44c5c57499b8b7f9
+Author: Tushant Mittal <mittaltushant@gmail.com>
+Date:   Fri Mar 17 02:54:37 2017 +0530
+
+    AST errors corrected and tested
+
+commit a0d88e3b501c5b827d77b8879f8189a27fad5254
+Author: Tushant Mittal <mittaltushant@gmail.com>
+Date:   Fri Mar 17 00:48:42 2017 +0530
+
+    AST printing basic structure made
+
+commit 4042e12b90a94a0acb2ceecef5e3a1260c45224b
+Author: Vaibhav Nagar <vaibhavn@iitk.ac.in>
+Date:   Thu Mar 16 01:19:04 2017 +0530
+
+    Symbol Table updated and new methods are added
+
+commit 4258f983fc981f01af16eab3c95c65f1fee51d4f
+Author: Tushant Mittal <mittaltushant@gmail.com>
+Date:   Thu Mar 9 21:07:37 2017 +0530
+
+    Symtable updated and verified
+
+commit 5fd6b10f8177586294c7d92abd6662f0d86c8f02
+Author: Tushant Mittal <mittaltushant@gmail.com>
+Date:   Wed Mar 8 01:33:50 2017 +0530
+
+    Added basic symbol table file
+
+commit fc5805bb48d0bf225ca7cf0424be98f334eb5869
+Author: Tushant Mittal <mittaltushant@gmail.com>
+Date:   Sun Feb 12 20:47:18 2017 +0530
+
+    Updated makefile
+
+commit bb9cf4faf5345188e456cbe12c03118fb194e65c
+Author: Tushant Mittal <mittaltushant@gmail.com>
+Date:   Sun Feb 12 20:44:19 2017 +0530
+
+    Added new test files
+
+commit c8e4a99024778f035ae6d49aad5f6aca3d6a3012
+Author: Vaibhav Nagar <vaibhavn@iitk.ac.in>
+Date:   Sun Feb 12 17:08:56 2017 +0530
+
+    Readme updated
+
+commit 62cec68240e07495357faeb02fb36f80b35c98f8
+Merge: 10baa86 ae3df7a
+Author: Vaibhav Nagar <vaibhavn@iitk.ac.in>
+Date:   Sun Feb 12 17:02:07 2017 +0530
+
+    Merge branch 'master' of https://bitbucket.org/vaibhavngit/cpp_compiler
+
+commit 10baa86baf3b366bc3f188e0b16dc8d2c3dfbe33
+Author: Vaibhav Nagar <vaibhavn@iitk.ac.in>
+Date:   Sun Feb 12 16:58:45 2017 +0530
+
+    test1 and test2 modified
+
+commit ae3df7ae40aad1d95bcb50acb74b315706325609
+Author: Vaibhav Nagar <vaibhavn@iitk.ac.in>
+Date:   Sun Feb 12 16:47:53 2017 +0530
+
+    Minor corrections and updates
+
+commit 4153e091a18b4f95799dd64041c63c877f4bee24
+Author: Vaibhav Nagar <vaibhavn@iitk.ac.in>
+Date:   Thu Feb 9 15:40:42 2017 +0530
+
+    .gitignore added
+
+commit 2873dae4059a7d0c213b6b24fe16ac193fea69a6
+Author: Vaibhav Nagar <vaibhavn@iitk.ac.in>
+Date:   Thu Feb 9 15:37:51 2017 +0530
+
+    CPP Tests files
+
+commit a48ae261e014503fd59080e2655d26f0209243ae
+Author: Vaibhav Nagar <vaibhavn@iitk.ac.in>
+Date:   Thu Feb 9 15:36:46 2017 +0530
+
+    New parser created and lexer updated
+
+commit 6e3926e10ada4df0bb2e03c3ee3955e1efe69002
+Author: Vaibhav Nagar <vaibhavn@iitk.ac.in>
+Date:   Thu Feb 9 15:33:48 2017 +0530
+
+    Grammar changed and switched to E.d. Willink's grammar
+
+commit e8bc4403045be69bdab1805626ec6845e942b3ee
+Author: Tushant Mittal <mittaltushant@gmail.com>
+Date:   Tue Feb 7 23:44:18 2017 +0530
+
+    Added Typespace,enum etc..
+
+commit 51d9058438cb43760984c6fc0d3e50326688293d
+Author: Tushant Mittal <mittaltushant@gmail.com>
+Date:   Tue Feb 7 21:54:34 2017 +0530
+
+    Lexer Almost Done, buggy Parser
+
+commit ca5764e99fbc4f8bf7fa4a70161d114eff0c8738
+Author: Vaibhav Nagar <vaibhavn@iitk.ac.in>
+Date:   Tue Feb 7 05:10:17 2017 +0530
+
+    c++ yacc parser
+
+commit 623ee79f7b90b235f05ff22c5e41fab44cda072b
+Author: Vaibhav Nagar <vaibhavn@iitk.ac.in>
+Date:   Tue Feb 7 05:08:20 2017 +0530
+
+    c++ grammar and lexer
+
+commit b5a6da99257430a292a7f8dda7cb39f569a351a0
+Author: Tushant Mittal <mittaltushant@gmail.com>
+Date:   Tue Feb 7 00:58:04 2017 +0530
+
+    Incomplete lexer
+
+commit e266499127a1ce50769b85c1230739482ab5833a
+Author: Vaibhav Nagar <vaibhavn@iitk.ac.in>
+Date:   Mon Feb 6 21:50:41 2017 +0530
+
+    Readme added
+* commit 941d7fc558e32069b107ce38a564045612b39396 (origin/Semantic_Analysis, Semantic_Analysis)
+| Author: Vaibhav Nagar <vaibhavn@iitk.ac.in>
+| Date:   Thu Mar 23 11:12:33 2017 +0530
+| 
+|     Little bugs corrected
+|  
+* commit a0d1a193cbfebcb8fae96dd4d4d868418e262cd4
+| Author: Vaibhav Nagar <vaibhavn@iitk.ac.in>
+| Date:   Thu Mar 23 10:29:57 2017 +0530
+| 
+|     semantic of pointer declarations, arrays and expressions
+|  
+* commit 6d7f7bef4bb0945cc93b41e9a2229f45d617e23d
+| Author: Vaibhav Nagar <vaibhavn@iitk.ac.in>
+| Date:   Sat Mar 18 03:54:35 2017 +0530
+| 
+|     Semantics of Variable and array declarations
+|  
+* commit 0f3b6b7ad96839427e3ac02f0e58b471074bf5ad
+| Author: Vaibhav Nagar <vaibhavn@iitk.ac.in>
+| Date:   Fri Mar 17 03:27:23 2017 +0530
+| 
+|     Partial Scope resolution and simple declarations
+|    
+| * commit 874390eb2248e1ccf7ea5c5a44c5c57499b8b7f9 (HEAD -> master, origin/master)
+| | Author: Tushant Mittal <mittaltushant@gmail.com>
+| | Date:   Fri Mar 17 02:54:37 2017 +0530
+| | 
+| |     AST errors corrected and tested
+| |   
+| * commit a0d88e3b501c5b827d77b8879f8189a27fad5254
+|/  Author: Tushant Mittal <mittaltushant@gmail.com>
+|   Date:   Fri Mar 17 00:48:42 2017 +0530
+|   
+|       AST printing basic structure made
+|  
+* commit 4042e12b90a94a0acb2ceecef5e3a1260c45224b
+| Author: Vaibhav Nagar <vaibhavn@iitk.ac.in>
+| Date:   Thu Mar 16 01:19:04 2017 +0530
+| 
+|     Symbol Table updated and new methods are added
+|  
+* commit 4258f983fc981f01af16eab3c95c65f1fee51d4f
+| Author: Tushant Mittal <mittaltushant@gmail.com>
+| Date:   Thu Mar 9 21:07:37 2017 +0530
+| 
+|     Symtable updated and verified
+|  
+* commit 5fd6b10f8177586294c7d92abd6662f0d86c8f02
+| Author: Tushant Mittal <mittaltushant@gmail.com>
+| Date:   Wed Mar 8 01:33:50 2017 +0530
+| 
+|     Added basic symbol table file
+|  
+* commit fc5805bb48d0bf225ca7cf0424be98f334eb5869
+| Author: Tushant Mittal <mittaltushant@gmail.com>
+| Date:   Sun Feb 12 20:47:18 2017 +0530
+| 
+|     Updated makefile
+|  
+* commit bb9cf4faf5345188e456cbe12c03118fb194e65c
+| Author: Tushant Mittal <mittaltushant@gmail.com>
+| Date:   Sun Feb 12 20:44:19 2017 +0530
+| 
+|     Added new test files
+|  
+* commit c8e4a99024778f035ae6d49aad5f6aca3d6a3012
+| Author: Vaibhav Nagar <vaibhavn@iitk.ac.in>
+| Date:   Sun Feb 12 17:08:56 2017 +0530
+| 
+|     Readme updated
+|    
+*   commit 62cec68240e07495357faeb02fb36f80b35c98f8
+|\  Merge: 10baa86 ae3df7a
+| | Author: Vaibhav Nagar <vaibhavn@iitk.ac.in>
+| | Date:   Sun Feb 12 17:02:07 2017 +0530
+| | 
+| |     Merge branch 'master' of https://bitbucket.org/vaibhavngit/cpp_compiler
+| |   
+| * commit ae3df7ae40aad1d95bcb50acb74b315706325609
+| | Author: Vaibhav Nagar <vaibhavn@iitk.ac.in>
+| | Date:   Sun Feb 12 16:47:53 2017 +0530
+| | 
+| |     Minor corrections and updates
+| |   
+* | commit 10baa86baf3b366bc3f188e0b16dc8d2c3dfbe33
+|/  Author: Vaibhav Nagar <vaibhavn@iitk.ac.in>
+|   Date:   Sun Feb 12 16:58:45 2017 +0530
+|   
+|       test1 and test2 modified
+|  
+* commit 4153e091a18b4f95799dd64041c63c877f4bee24
+| Author: Vaibhav Nagar <vaibhavn@iitk.ac.in>
+| Date:   Thu Feb 9 15:40:42 2017 +0530
+| 
+|     .gitignore added
+|  
+* commit 2873dae4059a7d0c213b6b24fe16ac193fea69a6
+| Author: Vaibhav Nagar <vaibhavn@iitk.ac.in>
+| Date:   Thu Feb 9 15:37:51 2017 +0530
+| 
+|     CPP Tests files
+|  
+* commit a48ae261e014503fd59080e2655d26f0209243ae
+| Author: Vaibhav Nagar <vaibhavn@iitk.ac.in>
+| Date:   Thu Feb 9 15:36:46 2017 +0530
+| 
+|     New parser created and lexer updated
+|  
+* commit 6e3926e10ada4df0bb2e03c3ee3955e1efe69002
+| Author: Vaibhav Nagar <vaibhavn@iitk.ac.in>
+| Date:   Thu Feb 9 15:33:48 2017 +0530
+| 
+|     Grammar changed and switched to E.d. Willink's grammar
+|  
+* commit ca5764e99fbc4f8bf7fa4a70161d114eff0c8738
+| Author: Vaibhav Nagar <vaibhavn@iitk.ac.in>
+| Date:   Tue Feb 7 05:10:17 2017 +0530
+| 
+|     c++ yacc parser
+|  
+* commit 623ee79f7b90b235f05ff22c5e41fab44cda072b
+| Author: Vaibhav Nagar <vaibhavn@iitk.ac.in>
+| Date:   Tue Feb 7 05:08:20 2017 +0530
+| 
+|     c++ grammar and lexer
+|    
+| * commit e8bc4403045be69bdab1805626ec6845e942b3ee (origin/Tushant---Lexer)
+| | Author: Tushant Mittal <mittaltushant@gmail.com>
+| | Date:   Tue Feb 7 23:44:18 2017 +0530
+| | 
+| |     Added Typespace,enum etc..
+| |   
+| * commit 51d9058438cb43760984c6fc0d3e50326688293d (Tushant---Lexer)
+| | Author: Tushant Mittal <mittaltushant@gmail.com>
+| | Date:   Tue Feb 7 21:54:34 2017 +0530
+| | 
+| |     Lexer Almost Done, buggy Parser
+| |   
+| * commit b5a6da99257430a292a7f8dda7cb39f569a351a0
+|/  Author: Tushant Mittal <mittaltushant@gmail.com>
+|   Date:   Tue Feb 7 00:58:04 2017 +0530
+|   
+|       Incomplete lexer
+|  
+* commit e266499127a1ce50769b85c1230739482ab5833a
+  Author: Vaibhav Nagar <vaibhavn@iitk.ac.in>
+  Date:   Mon Feb 6 21:50:41 2017 +0530
+  
+      Readme added

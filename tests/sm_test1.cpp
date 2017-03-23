@@ -10,7 +10,7 @@ int main() {
 
   const int a = 0;
   int c;
-  int d[c];
+  int d[3] = {};
 
   return 0;
 }
