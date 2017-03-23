@@ -20,7 +20,7 @@ reserved = {
 
 
 class MyLexer(object):
-	
+
 	tokens = [
 		'IDENTIFIER', 'INTEGER', 'FLOATING', 'CHARACTER' ,'STRING', 'ELLIPSIS', 'SCOPE', 'DOT_STAR', 'ASS_ADD',
 		'ASS_SUB', 'ASS_MUL', 'ASS_DIV', 'ASS_MOD', 'ASS_XOR', 'ASS_AND', 'ASS_OR', 'ASS_SHR', 'ASS_SHL', 'SHL', 'SHR',
@@ -79,7 +79,7 @@ class MyLexer(object):
 	def t_NEWLINE(self,t):
 		r'\n+'
 		t.lexer.lineno += t.value.count("\n")
-		
+
 
 	# Preprocessor directive (ignored)
 	def t_preprocessor(self,t):
@@ -88,7 +88,6 @@ class MyLexer(object):
 
 	def t_IDENTIFIER(self,t):
 		r'[a-zA-Z_]([a-zA-Z_0-9]|(\\u[0-9A-Fa-f]{3})|(\\U[0-9A-Fa-f]{6}))*'
-		print(t.value)
 		t.type = reserved.get(t.value,'IDENTIFIER')    # Check for reserved words
 		return t
 

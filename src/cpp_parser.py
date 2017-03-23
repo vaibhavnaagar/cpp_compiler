@@ -55,6 +55,52 @@ def create_child(label,name):
 		orphan_children.append(node_b)
 	return
 
+def expression_semantic(lineno, p0, p1, p2, p3):
+	if st.currentScope == "global":
+		st.print_error(lineno, {}, 16,  p2)
+		p0 = p1
+		return p0
+	if p3.get("is_decl", True) is False:	# When only a variable is present on Right of operator
+		p0 = p1
+		if p3["type"]:
+			st.print_error(lineno, {}, 15, ' '.join([p1["name"], p2, p3["name"]]))
+			return p0
+		entry = SymbolTable.lookupComplete(p3["name"])
+		if entry is None:
+			st.print_error(lineno, p3, 1)
+			return p0
+		else:
+			p3 = entry
+			p3["is_decl"] = True
+	if p1.get("is_decl", True) is False:	# When only a variable is present on left of operator
+		p0 = p3
+		if p1["type"]:
+			st.print_error(lineno, {}, 15, ' '.join([p1["name"], p2, p3["name"]]))
+			return p0
+		entry = SymbolTable.lookupComplete(p1["name"])
+		if entry is None:
+			st.print_error(lineno, p1, 1)
+			return p0
+		else:
+			p1 = entry
+			p1["is_decl"] = True
+	if p3.get("id_type") not in ["variable", "literal"]:		#  id_type should only be variable
+		st.print_error(lineno, {}, 15, ' '.join([p1["name"], p2, p3["name"]]))
+		p0 = p1
+		return p0
+	elif p1.get("id_type") not in ["variable", "literal"]:		#  id_type should only be variable
+		st.print_error(lineno, {}, 15, ' '.join([p1["name"], p2, p3["name"]]))
+		p0 = p3
+		return p0
+	if (p1["id_type"] == "literal") and (p3["id_type"] != "literal"):	# Try to get dictionary of variable
+		p0 = p3
+	else:
+		p0 = p1
+	p0["name"] = ' '.join([p1["name"], p2, p3["name"]])
+	p0["type"],p0["star"] = st.expression_type(p1["type"], p1.get("star", 0) , p3["type"], p3.get("star", 0), op=str(p2))
+	return p0
+
+
 # Get the token map
 tokens = lex.cpp_scanner.tokens
 
@@ -76,11 +122,12 @@ def p_identifier(p):
 		p[0]["is_decl"] = True
 	else:
 		p[0] = {
-			"name" : p[1],
-			"id_type" : "variable"
+			"name" : str(p[1]),
+			"id_type" : "variable",
 			"is_decl" : False,
 			"type" : None,
 			"specifier" : None,
+			"star"	: 0,
 			"num"	: 1,
 			"value" : None
 		}
@@ -262,51 +309,79 @@ def p_scoped_pseudo_destructor_id2(p):
 def p_string(p):
 	"string : STRING"
 	create_child("string",p[1])
+	p[0] = p[1]
 	pass
 
 def p_literal1(p):
 	"literal : INTEGER"
 	create_child("literal - int",p[1])
 	p[0] = {
-		"name"	: p[1]
-		"type"  : ["literal_int"]
-		"value" : int(p[1])
+		"name"	: str(p[1]),
+		"type"  : ["literal_int"],
+		"id_type" : "literal",
+		"value" : int(p[1]),
 	}
 	pass
 
 def p_literal2(p):
 	"literal : CHARACTER"
 	create_child("literal - char",p[1])
+	p[0] = {
+		"name"	: str(p[1]),
+		"type"  : ["literal_char"],
+		"id_type" : "literal",
+		"value" : None,
+	}
 	pass
 
 def p_literal3(p):
 	"literal : FLOATING"
 	create_child("literal - float",p[1])
 	p[0] = {
-		"name"	: p[1]
-		"type"  : ["literal_float"]
-		"value" : float(p[1])
+		"name"	: str(p[1]),
+		"type"  : ["literal_float"],
+		"id_type" : "literal",
+		"value" : float(p[1]),
 	}
 	pass
 
 def p_literal4(p):
 	"literal : string"
 	add_children(len(p[1:]),"literal")
+	p[0] = {
+		"name"	: str(p[1]),
+		"type"  : ["literal_string"],
+		"id_type" : "literal",
+		"value" : None,
+	}
 	pass
 
 def p_literal5(p):
 	"literal : boolean_literal"
 	add_children(len(p[1:]),"literal")
+	p[0] = p[1]
 	pass
 
 def p_boolean_literal1(p):
 	"boolean_literal : FALSE"
 	create_child("boolean",p[1])
+	p[0] = {
+		"name"	: str(p[1]),
+		"type"  : ["literal_bool"],
+		"id_type" : "literal",
+		"value" : 0,
+	}
 	pass
 
 def p_boolean_literal2(p):
 	"boolean_literal : TRUE"
 	create_child("boolean",p[1])
+	p[0] = {
+		"name"	: str(p[1]),
+		"type"  : ["literal_bool"],
+		"id_type" : "literal",
+		"value" : 1,
+	}
 	pass
 
 #/*---------------------------------------------------------------------------------------------------
@@ -348,6 +423,7 @@ def p_primary_expression3(p):
 def p_primary_expression4(p):
 	"primary_expression : abstract_expression               %prec REDUCE_HERE_MOSTLY"
 	add_children(len(p[1:]),"primary expression")
+	p[0] = p[1]
 	pass
 
 #/*
@@ -408,25 +484,42 @@ def p_postfix_expression2(p):
 
 def p_postfix_expression6(p):
 	"postfix_expression : postfix_expression '[' expression_opt ']'"
-	create_child("None","[")
-	create_child("None","]")
-	add_children(len(p[1:]),"postfix_expression")
 	p[0] = p[1]
 	if p[1].get("is_decl") is None:		# If no identifier received
 		st.print_error(yacc.YaccProduction.lineno(p, 1), {}, 3, p[2])
-	elif p[1]["is_decl"]:				# Identifier is already declared, now expression_opt should have integral type
-		if p[1]["id_type"] != "array":
-			st.print_error(yacc.YaccProduction.lineno(p, 1), p[1], 7)
+		return
+	if p[1]["is_decl"] is False:								# Identifier is not declared
+		if p[1]["type"] is None:
+			entry = SymbolTable.lookupComplete(p[1]["name"])
+			if entry is None:
+				st.print_error(yacc.YaccProduction.lineno(p,1), p[1], 1)
+				return
+			else:
+				p[0] = entry
+				p[0]["is_decl"] = True
+		else:
+			if p[1]["id_type"] in ["function", "literal"]:
+				st.print_error(yacc.YaccProduction.lineno(p,1), p[1], 10, p[1]["id_type"])
+				return
+			p[0]["id_type"] = "array"
+			if p[3] is None:
+				st.print_error(yacc.YaccProduction.lineno(p, 1), p[1], 11)
+			elif type(p[3]) is list:
+				st.print_error(yacc.YaccProduction.lineno(p, 1), {}, 12, ',', ']')
+			elif not set(p[3]["type"]).issubset(st.integral_types):
+				st.print_error(yacc.YaccProduction.lineno(p, 1), p[1], 8, p[3]["type"])
+			elif (p[3]["type"] != ["literal_int"]) and ("const" not in p[3].get("specifier")):
+				st.print_error(yacc.YaccProduction.lineno(p, 1), p[1], 9)
+			else:
+				p[0]["num"] *= p[3]["value"]
+	if p[0]["is_decl"] is True:				# Identifier is already declared, now expression_opt should have integral type
+		if p[0]["id_type"] != "array":
+			st.print_error(yacc.YaccProduction.lineno(p, 1), p[0], 7)
+		elif type(p[3]) is list:
+			st.print_error(yacc.YaccProduction.lineno(p, 1), {}, 12, ',', ']')
 		elif not set(p[3]["type"]).issubset(st.integral_types):
 			st.print_error(yacc.YaccProduction.lineno(p, 1), p[1], 8, p[3]["type"])
-	else:								# Identifier is not declared
-		p[0]["id_type"] = "array"
-		if not set(p[3]["type"]).issubset(st.integral_types):
-			st.print_error(yacc.YaccProduction.lineno(p, 1), p[1], 8, p[3]["type"])
-		elif (p[3]["type"] != ["literal_int"]) and ("CONST" not in p[3].get("specifier")):
-			st.print_error(yacc.YaccProduction.lineno(p, 1), p[1], 9)
-		else:
-			p[0]["num"] *= p[3]["value"]
+		p[0]["id_type"] = "variable"
 	pass
 
 def p_postfix_expression7(p):
@@ -515,17 +608,20 @@ def p_expression_list_opt1(p):
 def p_expression_list_opt2(p):
 	"expression_list_opt : expression_list"
 	add_children(len(p[1:]),"expression_list_opt")
+	p[0] = p[1]
 	pass
 
 def p_expression_list1(p):
 	"expression_list : assignment_expression"
 	add_children(len(p[1:]),"expression_list")
+	p[0] = [p[1]]		# list of expressions
 	pass
 
 def p_expression_list2(p):
 	"expression_list : expression_list ',' assignment_expression"
 	create_child("None",'COMMA')
 	add_children(len(p[1:]),"expression_list")
+	p[0] = p[1] + [p[3]]
 	pass
 
 def p_unary_expression1(p):
@@ -538,71 +634,111 @@ def p_unary_expression2(p):
 	"unary_expression : INC cast_expression"
 	create_child("None",p[1])
 	add_children(len(p[1:]),"unary_expression")
+	p[0] = p[2]
+	if (not set(p[2]["type"]).issubset(st.number_types)) or (p[2].get("id_type") != "variable"):		# Incomplete list
+		st.print_error(yacc.YaccProduction.lineno(p, 1), p[2], 13)
 	pass
 
 def p_unary_expression3(p):
 	"unary_expression : DEC cast_expression"
 	add_children(len(p[1:]),"unary_expression")
+	p[0] = p[2]
+	if (not set(p[2]["type"]).issubset(st.number_types)) or (p[2].get("id_type") != "variable"):		# Incomplete list
+		st.print_error(yacc.YaccProduction.lineno(p, 1), p[2], 13)
 	pass
 
 def p_unary_expression4(p):
 	"unary_expression : ptr_operator cast_expression"
-	add_children(len(p[1:]),"unary_expression")
+	p[0] = p[2]
+	if ("is_decl" not in p[0].keys()) or ("id_type" not in p[0].keys()):
+		st.print_error(yacc.YaccProduction.lineno(p,1), p[2], 14, p[1])
+	elif p[0]["is_decl"] is False:
+		if p[1] == '&':
+			st.print_error(yacc.YaccProduction.lineno(p,1), p[2], 14, p[1])
+		else:
+			p[0]["star"] += 1
+	elif p[0]["is_decl"] is True:
+		if p[0]["id_type"] not in ["variable", "array", "function"]:	# Then it is not pointer type
+			st.print_error(yacc.YaccProduction.lineno(p,1), p[2], 14, p[1])
+		else:
+			if p[1] == '*':
+				if p[0]["star"] == 0:
+					st.print_error(yacc.YaccProduction.lineno(p,1), p[2], 14, p[1])
+				else:
+					p[0]["star"] -= 1
+			elif p[1] == '&':
+				p[0]["star"] += 1
+	else:
+		st.print_error(yacc.YaccProduction.lineno(p,1), p[2], 14, p[1])
 	pass
 
 def p_unary_expression5(p):
 	"unary_expression : suffix_decl_specified_scope star_ptr_operator cast_expression"
-	add_children(len(p[1:]),"unary_expression")
 	pass
 
 def p_unary_expression6(p):
 	"unary_expression : '+' cast_expression"
 	create_child("None",p[1])
 	add_children(len(p[1:]),"unary_expression")
+	p[0] = p[2]
+	if (not set(p[0].get("type")).issubset(st.number_literals)) and ((p[0].get("id_type") != "variable") or ( not set(p[0].get("type")).issubset(st.number_types))):
+		st.print_error(yacc.YaccProduction.lineno(p, 1), {}, 14, '-')
 	pass
 
 def p_unary_expression7(p):
 	"unary_expression : '-' cast_expression"
 	create_child("None",p[1])
 	add_children(len(p[1:]),"unary_expression")
+	p[0] = p[2]
+	if (not set(p[0].get("type")).issubset(st.number_literals)) and ((p[0].get("id_type") != "variable") or ( not set(p[0].get("type")).issubset(st.number_types))):
+		st.print_error(yacc.YaccProduction.lineno(p, 1), {}, 14, '-')
+	elif p[0].get("value"):
+		p[0]["value"] = -p[0]["value"]
 	pass
 
 def p_unary_expression8(p):
 	"unary_expression : '!' cast_expression"
 	create_child("None",p[1])
 	add_children(len(p[1:]),"unary_expression")
+	p[0] = p[2]
 	pass
 
 def p_unary_expression9(p):
 	"unary_expression : '~' cast_expression"
 	create_child("None",p[1])
 	add_children(len(p[1:]),"unary_expression")
+	p[0] = p[2]
 	pass
 
 def p_unary_expression10(p):
 	"unary_expression : SIZEOF unary_expression"
 	create_child("None",p[1])
 	add_children(len(p[1:]),"unary_expression")
+	p[0] = p[2]
 	pass
 
 def p_unary_expression11(p):
 	"unary_expression : new_expression"
 	add_children(len(p[1:]),"unary_expression")
+	p[0] = p[1]
 	pass
 
 def p_unary_expression12(p):
 	"unary_expression : global_scope new_expression"
 	add_children(len(p[1:]),"unary_expression")
+	p[0] = p[2]			# Don't know when this rule is called
 	pass
 
 def p_unary_expression13(p):
 	"unary_expression : delete_expression"
 	add_children(len(p[1:]),"unary_expression")
+	p[0] = p[1]
 	pass
 
 def p_unary_expression14(p):
 	"unary_expression : global_scope delete_expression"
 	add_children(len(p[1:]),"unary_expression")
+	p[0] = p[2]			# Don't know when this rule is called
 	pass
 
 
@@ -610,6 +746,7 @@ def p_delete_expression(p):
 	"delete_expression : DELETE cast_expression"
 	create_child("None",p[1])
 	add_children(len(p[1:]),"delete_expression")
+	p[0] = p[2]
 	pass
 
 def p_new_expression1(p):
@@ -712,6 +849,7 @@ def p_pm_expression2(p):
 	"pm_expression : pm_expression DOT_STAR cast_expression"
 	create_child("None",p[2])
 	add_children(len(p[1:]),"pm_expression")
+	p[0] = p[3]					# Taking pointed expression into account
 	pass
 
 def p_pm_expression3(p):
@@ -729,18 +867,29 @@ def p_multiplicative_expression1(p):
 def p_multiplicative_expression2(p):
 	"multiplicative_expression : multiplicative_expression star_ptr_operator pm_expression"
 	add_children(len(p[1:]),"multiplicative_expression")
+	if p[1].get("id_type") == "type_specifier":		# pointer type variable declaration
+		p[0] = p[3]
+		if "is_decl" not in p[0].keys():
+			st.print_error(yacc.YaccProduction.lineno(p,1), {}, 15, ' '.join([p[1]["name"], p[2], p[3]["name"]]))
+			return
+		if p[0]["is_decl"]:			# Identifier is already declared in the currentScope
+			st.print_error(yacc.YaccProduction.lineno(p,1), p[0], 4, p[1]["type"])
+			return
+		p[0]["star"] += 1
+		p[0]["type"] = p[1]["type"]
+		p[0]["specifier"] = p[1]["specifier"]
+	else:											# normal multiplication
+		p[0] = expression_semantic(yacc.YaccProduction.lineno(p,1), p[0], p[1], p[2], p[3])
 	pass
 
 def p_multiplicative_expression3(p):
 	"multiplicative_expression : multiplicative_expression '/' pm_expression"
-	create_child("None",p[2])
-	add_children(len(p[1:]),"multiplicative_expression")
+	p[0] = expression_semantic(yacc.YaccProduction.lineno(p,1), p[0], p[1], p[2], p[3])
 	pass
 
 def p_multiplicative_expression4(p):
 	"multiplicative_expression : multiplicative_expression '%' pm_expression"
-	create_child("None",p[2])
-	add_children(len(p[1:]),"multiplicative_expression")
+	p[0] = expression_semantic(yacc.YaccProduction.lineno(p,1), p[0], p[1], p[2], p[3])
 	pass
 
 def p_additive_expression1(p):
@@ -751,14 +900,12 @@ def p_additive_expression1(p):
 
 def p_additive_expression2(p):
 	"additive_expression : additive_expression '+' multiplicative_expression"
-	create_child("None",p[2])
-	add_children(len(p[1:]),"additive_expression")
+	p[0] = expression_semantic(yacc.YaccProduction.lineno(p,1), p[0], p[1], p[2], p[3])
 	pass
 
 def p_additive_expression3(p):
 	"additive_expression : additive_expression '-' multiplicative_expression"
-	create_child("None",p[2])
-	add_children(len(p[1:]),"additive_expression")
+	p[0] = expression_semantic(yacc.YaccProduction.lineno(p,1), p[0], p[1], p[2], p[3])
 	pass
 
 def p_shift_expression1(p):
@@ -769,14 +916,12 @@ def p_shift_expression1(p):
 
 def p_shift_expression2(p):
 	"shift_expression : shift_expression SHL additive_expression"
-	create_child("None",p[2])
-	add_children(len(p[1:]),"shift_expression")
+	p[0] = expression_semantic(yacc.YaccProduction.lineno(p,1), p[0], p[1], p[2], p[3])
 	pass
 
 def p_shift_expression3(p):
 	"shift_expression : shift_expression SHR additive_expression"
-	create_child("None",p[2])
-	add_children(len(p[1:]),"shift_expression")
+	p[0] = expression_semantic(yacc.YaccProduction.lineno(p,1), p[0], p[1], p[2], p[3])
 	pass
 
 def p_relational_expression1(p):
@@ -787,26 +932,22 @@ def p_relational_expression1(p):
 
 def p_relational_expression2(p):
 	"relational_expression : relational_expression '<' shift_expression"
-	create_child("None",p[2])
-	add_children(len(p[1:]),"relational_expression")
+	p[0] = expression_semantic(yacc.YaccProduction.lineno(p,1), p[0], p[1], p[2], p[3])
 	pass
 
 def p_relational_expression3(p):
 	"relational_expression : relational_expression '>' shift_expression"
-	create_child("None",p[2])
-	add_children(len(p[1:]),"relational_expression")
+	p[0] = expression_semantic(yacc.YaccProduction.lineno(p,1), p[0], p[1], p[2], p[3])
 	pass
 
 def p_relational_expression4(p):
 	"relational_expression : relational_expression LE shift_expression"
-	create_child("None",p[2])
-	add_children(len(p[1:]),"relational_expression")
+	p[0] = expression_semantic(yacc.YaccProduction.lineno(p,1), p[0], p[1], p[2], p[3])
 	pass
 
 def p_relational_expression5(p):
 	"relational_expression : relational_expression GE shift_expression"
-	create_child("None",p[2])
-	add_children(len(p[1:]),"relational_expression")
+	p[0] = expression_semantic(yacc.YaccProduction.lineno(p,1), p[0], p[1], p[2], p[3])
 	pass
 
 def p_equality_expression1(p):
@@ -817,14 +958,12 @@ def p_equality_expression1(p):
 
 def p_equality_expression2(p):
 	"equality_expression : equality_expression EQ relational_expression"
-	create_child("None",p[2])
-	add_children(len(p[1:]),"equality_expression")
+	p[0] = expression_semantic(yacc.YaccProduction.lineno(p,1), p[0], p[1], p[2], p[3])
 	pass
 
 def p_equality_expression3(p):
 	"equality_expression : equality_expression NE relational_expression"
-	create_child("None",p[2])
-	add_children(len(p[1:]),"equality_expression")
+	p[0] = expression_semantic(yacc.YaccProduction.lineno(p,1), p[0], p[1], p[2], p[3])
 	pass
 
 def p_and_expression1(p):
@@ -835,8 +974,7 @@ def p_and_expression1(p):
 
 def p_and_expression2(p):
 	"and_expression : and_expression '&' equality_expression"
-	create_child("None",p[2])
-	add_children(len(p[1:]),"and_expression")
+	p[0] = expression_semantic(yacc.YaccProduction.lineno(p,1), p[0], p[1], p[2], p[3])
 	pass
 
 def p_exclusive_or_expression1(p):
@@ -847,8 +985,7 @@ def p_exclusive_or_expression1(p):
 
 def p_exclusive_or_expression2(p):
 	"exclusive_or_expression : exclusive_or_expression '^' and_expression"
-	create_child("None",p[2])
-	add_children(len(p[1:]),"exclusive_or_expression")
+	p[0] = expression_semantic(yacc.YaccProduction.lineno(p,1), p[0], p[1], p[2], p[3])
 	pass
 
 def p_inclusive_or_expression1(p):
@@ -859,8 +996,7 @@ def p_inclusive_or_expression1(p):
 
 def p_inclusive_or_expression2(p):
 	"inclusive_or_expression : inclusive_or_expression '|' exclusive_or_expression"
-	create_child("None",p[2])
-	add_children(len(p[1:]),"inclusive_or_expression")
+	p[0] = expression_semantic(yacc.YaccProduction.lineno(p,1), p[0], p[1], p[2], p[3])
 	pass
 
 def p_logical_and_expression1(p):
@@ -871,8 +1007,7 @@ def p_logical_and_expression1(p):
 
 def p_logical_and_expression2(p):
 	"logical_and_expression : logical_and_expression LOG_AND inclusive_or_expression"
-	create_child("None",p[2])
-	add_children(len(p[1:]),"logical_and_expression")
+	p[0] = expression_semantic(yacc.YaccProduction.lineno(p,1), p[0], p[1], p[2], p[3])
 	pass
 
 def p_logical_or_expression1(p):
@@ -883,8 +1018,7 @@ def p_logical_or_expression1(p):
 
 def p_logical_or_expression2(p):
 	"logical_or_expression : logical_or_expression LOG_OR logical_and_expression"
-	create_child("None",p[2])
-	add_children(len(p[1:]),"logical_or_expression")
+	p[0] = expression_semantic(yacc.YaccProduction.lineno(p,1), p[0], p[1], p[2], p[3])
 	pass
 
 def p_conditional_expression1(p):
@@ -913,12 +1047,70 @@ def p_assignment_expression1(p):
 def p_assignment_expression2(p):
 	"assignment_expression : logical_or_expression assignment_operator assignment_expression"
 	add_children(len(p[1:]),"assignment_expression")
+	p[0] = p[1]
+	if p[1].get("id_type") not in ["variable", "array"]:
+		st.print_error(yacc.YaccProduction.lineno(p,1), p[1], 17)
+		return
+	if p[2] == '=':			# simple assignment
+		if p[3].get("is_decl", True) is False:	# When only a variable is present in RHS
+			entry = SymbolTable.lookupComplete(p[3]["name"])
+			if entry is None:
+				st.print_error(yacc.YaccProduction.lineno(p,1), p[3], 1)
+				return
+			else:
+				p[3] = entry
+				p[3]["is_decl"] = True
+		if p[3].get("id_type") not in ["variable", "literal", "array"]:
+			st.print_error(yacc.YaccProduction.lineno(p,1), {}, 15, ' '.join([p[1]["name"], p[2], p[3]["name"]]))
+			return
+		if p[1]["id_type"] != p[3]["id_type"]:
+			if (p[1]["id_type"] == "variable") and (p[3]["id_type"] == "literal"):
+				if p[1]["type"]:
+					if st.expression_type(p[1]["type"], p[1].get("star", 0) , p[3]["type"], p[3].get("star", 0), op=str(p[2])):
+						p[0]["value"] = p[3]["value"]
+			else:
+				st.print_error(yacc.YaccProduction.lineno(p,1), {}, 18, p[1]["id_type"], p[3]["id_type"])
+		elif p[1]["id_type"] == p[3]["id_type"]:
+			if p[1]["type"]:
+				st.expression_type(p[1]["type"], p[1].get("star", 0) , p[3]["type"], p[3].get("star", 0), op=str(p[2]))
+		else:
+			st.print_error(yacc.YaccProduction.lineno(p,1), {}, 15, ' '.join([p[1]["name"], p[2], p[3]["name"]]))
+	else:
+		if p[3].get("is_decl", True) is False:	# When only a variable is present in RHS
+			entry = SymbolTable.lookupComplete(p[3]["name"])
+			if entry is None:
+				st.print_error(yacc.YaccProduction.lineno(p,1), p[3], 1)
+				return
+			else:
+				p[3] = entry
+				p[3]["is_decl"] = True
+		if p[3].get("id_type") not in ["variable", "literal"]:
+			st.print_error(yacc.YaccProduction.lineno(p,1), {}, 15, ' '.join([p[1]["name"], p[2], p[3]["name"]]))
+			return
+		if p[1].get("is_decl", True) is False:	# When only a variable is present in RHS
+			if p[1]["type"]:
+				st.print_error(yacc.YaccProduction.lineno(p,1), {}, 15, ' '.join([p[1]["name"], p[2], p[3]["name"]]))
+				return
+			entry = SymbolTable.lookupComplete(p[3]["name"])
+			if entry is None:
+				st.print_error(yacc.YaccProduction.lineno(p,1), p[3], 1)
+				return
+			else:
+				p[3] = entry
+				p[3]["is_decl"] = True
+		if p[1].get("id_type") not in ["variable", "array"]:
+			st.print_error(yacc.YaccProduction.lineno(p,1), p[1], 17)
+			return
+		if st.expression_type(p[1]["type"], p[1].get("star", 0) , p[3]["type"], p[3].get("star", 0), op=str(p[2])):
+			if "const" in p[1]["specifier"]:
+				st.print_error(yacc.YaccProduction.lineno(p,1), p[1], 19)
 	pass
 
 def p_assignment_expression3(p):
 	"assignment_expression : logical_or_expression '=' braced_initializer"
 	create_child("None",p[2])
 	add_children(len(p[1:]),"assignment_expression")
+	p[0] = p[1]
 	pass
 
 def p_assignment_expression4(p):
@@ -967,6 +1159,7 @@ def p_expression2(p):
 	"expression : expression_list ',' assignment_expression"
 	create_child("None",'COMMA')
 	add_children(len(p[1:]),"expression")
+	p[0] = p[1] + [p[3]]			# this "expression" will be list of expressions which are separated by comma
 	pass
 
 def p_constant_expression(p):
@@ -1345,12 +1538,11 @@ def p_simple_declaration2(p):
 		p[0] = None
 	else:
 		if (not p[1]["is_decl"]) and (p[1]["type"] is not None):
-			SymbolTable.insertID(p[1]["name"], p[1]["id_type"], types=p[1]["type"], specifiers=p[1]["specifier"], value=p[1]["value"])
+			SymbolTable.insertID(p[1]["name"], p[1]["id_type"], types=p[1]["type"], specifiers=p[1]["specifier"], value=p[1]["value"], num=p[1]["num"])
 		elif (not p[1]["is_decl"]) and (SymbolTable.lookupComplete(p[1]["name"]) is None):
 			st.print_error(yacc.YaccProduction.lineno(p,1), p[1], 1)
-			SymbolTable.insertID(p[1]["name"], p[1]["id_type"], types=p[1]["type"], specifiers=p[1]["specifier"], value=p[1]["value"])
+			SymbolTable.insertID(p[1]["name"], p[1]["id_type"], types=p[1]["type"], specifiers=p[1]["specifier"], value=p[1]["value"], num=p[1]["num"])
 		p[0] = [p[1]]
-	print("$$$$$4$$$$", st.ScopeList[st.currentScope]["table"].symtab)
 	pass
 
 def p_simple_declaration3(p):
@@ -1363,14 +1555,13 @@ def p_simple_declaration3(p):
 			st.print_error(yacc.YaccProduction.lineno(p,1), decl, 2)
 		else:
 			if (not decl["is_decl"]) and (decl["type"] is not None):
-				SymbolTable.insertID(decl["name"], decl["id_type"], types=decl["type"], specifiers=decl["specifier"], value=decl["value"])
+				SymbolTable.insertID(decl["name"], decl["id_type"], types=decl["type"], specifiers=decl["specifier"], value=decl["value"], num=decl["num"])
 			elif (not decl["is_decl"]) and (SymbolTable.lookupComplete(decl["name"]) is None):
 				st.print_error(yacc.YaccProduction.lineno(p,1), decl, 1)
-				SymbolTable.insertID(decl["name"], decl["id_type"], types=decl["type"], specifiers=decl["specifier"], value=decl["value"])
+				SymbolTable.insertID(decl["name"], decl["id_type"], types=decl["type"], specifiers=decl["specifier"], value=decl["value"], num=decl["num"])
 		p[0] += [decl]
 	if not p[0]:
 		p[0] = None
-	print("$$$$$4$$$$", st.ScopeList[st.currentScope]["table"].symtab)
 	pass
 
 def p_simple_declaration4(p):
@@ -1383,11 +1574,12 @@ def p_simple_declaration4(p):
 			if decl.get("is_decl") is True:		# already declared before
 				st.print_error(yacc.YaccProduction.lineno(p,1), decl, 6)
 			elif decl.get("is_decl") is False:
+				print("dededeeeef", p[1])
 				SymbolTable.addIDAttr(decl["name"], "specifier", [p[1]])
-				if ("CONST" == p[1]) and (decl["value"] is None):
+				if ("const" == p[1]) and (decl["value"] is None):
 					st.print_error(yacc.YaccProduction.lineno(p,1), decl, 5)
+					SymbolTable.addIDAttr(decl["name"], "value", 0)			# DEFAULT value of const varaiable is 0
 	p[0] = p[2]
-	print("$$$$$4$$$$", st.ScopeList[st.currentScope]["table"].symtab)
 	pass
 
 #/*  A decl-specifier following a ptr_operator provokes a shift-reduce conflict for
@@ -1399,25 +1591,19 @@ def p_simple_declaration4(p):
 def p_suffix_built_in_decl_specifier_raw1(p):
 	"suffix_built_in_decl_specifier_raw : built_in_type_specifier"
 	add_children(len(p[1:]),"suffix_built_in_decl_specifier_raw ")
-	p[0] = dict()
-	p[0]["type"] = [p[1]]			# List of data types
-	p[0]["specifier"] = []
+	p[0] = dict(name=str(p[1]), id_type="type_specifier", type=[p[1]], specifier=[])
 	pass
 
 def p_suffix_built_in_decl_specifier_raw2(p):
 	"suffix_built_in_decl_specifier_raw : suffix_built_in_decl_specifier_raw built_in_type_specifier"
 	add_children(len(p[1:]),"suffix_built_in_decl_specifier_raw ")
-	p[0] = dict()
-	p[0]["type"] = p[1]["type"] + [p[2]]	# Adding new type specifier in list of data types
-	p[0]["specifier"] = p[1]["specifier"]
+	p[0] = dict(name=' '.join([p[1]["name"], str(p[2])]), id_type="type_specifier", type=p[1]["type"] + [p[2]], specifier=p[1]["specifier"])
 	pass
 
 def p_suffix_built_in_decl_specifier_raw3(p):
 	"suffix_built_in_decl_specifier_raw : suffix_built_in_decl_specifier_raw decl_specifier_suffix"
 	add_children(len(p[1:]),"suffix_built_in_decl_specifier_raw ")
-	p[0] = dict()
-	p[0]["type"] = p[1]["type"]
-	p[0]["specifier"] = p[1]["specifier"] + [p[2]]
+	p[0] = dict(name=' '.join([p[1]["name"], str(p[2])]), id_type="type_specifier", type=p[1]["type"], specifier=p[1]["specifier"] + [p[2]])
 	pass
 
 def p_suffix_built_in_decl_specifier1(p):
@@ -1623,9 +1809,10 @@ def p_type_specifier2(p):
     pass
 
 def p_type_specifier3(p):
-    "type_specifier : cv_qualifier"
-    add_children(len(p[1:]),"type_specifier")
-    pass
+	"type_specifier : cv_qualifier"
+	add_children(len(p[1:]),"type_specifier")
+	p[0] = p[1]
+	pass
 
 def p_elaborate_type_specifier1(p):
     "elaborate_type_specifier : class_specifier"
@@ -1899,6 +2086,7 @@ def p_init_declaration(p):
 def p_star_ptr_operator1(p):
 	"star_ptr_operator : '*'"
 	create_child("star_ptr_operator",p[1])
+	p[0] = p[1]
 	pass
 
 def p_star_ptr_operator2(p):
@@ -1909,6 +2097,7 @@ def p_star_ptr_operator2(p):
 def p_nested_ptr_operator1(p):
 	"nested_ptr_operator : star_ptr_operator"
 	add_children(len(p[1:]),"nested_ptr_operator")
+	p[0] = p[1]
 	pass
 
 def p_nested_ptr_operator2(p):
@@ -1919,16 +2108,19 @@ def p_nested_ptr_operator2(p):
 def p_ptr_operator1(p):
 	"ptr_operator : '&'"
 	create_child("ptr_operator",p[1])
+	p[0] = p[1]
 	pass
 
 def p_ptr_operator2(p):
 	"ptr_operator : nested_ptr_operator"
 	add_children(len(p[1:]),"ptr_operator")
+	p[0] = p[1]
 	pass
 
 def p_ptr_operator3(p):
 	"ptr_operator : global_scope nested_ptr_operator"
 	add_children(len(p[1:]),"ptr_operator")
+	p[0] = p[2]
 	pass
 
 def p_ptr_operator_seq1(p):
@@ -1965,6 +2157,7 @@ def p_cv_qualifier(p):
 	'''cv_qualifier : CONST
 	                | VOLATILE'''
 	create_child("cv_qualifier",p[1])
+	p[0] = p[1]
 	pass
 
 def p_type_id1(p):
@@ -2694,6 +2887,7 @@ def p_operator(p):
 		add_children(len(p[1:]), "operator")
 	else:
 		create_child("operator", p[1])
+	p[0] = p[1]
 	pass
 
 #/*---------------------------------------------------------------------------------------------------
@@ -2822,6 +3016,8 @@ def p_error(p):
 # Build the parser
 if __name__ == "__main__":
 	global SymbolTable
+	# Create SymbolTable
+	SymbolTable = st.SymTab()
 	#import logging
 	#logging.basicConfig(
 	#    level = logging.DEBUG,
@@ -2831,27 +3027,29 @@ if __name__ == "__main__":
 	#)
 	#log = logging.getLogger('ply')
 
-	# Create SymbolTable
-	SymbolTable = st.SymTab()
 
-	print(st.currentScope)
-	print(st.ScopeList)
 	#sys.exit()
 	#parser = yacc.yacc(errorlog=yacc.NullLogger())
 	parser = yacc.yacc(debug=True)
 	#if(len(sys.argv) == 2):
 	#	filename = sys.argv[1]
 	#else:
-	#	filename = "../tests/test1.cpp"
-	#a = open(filename)
-	#data = a.read()
-	data = '''
-	char z;
-     int main()
-    {	//sd
-	int x;
-	long int y,x,z;
-    }
-    '''
+	filename = "../tests/sm_test1.cpp"
+	a = open(filename)
+	data = a.read()
+	#data = '''
+    # int main()
+    #{
+	#int a;
+	#int *p = &a;
+	#a = 1;
+    #}
+    #'''
 	yacc.parse(data, lexer=lex.cpp_scanner.lexer)
+	print("========================================")
+	for scope in st.ScopeList.keys():
+		print(scope)
+		if scope != "NULL":
+			print(st.ScopeList[scope]["table"].symtab)
+	pass
 #	graph.write_jpeg('parse_tree_old.jpeg')
