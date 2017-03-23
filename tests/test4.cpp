@@ -1,7 +1,6 @@
 /*
               Class and their methods and switch-case
 */
-
 #include<iostream.h>
 #include<stdlib.h>
 #include<conio.h>
@@ -41,7 +40,7 @@ void main()
      switch(ch)
      {
               case 1:
-                cout<<"Enter Radious of the Circle:";
+                cout<<"Enter Radius of the Circle:";
                 cin>>r;
                 obj.area(r);
                 break;
