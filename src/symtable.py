@@ -195,14 +195,14 @@ def check_datatype(types,name):
     input_type = ' '.join(types)
     currtable = ScopeList[currentScope]["table"]
     if input_type in simple_type_specifier:
-        currtable.symtab[str(name)]["type"] = simple_type_specifier[input_type]["equiv_type"]
+        currtable.symtab[str(name)]["type"] = [simple_type_specifier[input_type]["equiv_type"]]
         SymTab.addIDAttr(name,"size", simple_type_specifier[input_type]["size"]* currtable.symtab[str(name)]["num"])
         return True
     else :
         print(" Error - Invalid string of data type - Taking the first element only")
         input_type = "" if len(types) == 0  else types[0]
         if input_type in simple_type_specifier:
-            currtable.symtab[str(name)]["type"] = simple_type_specifier[input_type]["equiv_type"]
+            currtable.symtab[str(name)]["type"] = [simple_type_specifier[input_type]["equiv_type"]]
             SymTab.addIDAttr(name,"size", simple_type_specifier[input_type]["size"] *currtable.symtab[str(name)]["num"])
             return True
         else :

@@ -16,7 +16,7 @@ import pydot
 import symtable as st
 
 # Symbol table
-SymbolTable = None
+#SymbolTable = None
 
 orphan_children = []
 i = 0
@@ -115,7 +115,6 @@ start = 'translation_unit'
 
 def p_identifier(p):
 	"identifier : IDENTIFIER"
-	create_child("identifier",p[1])
 	entry = st.ScopeList[st.currentScope]["table"].lookup(p[1])
 	if entry is not None:
 		p[0] = dict(entry)
@@ -135,14 +134,13 @@ def p_identifier(p):
 
 def p_id1(p):
 	"id : identifier"
-	add_children(len(p[1:]),"id")
 	p[0] = p[1]
 	pass
 
 
 def p_global_scope1(p):
 	"global_scope : SCOPE"
-	create_child("global_scope",p[1])
+	p[0] = p[1]
 	pass
 
 
@@ -1574,7 +1572,6 @@ def p_simple_declaration4(p):
 			if decl.get("is_decl") is True:		# already declared before
 				st.print_error(yacc.YaccProduction.lineno(p,1), decl, 6)
 			elif decl.get("is_decl") is False:
-				print("dededeeeef", p[1])
 				SymbolTable.addIDAttr(decl["name"], "specifier", [p[1]])
 				if ("const" == p[1]) and (decl["value"] is None):
 					st.print_error(yacc.YaccProduction.lineno(p,1), decl, 5)
@@ -3015,8 +3012,8 @@ def p_error(p):
 
 # Build the parser
 if __name__ == "__main__":
-	global SymbolTable
 	# Create SymbolTable
+	global SymbolTable
 	SymbolTable = st.SymTab()
 	#import logging
 	#logging.basicConfig(
@@ -3029,12 +3026,12 @@ if __name__ == "__main__":
 
 
 	#sys.exit()
-	#parser = yacc.yacc(errorlog=yacc.NullLogger())
-	parser = yacc.yacc(debug=True)
+	parser = yacc.yacc(errorlog=yacc.NullLogger())
+	#parser = yacc.yacc(debug=True)
 	#if(len(sys.argv) == 2):
 	#	filename = sys.argv[1]
 	#else:
-	filename = "../tests/sm_test1.cpp"
+	filename = "../tests/small_test1.cpp"
 	a = open(filename)
 	data = a.read()
 	#data = '''
