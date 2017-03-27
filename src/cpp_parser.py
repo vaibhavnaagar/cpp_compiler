@@ -113,7 +113,7 @@ def array_assignment(p,inits,store_list):
 	if len(inits) == 0:
 			store_list = [0]*len(store_list)
 			return p;
-	
+
 	elif len(inits) == 1:
 			if inits[0]["id_type"] in ["literal", "variable"]:
 				if st.expression_type(p[1]["type"], p[1].get("star", 0) , inits[0]["type"], inits[0].get("star", 0), op=str(p[2])):
@@ -131,7 +131,7 @@ def array_assignment(p,inits,store_list):
 						store_list[i] = exp["value"]
 		return p;
 
-	
+
 	elif len(inits) == p[0]["order"][0]:
 		size = len(store_list)/len(inits)
 		for i,exp in enumerate(inits):
@@ -164,7 +164,7 @@ start = 'translation_unit'
 def p_identifier(p):
 	"identifier : IDENTIFIER"
 	create_child("identifier",p[1])
-	
+
 	entry = st.ScopeList[st.currentScope]["table"].lookup(p[1])
 	if entry is not None:
 		p[0] = dict(entry)
@@ -186,7 +186,7 @@ def p_identifier(p):
 def p_id1(p):
 	"id : identifier"
 	add_children(len(list(filter(None, p[1:]))),"id")
-	
+
 	p[0] = p[1]
 	pass
 
@@ -194,8 +194,8 @@ def p_id1(p):
 def p_global_scope1(p):
 	"global_scope : SCOPE"
 	create_child("global_scope",p[1])
-	
-	
+
+
 	p[0] = p[1]
 	pass
 
@@ -214,19 +214,19 @@ def p_id_scope(p):
 def p_nested_id1(p):
 	"nested_id : id                                  %prec SHIFT_THERE"
 	add_children(len(list(filter(None, p[1:]))),"nested_id")
-	
+
 	p[0] = p[1]
 	pass
 
 def p_nested_id2(p):
 	"nested_id : id_scope nested_id"
 	add_children(len(list(filter(None, p[1:]))),"nested_id")
-	pass 
+	pass
 
 def p_scoped_id1(p):
 	"scoped_id : nested_id"
 	add_children(len(list(filter(None, p[1:]))),"scoped_id")
-	
+
 	p[0] = p[1]
 	pass
 
@@ -365,14 +365,14 @@ def p_scoped_pseudo_destructor_id2(p):
 def p_string(p):
 	"string : STRING"
 	create_child("string",p[1])
-	
+
 	p[0] = p[1]
 	pass
 
 def p_literal1(p):
 	"literal : INTEGER"
 	create_child("literal - int",p[1])
-	
+
 	p[0] = {
 		"name"	: str(p[1]),
 		"type"  : ["literal_int"],
@@ -384,7 +384,7 @@ def p_literal1(p):
 def p_literal2(p):
 	"literal : CHARACTER"
 	create_child("literal - char",p[1])
-	
+
 	p[0] = {
 		"name"	: str(p[1]),
 		"type"  : ["literal_char"],
@@ -396,7 +396,7 @@ def p_literal2(p):
 def p_literal3(p):
 	"literal : FLOATING"
 	create_child("literal - float",p[1])
-	
+
 	p[0] = {
 		"name"	: str(p[1]),
 		"type"  : ["literal_float"],
@@ -408,7 +408,7 @@ def p_literal3(p):
 def p_literal4(p):
 	"literal : string"
 	add_children(len(list(filter(None, p[1:]))),"literal")
-	
+
 	p[0] = {
 		"name"	: str(p[1]),
 		"type"  : ["literal_string"],
@@ -420,14 +420,14 @@ def p_literal4(p):
 def p_literal5(p):
 	"literal : boolean_literal"
 	add_children(len(list(filter(None, p[1:]))),"literal")
-	
+
 	p[0] = p[1]
 	pass
 
 def p_boolean_literal1(p):
 	"boolean_literal : FALSE"
 	create_child("boolean",p[1])
-	
+
 	p[0] = {
 		"name"	: str(p[1]),
 		"type"  : ["literal_bool"],
@@ -439,7 +439,7 @@ def p_boolean_literal1(p):
 def p_boolean_literal2(p):
 	"boolean_literal : TRUE"
 	create_child("boolean",p[1])
-	
+
 	p[0] = {
 		"name"	: str(p[1]),
 		"type"  : ["literal_bool"],
@@ -488,7 +488,7 @@ def p_primary_expression3(p):
 def p_primary_expression4(p):
 	"primary_expression : abstract_expression               %prec REDUCE_HERE_MOSTLY"
 	add_children(len(list(filter(None, p[1:]))),"primary expression")
-	
+
 	p[0] = p[1]
 	pass
 
@@ -555,7 +555,7 @@ def p_postfix_expression6(p):
 	create_child("None","[")
 	create_child("None","]")
 	add_children(len(list(filter(None, p[1:]))),"postfix_expression")
-	
+
 	p[0] = p[1]
 	if p[1].get("is_decl") is None:		# If no identifier received
 		st.print_error(p.lineno(1), {}, 3, p[2])
@@ -670,29 +670,29 @@ def p_expression_list_opt1(p):
 def p_expression_list_opt2(p):
 	"expression_list_opt : expression_list"
 	add_children(len(list(filter(None, p[1:]))),"expression_list_opt")
-	
+
 	p[0] = p[1]
 	pass
 
 def p_expression_list1(p):
 	"expression_list : assignment_expression"
 	add_children(len(list(filter(None, p[1:]))),"expression_list")
-	
+
 	p[0] = [p[1]]		# list of expressions
 	pass
 
 def p_expression_list2(p):
 	"expression_list : expression_list ',' assignment_expression"
-	
+
 	add_children(len(list(filter(None, p[1:]))) - 1,"expression_list")
-	
+
 	p[0] = p[1] + [p[3]]
 	pass
 
 def p_unary_expression1(p):
 	"unary_expression : postfix_expression"
 	add_children(len(list(filter(None, p[1:]))),"unary_expression")
-	
+
 	p[0] = p[1]
 	pass
 
@@ -700,8 +700,8 @@ def p_unary_expression2(p):
 	"unary_expression : INC cast_expression"
 	create_child("None",p[1])
 	add_children(len(list(filter(None, p[1:]))),"unary_expression")
-	
-	
+
+
 	p[0] = p[2]
 	if (not set(p[2]["type"]).issubset(st.number_types)) or (p[2].get("id_type") != "variable"):		# Incomplete list
 		st.print_error(p.lineno(1), p[2], 13)
@@ -710,7 +710,7 @@ def p_unary_expression2(p):
 def p_unary_expression3(p):
 	"unary_expression : DEC cast_expression"
 	add_children(len(list(filter(None, p[1:]))),"unary_expression")
-	
+
 	p[0] = p[2]
 	if (not set(p[2]["type"]).issubset(st.number_types)) or (p[2].get("id_type") != "variable"):		# Incomplete list
 		st.print_error(p.lineno(1), p[2], 13)
@@ -719,7 +719,7 @@ def p_unary_expression3(p):
 def p_unary_expression4(p):
 	"unary_expression : ptr_operator cast_expression"
 	add_children(len(list(filter(None, p[1:]))),"unary_expression")
-	
+
 	p[0] = p[2]
 	if ("is_decl" not in p[0].keys()) or ("id_type" not in p[0].keys()):
 		st.print_error(p.lineno(1), p[2], 14, p[1])
@@ -752,8 +752,8 @@ def p_unary_expression6(p):
 	"unary_expression : '+' cast_expression"
 	create_child("None",p[1])
 	add_children(len(list(filter(None, p[1:]))),"unary_expression")
-	
-	
+
+
 	p[0] = p[2]
 	if (not set(p[0].get("type")).issubset(st.number_literals)) and ((p[0].get("id_type") != "variable") or ( not set(p[0].get("type")).issubset(st.number_types))):
 		st.print_error(p.lineno(1), {}, 14, '-')
@@ -763,8 +763,8 @@ def p_unary_expression7(p):
 	"unary_expression : '-' cast_expression"
 	create_child("None",p[1])
 	add_children(len(list(filter(None, p[1:]))),"unary_expression")
-	
-	
+
+
 	p[0] = p[2]
 	if (not set(p[0].get("type")).issubset(st.number_literals)) and ((p[0].get("id_type") != "variable") or ( not set(p[0].get("type")).issubset(st.number_types))):
 		st.print_error(p.lineno(1), {}, 14, '-')
@@ -776,8 +776,8 @@ def p_unary_expression8(p):
 	"unary_expression : '!' cast_expression"
 	create_child("None",p[1])
 	add_children(len(list(filter(None, p[1:]))),"unary_expression")
-	
-	
+
+
 	p[0] = p[2]
 	pass
 
@@ -785,8 +785,8 @@ def p_unary_expression9(p):
 	"unary_expression : '~' cast_expression"
 	create_child("None",p[1])
 	add_children(len(list(filter(None, p[1:]))),"unary_expression")
-	
-	
+
+
 	p[0] = p[2]
 	pass
 
@@ -794,36 +794,36 @@ def p_unary_expression10(p):
 	"unary_expression : SIZEOF unary_expression"
 	create_child("None",p[1])
 	add_children(len(list(filter(None, p[1:]))),"unary_expression")
-	
-	
+
+
 	p[0] = p[2]
 	pass
 
 def p_unary_expression11(p):
 	"unary_expression : new_expression"
 	add_children(len(list(filter(None, p[1:]))),"unary_expression")
-	
+
 	p[0] = p[1]
 	pass
 
 def p_unary_expression12(p):
 	"unary_expression : global_scope new_expression"
 	add_children(len(list(filter(None, p[1:]))),"unary_expression")
-	
+
 	p[0] = p[2]			# Don't know when this rule is called
 	pass
 
 def p_unary_expression13(p):
 	"unary_expression : delete_expression"
 	add_children(len(list(filter(None, p[1:]))),"unary_expression")
-	
+
 	p[0] = p[1]
 	pass
 
 def p_unary_expression14(p):
 	"unary_expression : global_scope delete_expression"
 	add_children(len(list(filter(None, p[1:]))),"unary_expression")
-	
+
 	p[0] = p[2]			# Don't know when this rule is called
 	pass
 
@@ -831,8 +831,8 @@ def p_unary_expression14(p):
 def p_delete_expression(p):
 	"delete_expression : DELETE cast_expression"
 	add_children(len(list(filter(None, p[1:]))) - 1,"delete")
-	
-	
+
+
 	p[0] = p[2]
 	pass
 
@@ -909,7 +909,7 @@ def p_new_initializer_opt2(p):
 def p_cast_expression1(p):
 	"cast_expression : unary_expression"
 	add_children(len(list(filter(None, p[1:]))),"cast_expression")
-	
+
 	p[0] = p[1]
 	pass
 
@@ -921,15 +921,15 @@ def p_cast_expression2(p):
 def p_pm_expression1(p):
 	"pm_expression : cast_expression"
 	add_children(len(list(filter(None, p[1:]))),"pm_expression")
-	
+
 	p[0] = p[1]
 	pass
 
 def p_pm_expression2(p):
 	"pm_expression : pm_expression DOT_STAR cast_expression"
 	add_children(len(list(filter(None, p[1:]))) - 1,p[2])
-	
-	
+
+
 	p[0] = p[3]					# Taking pointed expression into account
 	pass
 
@@ -941,14 +941,12 @@ def p_pm_expression3(p):
 def p_multiplicative_expression1(p):
 	"multiplicative_expression : pm_expression"
 	add_children(len(list(filter(None, p[1:]))),"multiplicative_expression")
-	
 	p[0] = p[1]
 	pass
 
 def p_multiplicative_expression2(p):
 	"multiplicative_expression : multiplicative_expression star_ptr_operator pm_expression"
 	add_children(len(list(filter(None, p[1:]))) - 1,p[2])
-	
 	if p[1].get("id_type") == "type_specifier":		# pointer type variable declaration
 		p[0] = p[3]
 		if "is_decl" not in p[0].keys():
@@ -967,189 +965,162 @@ def p_multiplicative_expression2(p):
 def p_multiplicative_expression3(p):
 	"multiplicative_expression : multiplicative_expression '/' pm_expression"
 	add_children(len(list(filter(None, p[1:]))) - 1 ,p[2])
-	
 	p[0] = expression_semantic(p.lineno(1), p[0], p[1], p[2], p[3])
 	pass
 
 def p_multiplicative_expression4(p):
 	"multiplicative_expression : multiplicative_expression '%' pm_expression"
 	add_children(len(list(filter(None, p[1:]))) - 1,p[2])
-	
 	p[0] = expression_semantic(p.lineno(1), p[0], p[1], p[2], p[3])
 	pass
 
 def p_additive_expression1(p):
 	"additive_expression : multiplicative_expression"
 	add_children(len(list(filter(None, p[1:]))),"additive_expression")
-	
 	p[0] = p[1]
 	pass
 
 def p_additive_expression2(p):
 	"additive_expression : additive_expression '+' multiplicative_expression"
 	add_children(len(list(filter(None, p[1:]))) - 1 ,p[2])
-	
 	p[0] = expression_semantic(p.lineno(1), p[0], p[1], p[2], p[3])
 	pass
 
 def p_additive_expression3(p):
 	"additive_expression : additive_expression '-' multiplicative_expression"
 	add_children(len(list(filter(None, p[1:]))) - 1 ,p[2])
-	
 	p[0] = expression_semantic(p.lineno(1), p[0], p[1], p[2], p[3])
 	pass
 
 def p_shift_expression1(p):
 	"shift_expression : additive_expression"
 	add_children(len(list(filter(None, p[1:]))),"shift_expression")
-	
 	p[0] = p[1]
 	pass
 
 def p_shift_expression2(p):
 	"shift_expression : shift_expression SHL additive_expression"
 	add_children(len(list(filter(None, p[1:]))) -1 ,p[2])
-	
 	p[0] = expression_semantic(p.lineno(1), p[0], p[1], p[2], p[3])
 	pass
 
 def p_shift_expression3(p):
 	"shift_expression : shift_expression SHR additive_expression"
 	add_children(len(list(filter(None, p[1:]))) - 1,p[2])
-	
 	p[0] = expression_semantic(p.lineno(1), p[0], p[1], p[2], p[3])
 	pass
 
 def p_relational_expression1(p):
 	"relational_expression : shift_expression"
 	add_children(len(list(filter(None, p[1:]))),"relational_expression")
-	
 	p[0] = p[1]
 	pass
 
 def p_relational_expression2(p):
 	"relational_expression : relational_expression '<' shift_expression"
 	add_children(len(list(filter(None, p[1:]))) - 1 ,p[2])
-	
 	p[0] = expression_semantic(p.lineno(1), p[0], p[1], p[2], p[3])
 	pass
 
 def p_relational_expression3(p):
 	"relational_expression : relational_expression '>' shift_expression"
 	add_children(len(list(filter(None, p[1:]))) - 1 ,p[2])
-	
 	p[0] = expression_semantic(p.lineno(1), p[0], p[1], p[2], p[3])
 	pass
 
 def p_relational_expression4(p):
 	"relational_expression : relational_expression LE shift_expression"
 	add_children(len(list(filter(None, p[1:]))) - 1,p[2])
-	
 	p[0] = expression_semantic(p.lineno(1), p[0], p[1], p[2], p[3])
 	pass
 
 def p_relational_expression5(p):
 	"relational_expression : relational_expression GE shift_expression"
 	add_children(len(list(filter(None, p[1:]))) - 1,p[2])
-	
 	p[0] = expression_semantic(p.lineno(1), p[0], p[1], p[2], p[3])
 	pass
 
 def p_equality_expression1(p):
 	"equality_expression : relational_expression"
 	add_children(len(list(filter(None, p[1:]))),"equality_expression")
-	
 	p[0] = p[1]
 	pass
 
 def p_equality_expression2(p):
 	"equality_expression : equality_expression EQ relational_expression"
 	add_children(len(list(filter(None, p[1:]))) - 1,p[2])
-	
 	p[0] = expression_semantic(p.lineno(1), p[0], p[1], p[2], p[3])
 	pass
 
 def p_equality_expression3(p):
 	"equality_expression : equality_expression NE relational_expression"
 	add_children(len(list(filter(None, p[1:]))) - 1 , p[2])
-	
 	p[0] = expression_semantic(p.lineno(1), p[0], p[1], p[2], p[3])
 	pass
 
 def p_and_expression1(p):
 	"and_expression : equality_expression"
 	add_children(len(list(filter(None, p[1:]))),"and_expression")
-	
 	p[0] = p[1]
 	pass
 
 def p_and_expression2(p):
 	"and_expression : and_expression '&' equality_expression"
 	add_children(len(list(filter(None, p[1:]))) - 1,p[2])
-	
 	p[0] = expression_semantic(p.lineno(1), p[0], p[1], p[2], p[3])
 	pass
 
 def p_exclusive_or_expression1(p):
 	"exclusive_or_expression : and_expression"
 	add_children(len(list(filter(None, p[1:]))),"exclusive_or_expression")
-	
 	p[0] = p[1]
 	pass
 
 def p_exclusive_or_expression2(p):
 	"exclusive_or_expression : exclusive_or_expression '^' and_expression"
 	add_children(len(list(filter(None, p[1:]))) - 1,p[2])
-	
 	p[0] = expression_semantic(p.lineno(1), p[0], p[1], p[2], p[3])
 	pass
 
 def p_inclusive_or_expression1(p):
 	"inclusive_or_expression : exclusive_or_expression"
 	add_children(len(list(filter(None, p[1:]))),"inclusive_or_expression")
-	
 	p[0] = p[1]
 	pass
 
 def p_inclusive_or_expression2(p):
 	"inclusive_or_expression : inclusive_or_expression '|' exclusive_or_expression"
 	add_children(len(list(filter(None, p[1:]))) - 1,p[2])
-	
 	p[0] = expression_semantic(p.lineno(1), p[0], p[1], p[2], p[3])
 	pass
 
 def p_logical_and_expression1(p):
 	"logical_and_expression : inclusive_or_expression"
 	add_children(len(list(filter(None, p[1:]))),"logical_and_expression")
-	
 	p[0] = p[1]
 	pass
 
 def p_logical_and_expression2(p):
 	"logical_and_expression : logical_and_expression LOG_AND inclusive_or_expression"
 	add_children(len(list(filter(None, p[1:]))) - 1,p[2])
-	
 	p[0] = expression_semantic(p.lineno(1), p[0], p[1], p[2], p[3])
 	pass
 
 def p_logical_or_expression1(p):
 	"logical_or_expression : logical_and_expression"
 	add_children(len(list(filter(None, p[1:]))),"logical_or_expression")
-	
 	p[0] = p[1]
 	pass
 
 def p_logical_or_expression2(p):
 	"logical_or_expression : logical_or_expression LOG_OR logical_and_expression"
 	add_children(len(list(filter(None, p[1:]))) - 1,p[2])
-	
 	p[0] = expression_semantic(p.lineno(1), p[0], p[1], p[2], p[3])
 	pass
 
 def p_conditional_expression1(p):
 	"conditional_expression : logical_or_expression"
 	add_children(len(list(filter(None, p[1:]))),"conditional_expression")
-	
 	p[0] = p[1]
 	pass
 
@@ -1165,14 +1136,12 @@ def p_conditional_expression2(p):
 def p_assignment_expression1(p):
 	"assignment_expression : conditional_expression"
 	add_children(len(list(filter(None, p[1:]))),"assignment_expression")
-	
 	p[0] = p[1]
 	pass
 
 def p_assignment_expression2(p):
 	"assignment_expression : logical_or_expression assignment_operator assignment_expression"
 	add_children(len(list(filter(None, p[1:]))) -1 ,p[2])
-	
 	p[0] = p[1]
 	if p[1].get("id_type") not in ["variable", "array"]:
 		st.print_error(p.lineno(1), p[1], 17)
@@ -1236,7 +1205,6 @@ def p_assignment_expression2(p):
 def p_assignment_expression3(p):
 	"assignment_expression : logical_or_expression '=' braced_initializer"
 	add_children(len(list(filter(None, p[1:]))) - 1,p[2])
-	
 	p[0] = p[1]
 	inits = p[3]["inits"]
 	if (p[1].get("id_type") in ["variable"]) and (p[1].get("is_decl") is False) and p[1].get("type"):
@@ -1265,7 +1233,7 @@ def p_assignment_expression3(p):
 def p_assignment_expression4(p):
 	"assignment_expression : throw_expression"
 	add_children(len(list(filter(None, p[1:]))),"assignment_expression")
-	
+
 	p[0] = p[1]
 	pass
 
@@ -1281,7 +1249,7 @@ def p_assignment_operator(p):
 						   | ASS_SHR
 						   | ASS_SUB
 						   | ASS_XOR'''
-	
+
 	p[0] = p[1]
 	pass
 
@@ -1296,22 +1264,20 @@ def p_expression_opt1(p):
 def p_expression_opt2(p):
 	"expression_opt : expression"
 	add_children(len(list(filter(None, p[1:]))),"expression_opt")
-	
 	p[0] = p[1]
 	pass
 
 def p_expression1(p):
 	"expression : assignment_expression"
 	add_children(len(list(filter(None, p[1:]))),"expression")
-	
 	p[0] = p[1]
 	pass
 
 def p_expression2(p):
 	"expression : expression_list ',' assignment_expression"
-	
+
 	add_children(len(list(filter(None, p[1:]))) - 1,"expression")
-	
+
 	p[0] = p[1] + [p[3]]			# this "expression" will be list of expressions which are separated by comma
 	pass
 
@@ -1427,10 +1393,6 @@ def p_compound_statement2(p):
 	"compound_statement : '{' new_scope statement_seq_opt looping_statement '#' bang error '}'"
 	create_child("None",p[4])
 	add_children(len(list(filter(None, p[1:]))) - 2,"compund_statement")
-	
-	
-	
-	
 	SymbolTable.endScope()
 	pass
 
@@ -1688,7 +1650,7 @@ def p_simple_declaration3(p):
 def p_simple_declaration4(p):
 	"simple_declaration : decl_specifier_prefix simple_declaration"
 	add_children(len(list(filter(None, p[1:]))),"simple_declaration")
-	
+
 	if p[2] is None:			# i.e. decl_specifier_prefix ;
 		st.print_error(p.lineno(1), {}, 2)
 	else:
@@ -1712,28 +1674,28 @@ def p_simple_declaration4(p):
 def p_suffix_built_in_decl_specifier_raw1(p):
 	"suffix_built_in_decl_specifier_raw : built_in_type_specifier"
 	add_children(len(list(filter(None, p[1:]))),"suffix_built_in_decl_specifier_raw ")
-	
+
 	p[0] = dict(name=str(p[1]), id_type="type_specifier", type=[p[1]], specifier=[])
 	pass
 
 def p_suffix_built_in_decl_specifier_raw2(p):
 	"suffix_built_in_decl_specifier_raw : suffix_built_in_decl_specifier_raw built_in_type_specifier"
 	add_children(len(list(filter(None, p[1:]))),"suffix_built_in_decl_specifier_raw ")
-	
+
 	p[0] = dict(name=' '.join([p[1]["name"], str(p[2])]), id_type="type_specifier", type=p[1]["type"] + [p[2]], specifier=p[1]["specifier"])
 	pass
 
 def p_suffix_built_in_decl_specifier_raw3(p):
 	"suffix_built_in_decl_specifier_raw : suffix_built_in_decl_specifier_raw decl_specifier_suffix"
 	add_children(len(list(filter(None, p[1:]))),"suffix_built_in_decl_specifier_raw ")
-	
+
 	p[0] = dict(name=' '.join([p[1]["name"], str(p[2])]), id_type="type_specifier", type=p[1]["type"], specifier=p[1]["specifier"] + [p[2]])
 	pass
 
 def p_suffix_built_in_decl_specifier1(p):
 	"suffix_built_in_decl_specifier : suffix_built_in_decl_specifier_raw"
 	add_children(len(list(filter(None, p[1:]))),"suffix_built_in_decl_specifier ")
-	
+
 	p[0] = p[1]
 	pass
 
@@ -1741,7 +1703,7 @@ def p_suffix_built_in_decl_specifier1(p):
 def p_suffix_named_decl_specifier1(p):
 	"suffix_named_decl_specifier : scoped_id"
 	add_children(len(list(filter(None, p[1:]))),"suffix_named_decl_specifier")
-	
+
 	p[0] = p[1]
 	pass
 
@@ -1758,7 +1720,7 @@ def p_suffix_named_decl_specifier3(p):
 def p_suffix_named_decl_specifier_bi1(p):
 	"suffix_named_decl_specifier_bi : suffix_named_decl_specifier"
 	add_children(len(list(filter(None, p[1:]))),"suffix_named_decl_specifier_bi")
-	
+
 	p[0] = p[1]
 	pass
 
@@ -1770,7 +1732,7 @@ def p_suffix_named_decl_specifier_bi2(p):
 def p_suffix_named_decl_specifiers1(p):
 	"suffix_named_decl_specifiers : suffix_named_decl_specifier_bi"
 	add_children(len(list(filter(None, p[1:]))),"suffix_named_decl_specifiers")
-	
+
 	p[0] = p[1]
 	pass
 
@@ -1787,7 +1749,7 @@ def p_suffix_named_decl_specifiers_sf1(p):
 def p_suffix_named_decl_specifiers_sf2(p):
 	"suffix_named_decl_specifiers_sf : suffix_named_decl_specifiers"
 	add_children(len(list(filter(None, p[1:]))),"suffix_named_decl_specifiers_sf")
-	
+
 	p[0] = p[1]
 	pass
 
@@ -1799,14 +1761,14 @@ def p_suffix_named_decl_specifiers_sf3(p):
 def p_suffix_decl_specified_ids1(p):
 	"suffix_decl_specified_ids : suffix_built_in_decl_specifier"
 	add_children(len(list(filter(None, p[1:]))),"suffix_decl_specified_ids")
-	
+
 	p[0] = p[1]
 	pass
 
 def p_suffix_decl_specified_ids2(p):
 	"suffix_decl_specified_ids : suffix_built_in_decl_specifier suffix_named_decl_specifiers_sf"
 	add_children(len(list(filter(None, p[1:]))),"suffix_decl_specified_ids")
-	
+
 	if p[2]["is_decl"]:			# Identifier is already declared in the currentScope
 		st.print_error(p.lineno(1), p[2], 4, p[1]["type"])	# error: conflicting declaration 'p[1] p[2]["name"]' / error:  redeclaration of 'p[2]["name"]'
 		p[0] = p[2]				# Considering first declaration only
@@ -1819,7 +1781,7 @@ def p_suffix_decl_specified_ids2(p):
 def p_suffix_decl_specified_ids3(p):
 	"suffix_decl_specified_ids : suffix_named_decl_specifiers_sf"
 	add_children(len(list(filter(None, p[1:]))),"suffix_decl_specified_ids")
-	
+
 	p[0] = p[1]
 	pass
 
@@ -1844,14 +1806,14 @@ def p_suffix_decl_specified_scope3(p):
 def p_decl_specifier_affix1(p):
 	"decl_specifier_affix : storage_class_specifier"
 	add_children(len(list(filter(None, p[1:]))),"decl_specifier_affix")
-	
+
 	p[0] = p[1]
 	pass
 
 def p_decl_specifier_affix2(p):
 	"decl_specifier_affix : function_specifier"
 	add_children(len(list(filter(None, p[1:]))),"decl_specifier_affix")
-	
+
 	p[0] = p[1]
 	pass
 
@@ -1859,8 +1821,8 @@ def p_decl_specifier_affix3(p):
 	"decl_specifier_affix : FRIEND"
 	create_child("None",p[1])
 	add_children(len(list(filter(None, p[1:]))),"decl_specifier_affix")
-	
-	
+
+
 	p[0] = p[1]
 	pass
 
@@ -1868,29 +1830,29 @@ def p_decl_specifier_affix4(p):
 	"decl_specifier_affix : TYPEDEF"
 	create_child("None",p[1])
 	add_children(len(list(filter(None, p[1:]))),"decl_specifier_affix")
-	
-	
+
+
 	p[0] = p[1]
 	pass
 
 def p_decl_specifier_affix5(p):
 	"decl_specifier_affix : cv_qualifier"
 	add_children(len(list(filter(None, p[1:]))),"decl_specifier_affix")
-	
+
 	p[0] = p[1]
 	pass
 
 def p_decl_specifier_suffix(p):
 	"decl_specifier_suffix : decl_specifier_affix"
 	add_children(len(list(filter(None, p[1:]))),"decl_specifier_suffix")
-	
+
 	p[0] = p[1]
 	pass
 
 def p_decl_specifier_prefix1(p):
 	"decl_specifier_prefix : decl_specifier_affix"
 	add_children(len(list(filter(None, p[1:]))),"decl_specifier_prefix")
-	
+
 	p[0] = p[1]
 	pass
 
@@ -1922,8 +1884,6 @@ def p_function_specifier1(p):
 	"function_specifier : EXPLICIT"
 	create_child("None",p[1])
 	add_children(len(list(filter(None, p[1:]))),"function_specifier")
-	
-	
 	p[0] = p[1]
 	pass
 
@@ -1931,8 +1891,6 @@ def p_function_specifier2(p):
 	"function_specifier : INLINE"
 	create_child("None",p[1])
 	add_children(len(list(filter(None, p[1:]))),"function_specifier")
-	
-	
 	p[0] = p[1]
 	pass
 
@@ -1956,7 +1914,7 @@ def p_type_specifier2(p):
 def p_type_specifier3(p):
 	"type_specifier : cv_qualifier"
 	add_children(len(list(filter(None, p[1:]))),"type_specifier")
-	
+
 	p[0] = p[1]
 	pass
 
@@ -2000,7 +1958,6 @@ def p_built_in_type_specifier(p):
 							   | DOUBLE
 							   | VOID'''
 	create_child("built_in_type_specifier",p[1])
-	
 	p[0] = p[1]
 	pass
 
@@ -2191,9 +2148,9 @@ def p_linkage_specification2(p):
 
 def p_init_declarations1(p):
 	"init_declarations : assignment_expression ',' init_declaration"
-	
+
 	add_children(len(list(filter(None, p[1:]))) -1,"init_declarations")
-	
+
 	if p[3].get("is_decl"):
 		st.print_error(p.lineno(1), p[3], 4, p[1]["type"])
 	else:
@@ -2555,7 +2512,7 @@ def p_braced_initializer2(p):
 	"braced_initializer : '{' new_scope initializer_list ',' '}'"
 	add_children(len(list(filter(None, p[1:]))) - 3,"braced_initializer")
 	SymbolTable.endScope()
-	rint("BRACED2222222222222222222222222222222222222222")
+	print("BRACED2222222222222222222222222222222222222222")
 	pp = pprint.PrettyPrinter(indent=4)
 	pp.pprint( p[3])
 	p[0] = p[3]
@@ -3059,7 +3016,6 @@ def p_operator(p):
 		pass
 	elif p[1] =='(' or p[1] == '[':
 		pass
-		
 	else:
 		p[0] = p[1]
 	pass
@@ -3202,12 +3158,7 @@ if __name__ == "__main__":
 			if(a[0][2][1][1] < y){
 				int z;
 				z++;
-
-
-
 			}
-			
-
 		}
 	}
 	'''

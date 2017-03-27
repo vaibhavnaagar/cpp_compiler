@@ -1,0 +1,28 @@
+
+> Scope Resolution:
+  scope  of function parameter list is equal to function body scope
+
+> enum related rules
+
+> type_specifier
+> elaborate_type_specifier
+> suffix_decl_specified_ids : suffix_built_in_decl_specifier
+> primary_expression other productions
+> postfix_expression Other productions
+> Ignored:  specifer is None or not
+
+
+> in expresion check if assignment-expression is declared
+
+> "star_ptr_operator : star_ptr_operator cv_qualifier" =>  int *const ptr; (http://www.geeksforgeeks.org/const-qualifier-in-c/)
+> nested_ptr_operator : id_scope nested_ptr_operator  => Scoping rules
+> "global_scope" => Don't know when this global_scope is used (Currently ignored)
+
+>> id_type: variable, array, function, class, type_specifier, literal
+
+> "pm_expression : pm_expression DOT_STAR cast_expression"
+> "pm_expression : pm_expression ARROW_STAR cast_expression"
+
+> 		if p[3].get("id_type") != "variable":		#  id_type should only be variable
+
+> "advance_search" (not using at all) 
