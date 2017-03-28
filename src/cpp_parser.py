@@ -164,7 +164,6 @@ start = 'translation_unit'
 def p_identifier(p):
 	"identifier : IDENTIFIER"
 	create_child("identifier",p[1])
-
 	entry = st.ScopeList[st.currentScope]["table"].lookup(p[1])
 	if entry is not None:
 		p[0] = dict(entry)
@@ -179,14 +178,15 @@ def p_identifier(p):
 			"star"	: 0,
 			"num"	: 1,
 			"value" : None,
-			"order"	: []
+			"order"	: [],
+			"parameters" : None,
+			"is_defined" : False,	# Used For functions only
 		}
 	pass
 
 def p_id1(p):
 	"id : identifier"
 	add_children(len(list(filter(None, p[1:]))),"id")
-
 	p[0] = p[1]
 	pass
 
@@ -194,8 +194,6 @@ def p_id1(p):
 def p_global_scope1(p):
 	"global_scope : SCOPE"
 	create_child("global_scope",p[1])
-
-
 	p[0] = p[1]
 	pass
 
@@ -214,7 +212,6 @@ def p_id_scope(p):
 def p_nested_id1(p):
 	"nested_id : id                                  %prec SHIFT_THERE"
 	add_children(len(list(filter(None, p[1:]))),"nested_id")
-
 	p[0] = p[1]
 	pass
 
@@ -226,7 +223,6 @@ def p_nested_id2(p):
 def p_scoped_id1(p):
 	"scoped_id : nested_id"
 	add_children(len(list(filter(None, p[1:]))),"scoped_id")
-
 	p[0] = p[1]
 	pass
 
@@ -365,14 +361,12 @@ def p_scoped_pseudo_destructor_id2(p):
 def p_string(p):
 	"string : STRING"
 	create_child("string",p[1])
-
 	p[0] = p[1]
 	pass
 
 def p_literal1(p):
 	"literal : INTEGER"
 	create_child("literal - int",p[1])
-
 	p[0] = {
 		"name"	: str(p[1]),
 		"type"  : ["literal_int"],
@@ -384,7 +378,6 @@ def p_literal1(p):
 def p_literal2(p):
 	"literal : CHARACTER"
 	create_child("literal - char",p[1])
-
 	p[0] = {
 		"name"	: str(p[1]),
 		"type"  : ["literal_char"],
@@ -396,7 +389,6 @@ def p_literal2(p):
 def p_literal3(p):
 	"literal : FLOATING"
 	create_child("literal - float",p[1])
-
 	p[0] = {
 		"name"	: str(p[1]),
 		"type"  : ["literal_float"],
@@ -408,7 +400,6 @@ def p_literal3(p):
 def p_literal4(p):
 	"literal : string"
 	add_children(len(list(filter(None, p[1:]))),"literal")
-
 	p[0] = {
 		"name"	: str(p[1]),
 		"type"  : ["literal_string"],
@@ -420,14 +411,12 @@ def p_literal4(p):
 def p_literal5(p):
 	"literal : boolean_literal"
 	add_children(len(list(filter(None, p[1:]))),"literal")
-
 	p[0] = p[1]
 	pass
 
 def p_boolean_literal1(p):
 	"boolean_literal : FALSE"
 	create_child("boolean",p[1])
-
 	p[0] = {
 		"name"	: str(p[1]),
 		"type"  : ["literal_bool"],
@@ -439,7 +428,6 @@ def p_boolean_literal1(p):
 def p_boolean_literal2(p):
 	"boolean_literal : TRUE"
 	create_child("boolean",p[1])
-
 	p[0] = {
 		"name"	: str(p[1]),
 		"type"  : ["literal_bool"],
@@ -488,7 +476,6 @@ def p_primary_expression3(p):
 def p_primary_expression4(p):
 	"primary_expression : abstract_expression               %prec REDUCE_HERE_MOSTLY"
 	add_children(len(list(filter(None, p[1:]))),"primary expression")
-
 	p[0] = p[1]
 	pass
 
@@ -531,7 +518,61 @@ def p_postfix_expression1(p):
 def p_postfix_expression2(p):
 	"postfix_expression : postfix_expression parenthesis_clause"
 	add_children(len(list(filter(None, p[1:]))),"postfix_expression")
+	p[0] = p[1]
+	if p[0]["id_type"] not in ["variable", "function"]:
+		st.print_error(p.lineno(1), p[0], 14, "()")
+		return
+	if p[0]["is_decl"]:
+		if p[0]["id_type"] == "variable":	# Variable()
+			st.print_error(p.lineno(1), p[0], 14, "()")
+			return
+		if p[0]["is_defined"]:				# Function Call
+			check_func_params(p.lineno(1), p[0], p[2])
+			p[0]["id_type"] = "variable"
+		else:								# Function definition
+			if st.parenthesis_ctr > 1:		# parentheses in paramter definitions
+				st.print_error(p.lineno(1), {}, 26)
+				return
+			match_func_params(p.lineno(1), p[0], p[2])
+			p[0]["parameters"] = p[2]
+	else:
+		if p[0]["type"] is None:			# Function call (function from some parent scopes)
+			entry = SymbolTable.lookupComplete(p[0]["name"])
+			if entry is None:
+				st.print_error(p.lineno(1), p[0], 1)
+				return
+			else:
+				p[0] = dict(entry)
+				p[0]["is_decl"] = True
+				if p[0]["id_type"] not in ["function"]:
+					st.print_error(p.lineno(1), p[0], 14, "()")
+					return
+				else:
+					check_func_params(p.lineno(1), p[0], p[2])
+					p[0]["id_type"] = "variable"
+		else:								# Function declaration or definition
+			p[0]["id_type"] = "function"
+			if st.parenthesis_ctr > 1:		# parentheses in paramter definitions
+				st.print_error(p.lineno(1), {}, 26)
+				return
+			c1 = all(param["id_type"] in ["type_specifier", "varaiable", "array",] for param in p[2])
+			c2 = all([ not param.get("is_decl", False) for param in p[2]])
+			c3 = all([ ' '.join(param["type"] if param["type"] else []) in st.simple_type_specifier for param in p[2]])
+			c4 = all([ set(param["specifier"] if param["specifier"] else []).issubset(st.parameter_specifiers) for param in p[2]])
+			c5 = all([ len(param["specifier"] if param["specifier"] else []) == len(set(param["specifier"] if param["specifier"] else [])) for param in p[2]])
+			if c1 and c2 and c3 and c4 and c5:
+				params_name = [], params = []
+				for param in p[2]:
+					if (param["id_type"] in ["variable", "array"]) and (param["name"] in params_name):
+						st.print_error(p.lineno(1), param, 4, param["type"])
+					else:
+						params += [param]
+						params_name += [param["name"]]
+				p[0]["parameters"] = params
+			else:
+				st.print_error(p.lineno(1), {}, 26)
 	pass
+
 '''
 #def p_postfix_expression2(p):
 #    "postfix_expression : postfix_expression parenthesis_clause mark_type1 '-'"
@@ -555,14 +596,12 @@ def p_postfix_expression6(p):
 	create_child("None","[")
 	create_child("None","]")
 	add_children(len(list(filter(None, p[1:]))),"postfix_expression")
-
 	p[0] = p[1]
 	if p[1].get("is_decl") is None:		# If no identifier received
 		st.print_error(p.lineno(1), {}, 3, p[2])
 		return
 	if p[1]["is_decl"] is False:								# Identifier is not declared
 		if p[1]["type"] is None:
-
 			entry = SymbolTable.lookupComplete(p[1]["name"])
 			if entry is None:
 				st.print_error(p.lineno(1), p[1], 1)
@@ -585,7 +624,6 @@ def p_postfix_expression6(p):
 			else:
 				p[0]["id_type"] = "array"
 				p[0]["order"].append(p[3]["value"])
-
 				p[0]["num"] *= p[3]["value"]
 	if p[0]["is_decl"] is True:				# Identifier is already declared, now expression_opt should have integral type
 		if p[0]["id_type"] != "array":
@@ -1674,28 +1712,24 @@ def p_simple_declaration4(p):
 def p_suffix_built_in_decl_specifier_raw1(p):
 	"suffix_built_in_decl_specifier_raw : built_in_type_specifier"
 	add_children(len(list(filter(None, p[1:]))),"suffix_built_in_decl_specifier_raw ")
-
 	p[0] = dict(name=str(p[1]), id_type="type_specifier", type=[p[1]], specifier=[])
 	pass
 
 def p_suffix_built_in_decl_specifier_raw2(p):
 	"suffix_built_in_decl_specifier_raw : suffix_built_in_decl_specifier_raw built_in_type_specifier"
 	add_children(len(list(filter(None, p[1:]))),"suffix_built_in_decl_specifier_raw ")
-
 	p[0] = dict(name=' '.join([p[1]["name"], str(p[2])]), id_type="type_specifier", type=p[1]["type"] + [p[2]], specifier=p[1]["specifier"])
 	pass
 
 def p_suffix_built_in_decl_specifier_raw3(p):
 	"suffix_built_in_decl_specifier_raw : suffix_built_in_decl_specifier_raw decl_specifier_suffix"
 	add_children(len(list(filter(None, p[1:]))),"suffix_built_in_decl_specifier_raw ")
-
 	p[0] = dict(name=' '.join([p[1]["name"], str(p[2])]), id_type="type_specifier", type=p[1]["type"], specifier=p[1]["specifier"] + [p[2]])
 	pass
 
 def p_suffix_built_in_decl_specifier1(p):
 	"suffix_built_in_decl_specifier : suffix_built_in_decl_specifier_raw"
 	add_children(len(list(filter(None, p[1:]))),"suffix_built_in_decl_specifier ")
-
 	p[0] = p[1]
 	pass
 
@@ -1703,7 +1737,6 @@ def p_suffix_built_in_decl_specifier1(p):
 def p_suffix_named_decl_specifier1(p):
 	"suffix_named_decl_specifier : scoped_id"
 	add_children(len(list(filter(None, p[1:]))),"suffix_named_decl_specifier")
-
 	p[0] = p[1]
 	pass
 
@@ -1720,7 +1753,6 @@ def p_suffix_named_decl_specifier3(p):
 def p_suffix_named_decl_specifier_bi1(p):
 	"suffix_named_decl_specifier_bi : suffix_named_decl_specifier"
 	add_children(len(list(filter(None, p[1:]))),"suffix_named_decl_specifier_bi")
-
 	p[0] = p[1]
 	pass
 
@@ -1732,7 +1764,6 @@ def p_suffix_named_decl_specifier_bi2(p):
 def p_suffix_named_decl_specifiers1(p):
 	"suffix_named_decl_specifiers : suffix_named_decl_specifier_bi"
 	add_children(len(list(filter(None, p[1:]))),"suffix_named_decl_specifiers")
-
 	p[0] = p[1]
 	pass
 
@@ -1749,7 +1780,6 @@ def p_suffix_named_decl_specifiers_sf1(p):
 def p_suffix_named_decl_specifiers_sf2(p):
 	"suffix_named_decl_specifiers_sf : suffix_named_decl_specifiers"
 	add_children(len(list(filter(None, p[1:]))),"suffix_named_decl_specifiers_sf")
-
 	p[0] = p[1]
 	pass
 
@@ -1761,17 +1791,36 @@ def p_suffix_named_decl_specifiers_sf3(p):
 def p_suffix_decl_specified_ids1(p):
 	"suffix_decl_specified_ids : suffix_built_in_decl_specifier"
 	add_children(len(list(filter(None, p[1:]))),"suffix_decl_specified_ids")
-
 	p[0] = p[1]
 	pass
 
 def p_suffix_decl_specified_ids2(p):
 	"suffix_decl_specified_ids : suffix_built_in_decl_specifier suffix_named_decl_specifiers_sf"
 	add_children(len(list(filter(None, p[1:]))),"suffix_decl_specified_ids")
-
 	if p[2]["is_decl"]:			# Identifier is already declared in the currentScope
-		st.print_error(p.lineno(1), p[2], 4, p[1]["type"])	# error: conflicting declaration 'p[1] p[2]["name"]' / error:  redeclaration of 'p[2]["name"]'
-		p[0] = p[2]				# Considering first declaration only
+		if (p[2]["id_type"] == "function") and (p[2]["is_defined"] is False):
+			if set(p[1]["type"]) != set(p[2]["type"]) :
+				st.print_error(p.lineno(1), p[2], 4, p[1]["type"])
+			elif set(p[1]["specifier"] != p[2]["specifier"]:
+				st.print_error(p.lineno(1), p[2], 6)
+			p[0] = p[2]
+		elif st.is_func_decl is True:
+			p[0] = {
+				"name" : str(p[2]["name"]),
+				"id_type" : "parameter",
+				"is_decl" : False,
+				"type" : list(p[1]["type"]),
+				"specifier" : list(p[1]["specifier"]),
+				"star"	: 0,
+				"num"	: 1,
+				"value" : None,
+				"order"	: [],
+				"parameters" : None,
+				"is_defined" : False,	# Used For functions only
+			}
+		else:
+			st.print_error(p.lineno(1), p[2], 4, p[1]["type"])	# error: conflicting declaration 'p[1] p[2]["name"]' / error:  redeclaration of 'p[2]["name"]'
+			p[0] = p[2]				# Considering first declaration only
 	else:
 		p[0] = p[2]
 		p[0]["type"] = p[1]["type"]		# List of data_types
@@ -1781,7 +1830,6 @@ def p_suffix_decl_specified_ids2(p):
 def p_suffix_decl_specified_ids3(p):
 	"suffix_decl_specified_ids : suffix_named_decl_specifiers_sf"
 	add_children(len(list(filter(None, p[1:]))),"suffix_decl_specified_ids")
-
 	p[0] = p[1]
 	pass
 
@@ -2309,16 +2357,29 @@ def p_direct_abstract_declarator3(p):
 def p_parenthesis_clause1(p):
 	"parenthesis_clause : parameters_clause cv_qualifier_seq_opt"
 	add_children(len(list(filter(None, p[1:]))),"parenthesis_clause")
+	p[0] = p[1]
 	pass
 
 def p_parenthesis_clause2(p):
 	"parenthesis_clause : parameters_clause cv_qualifier_seq_opt exception_specification"
 	add_children(len(list(filter(None, p[1:]))),"parenthesis_clause")
+	p[0] = p[1]
 	pass
 
 def p_parameters_clause(p):
-	"parameters_clause : '(' parameter_declaration_clause ')'"
+	"parameters_clause : '(' open_paren parameter_declaration_clause ')'"
 	add_children(len(list(filter(None, p[1:]))) - 2,"paremeters_clause")
+	p[0] = p[3] if p[3] else []
+	st.parenthesis_ctr -= 1
+	if st.parenthesis_ctr == 0:
+		st.is_func_decl = False
+	pass
+
+def p_open_paren(p):
+	"open_paren :"
+	if st.parenthesis_ctr == 0:
+		st.is_func_decl = True
+	st.parenthesis_ctr += 1
 	pass
 
 def p_parameter_declaration_clause1(p):
@@ -2328,22 +2389,26 @@ def p_parameter_declaration_clause1(p):
 def p_parameter_declaration_clause2(p):
 	"parameter_declaration_clause : parameter_declaration_list"
 	add_children(len(list(filter(None, p[1:]))),"parameter_declaration_clause")
+	p[0] = p[1]
 	pass
 
 def p_parameter_declaration_clause3(p):
 	"parameter_declaration_clause : parameter_declaration_list ELLIPSIS"
 	create_child("None",p[2])
 	add_children(len(list(filter(None, p[1:]))),"parameter_declaration_clause")
+	p[0] = p[1]
 	pass
 
 def p_parameter_declaration_list1(p):
 	"parameter_declaration_list : parameter_declaration"
 	add_children(len(list(filter(None, p[1:]))),"parameter_declaration_list")
+	p[0] = [p[1]]	# List of parameters
 	pass
 
 def p_parameter_declaration_list2(p):
 	"parameter_declaration_list : parameter_declaration_list ',' parameter_declaration"
 	add_children(len(list(filter(None, p[1:]))) -1,"parameter_declaration_list")
+	p[0] = p[1] + [p[2]]
 	pass
 
 def p_abstract_pointer_declaration1(p):
@@ -2391,16 +2456,20 @@ def p_special_parameter_declaration3(p):
 def p_parameter_declaration1(p):
 	"parameter_declaration : assignment_expression"
 	add_children(len(list(filter(None, p[1:]))),"parameter_declaration")
+	p[0] = p[1]
 	pass
 
 def p_parameter_declaration2(p):
 	"parameter_declaration : special_parameter_declaration"
 	add_children(len(list(filter(None, p[1:]))),"parameter_declaration")
+	p[0] = p[1]
 	pass
 
 def p_parameter_declaration3(p):
 	"parameter_declaration : decl_specifier_prefix parameter_declaration"
 	add_children(len(list(filter(None, p[1:]))),"parameter_declaration")
+	p[0] = p[2]
+	p[0]["specifier"] += [p[1]]
 	pass
 
 
@@ -3052,6 +3121,7 @@ def p_handler(p):
 def p_exception_declaration(p):
 	"exception_declaration : parameter_declaration"
 	add_children(len(list(filter(None, p[1:]))),"exception_declaration")
+	p[0] = p[1]
 	pass
 
 def p_throw_expression1(p):

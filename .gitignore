@@ -2,6 +2,7 @@
 parser.out
 parsetab.py
 parselog.txt
+lookAt
 *.pyc
 __pycache__
 *.png

@@ -18,11 +18,11 @@
 > nested_ptr_operator : id_scope nested_ptr_operator  => Scoping rules
 > "global_scope" => Don't know when this global_scope is used (Currently ignored)
 
->> id_type: variable, array, function, class, type_specifier, literal
+>> id_type: variable, array, function, class, type_specifier, literal, parameter (means- int x)
+
+> Elippsis
 
 > "pm_expression : pm_expression DOT_STAR cast_expression"
 > "pm_expression : pm_expression ARROW_STAR cast_expression"
 
-> 		if p[3].get("id_type") != "variable":		#  id_type should only be variable
-
-> "advance_search" (not using at all) 
+> "advance_search" (not using at all)
