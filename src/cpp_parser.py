@@ -2544,6 +2544,8 @@ def p_braced_initializer1(p):
 	"braced_initializer : '{' new_scope initializer_list '}'"
 	add_children(len(list(filter(None, p[1:]))) - 2,"braced_initializer")
 	SymbolTable.endScope()
+	if p[3]['dim'] ==0:
+		p[0].append(p)
 	p[0] = p[3]
 	print("BRACED111111111111111111111111111111111111111")
 	pp = pprint.PrettyPrinter(indent=4)
@@ -3194,7 +3196,8 @@ if __name__ == "__main__":
 	 int main()
 	{
 	int a[2][3][2][2] = { { { 1, 3,4}, {11,12,13,14,15,16} } , { 1 } };
-	int b[1][2];
+	
+	int b[1][3] = [ [ 1,2] , [3, [4,[5,6],5]], 5,6];
 	if(a[0][2][1][1]>0)
 		{
 			int y;
