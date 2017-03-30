@@ -99,6 +99,23 @@ for spec_type in all_specifiers:
     for spec in all_specifiers[spec_type]:
         specifiers[spec] = spec_type
 
+### Colors for logging ###
+class color:
+    PURPLE = '\033[95m'
+    CYAN = '\033[96m'
+    DARKCYAN = '\033[36m'
+    BLUE = '\033[94m'
+    GREEN = '\033[92m'
+    YELLOW = '\033[93m'
+    RED = '\033[91m'
+    BOLD = '\033[1m'
+    UNDERLINE = '\033[4m'
+    END = '\033[0m'
+
+    cline = DARKCYAN + BOLD + "Line No.:"
+    cerror = "::" + END + RED + BOLD + "ERROR:" + END
+
+### SymTab class for SymbolTable ###
 
 class SymTab:
     def __init__(self):
@@ -168,6 +185,11 @@ class SymTab:
             currtable.symtab[str(name)].update({attribute : value})
         print("[Symbol Table] Adding attribute of identifier: ", name, " attribute: ", attribute, "value: ", value)
 
+    @staticmethod
+    def updateIDAttr(name, attribute, value):
+        currtable = ScopeList[currentScope]["table"]
+        currtable.symtab[str(name)].update({attribute : value})
+        print("[Symbol Table] Updating attribute of identifier: ", name, " attribute: ", attribute, "value: ", value)
 
     def addScopeAttr(self,attribute,value):
         self.scope.update({attribute:value})
@@ -217,7 +239,7 @@ def check_datatype(lineno, types, name, id_type):
             SymTab.addIDAttr(name,"size", simple_type_specifier[input_type]["size"]* currtable.symtab[str(name)]["num"])
         return True
     else :
-        print("Line No.:", lineno, "Error: Invalid string of data type - Taking the first element only")
+        print(color.cline, lineno, color.cerror + " Invalid string of data type - Taking the first element only")
         input_type = "" if len(types) == 0  else types[0]
         if input_type in simple_type_specifier:
             currtable.symtab[str(name)]["type"] = [simple_type_specifier[input_type]["equiv_type"]]
@@ -225,7 +247,7 @@ def check_datatype(lineno, types, name, id_type):
                 SymTab.addIDAttr(name,"size", simple_type_specifier[input_type]["size"] *currtable.symtab[str(name)]["num"])
             return True
         else :
-            print("Line No.:", lineno, "Error: Invalid data type")
+            print(color.cline, lineno, color.cerror + " Invalid data type")
             return False
     pass
 
@@ -245,24 +267,24 @@ def check_specifier(lineno, specifier_list, name):
         if not spec_dict[specifiers[spec]]:
             spec_dict[specifiers[spec]].append(spec)
         else:
-            print("Line No.:", lineno, "Error: Multiple speciers of one type - Ignoring all but first")
+            print(color.cline, lineno, color.cerror + " Multiple speciers of one type - Ignoring all but first")
 
     currtable = ScopeList[currentScope]["table"]
     id_type = currtable.symtab[str(name)]["id_type"]
 
     if spec_dict["typedef_spec"]:
         if list(filter(lambda x: x!= "typedef",specifier_list)):
-            print("Line No.:", lineno, "Error: No specifiers with typedef allowed - Ignoring all")
+            print(color.cline, lineno, color.cerror + " No specifiers with typedef allowed - Ignoring all")
         spec_dict = {"typedef_spec" :"typedef"}
 
     if spec_dict["friend_spec"]:
         if id_type != "class" and id_type !="function" :
-            print("Line No.:", lineno, "Error: Friend Specifier only allowed with class or function type of identifier")
+            print(color.cline, lineno, color.cerror + " Friend Specifier only allowed with class or function type of identifier")
             spec_dict["friend_spec"] = []
 
     if spec_dict["function_spec"]:
         if id_type != "function":
-            print("Line No.:", lineno, "Error: Function Specifier only allowed with function type of identifier")
+            print(color.cline, lineno, color.cerror + " Function Specifier only allowed with function type of identifier")
             spec_dict["function_spec"] = []
     dummy = []
     for attr in spec_dict:
@@ -279,7 +301,7 @@ def expression_type(lineno, l1, s1, l2, s2, op=None):
         else :
             return None
     if s1 != s2:
-        print("Line No.:", lineno, "Error: Different levels of dereferencing in the operands, Ignoring operation")
+        print(color.cline, lineno, color.cerror + " Different levels of dereferencing in the operands, Ignoring operation")
         return l1,s1
 
     type1 = simple_type_specifier[' '.join(l1)]["equiv_type"]
@@ -290,7 +312,7 @@ def expression_type(lineno, l1, s1, l2, s2, op=None):
             l = eq_integral_types[max(eq_integral_types.index(type1),eq_integral_types.index(type1))]
             return l.split(" "),s1
         else:
-            print("Line No.:", lineno, "Error: Incorrect data types for ",op," Ignoring operation")
+            print(color.cline, lineno, color.cerror + " Incorrect data types for ",op," Ignoring operation")
             return l1,s1
 
     if op in [ "^", "|" , "&", "+", "-", "/", "*", "^=", "|=" , "&=", "+=", "-=", "/=", "*="]:
@@ -298,10 +320,10 @@ def expression_type(lineno, l1, s1, l2, s2, op=None):
             l = eq_integral_types[max(eq_integral_types.index(type1),eq_integral_types.index(type1))]
             return l.split(" "),s1
         else:
-            print("Line No.:", lineno, "Error: Incorrect data types for ",op," Ignoring operation")
+            print(color.cline, lineno, color.cerror + " Incorrect data types for ",op," Ignoring operation")
             return l1,s1
 
-    if op in ["<", '>', '<=', '>=']:
+    if op in ["<", '>', '<=', '>=', '==']:
         if type1 in eq_integral_types and type2 in eq_integral_types:
             return ["bool"],s1
 
@@ -309,7 +331,7 @@ def expression_type(lineno, l1, s1, l2, s2, op=None):
         if type1 in [bool_types, eq_integral_types] and type2 in [bool_types, eq_integral_types]:
             return ["bool"],s1
 
-    print("Line No.:", lineno, "Error: Incompatible data types of operands, Ignoring operation")
+    print(color.cline, lineno, color.cerror + " Incompatible data types of operands, Ignoring operation")
     return l1,s1
 
 
@@ -342,14 +364,14 @@ def check_func_params(lineno, func, params, param_list, decl=True):
         return False
     no_err = True
     for p1, p2 in zip(params, func["parameters"]):
-        if simple_type_specifier.get(p1["type"]) and simple_type_specifier.get(p2["type"]) :
-            if simple_type_specifier[p1["type"]]["equiv_type"] != simple_type_specifier[p2["type"]]["equiv_type"] :
+        if simple_type_specifier.get(' '.join(p1["type"])) and simple_type_specifier.get(' '.join(p2["type"])) :
+            if simple_type_specifier[' '.join(p1["type"])]["equiv_type"] != simple_type_specifier[' '.join(p2["type"])]["equiv_type"] :
                 no_err = False
                 print_error(lineno, {}, 31, p1["name"], p2["name"])
-            elif p1["id_type"] in list(param_list.remove("literal") if ("literal" in param_list) else param_list) and set(p1["specifier"]) != set(p2["specifier"]):
+            elif p1["id_type"] in [pt for pt in param_list if pt not in ["literal"]] and set(p1["specifier"]) != set(p2["specifier"]):
                 no_err = False
                 print_error(lineno, {}, 34, p1["name"], p2["name"])
-            elif p1.get("order") != p2.get("order"):
+            elif p1.get("order", []) != p2.get("order", []):
                 no_err = False
                 print_error(lineno, {}, 35, p1["name"], p2["name"])
             elif p1.get("star", 0) != p2.get("star", 0):
@@ -363,88 +385,94 @@ def check_func_params(lineno, func, params, param_list, decl=True):
 
 def print_error(lineno, id1, errno, *args):
     if errno == 1:
-        print("Line No.:", lineno, ": Error: \'%s\' was not declared in this scope" % id1.get("name"))
+        print(color.cline, lineno, color.cerror + " \'%s\' was not declared in this scope" % id1.get("name"))
     elif errno == 2:
-        print("Line No.:", lineno, ": Error: declaration does not declare anything")
+        print(color.cline, lineno, color.cerror + " declaration does not declare anything")
     elif errno == 3:
-        print("Line No.:", lineno, ": Error: expected unqualified-id before \'%s\'" % args[0])
+        print(color.cline, lineno, color.cerror + " expected unqualified-id before \'%s\'" % args[0])
     elif errno == 4:
         if id1["type"] == args[0]:
-            print("Line No.:", lineno, ": Error: ", "redeclaration of \'%s\'" % id1["name"])
+            print(color.cline, lineno, color.cerror + " ", "redeclaration of \'%s\'" % id1["name"])
         else:
-            print("Line No.:", lineno, ": Error: ", "conflicting declaration \'%s\', previously declared as \'%s\'" % (id1["name"], id1["type"]))
+            print(color.cline, lineno, color.cerror + " ", "conflicting declaration \'%s\', previously declared as \'%s\'" % (id1["name"], id1["type"]))
     elif errno == 5:
-        print("Line No.:", lineno, ": Error: uninitialized const \'%s\'" % id1["name"])
+        print(color.cline, lineno, color.cerror + " uninitialized const \'%s\'" % id1["name"])
     elif errno == 6:
-        print("Line No.:", lineno, ": Error: ", "conflicting declaration \'%s\', previously declared as \'%s\'" % (id1["name"], id1["specifier"]))
+        print(color.cline, lineno, color.cerror + " ", "conflicting declaration \'%s\', previously declared as \'%s\'" % (id1["name"], id1["specifier"]))
     elif errno == 7:
-        print("Line No.:", lineno, ": Error: \'%s\' is not of array type" % id1["name"])
+        print(color.cline, lineno, color.cerror + " \'%s\' is not of array type" % id1["name"])
     elif errno == 8:
-        print("Line No.:", lineno, ": Error: index type: \'%s\' for array \'%s\' is not of integral type" % (args[0], id1["name"]))
+        print(color.cline, lineno, color.cerror + " index type: \'%s\' for array \'%s\' is not of integral type" % (args[0], id1["name"]))
     elif errno == 9:
-        print("Line No.:", lineno, ": Error: index type is not const expression for array \'%s\'" % id1["name"])
+        print(color.cline, lineno, color.cerror + " index type is not const expression for array \'%s\'" % id1["name"])
     elif errno == 10:
-        print("Line No.:", lineno, ": Error: invalid conversion of \'%s\' from \'%s\' to array" % (id1["name"], args[0]))
+        print(color.cline, lineno, color.cerror + " invalid conversion of \'%s\' from \'%s\' to array" % (id1["name"], args[0]))
     elif errno == 11:
-        print("Line No.:", lineno, ": Error: storage size of \'%s\' isn’t known" % id1["name"])
+        print(color.cline, lineno, color.cerror + " storage size of \'%s\' isn’t known" % id1["name"])
     elif errno == 12:
-        print("Line No.:", lineno, ": Error: expected  \'%s\' before \'%s\'" % (args[1], args[0]))
+        print(color.cline, lineno, color.cerror + " expected  \'%s\' before \'%s\'" % (args[1], args[0]))
     elif errno == 13:
-        print("Line No.:", lineno, ": Error: lvalue  \'%s\' cannot be incremented or decremented " % args[0])
+        print(color.cline, lineno, color.cerror + " lvalue  \'%s\' cannot be incremented or decremented " % args[0])
     elif errno == 14:
-        print("Line No.:", lineno, ": Error: \'%s\' cannot be associated with \'%s\'" % (args[0], id1["name"]))
+        print(color.cline, lineno, color.cerror + " \'%s\' cannot be associated with \'%s\'" % (args[0], id1["name"]))
     elif errno == 15:
-        print("Line No.:", lineno, ": Syntax Error: invalid expression \'%s\'" % args[0])
+        print(color.cline, lineno, color.cerror + " invalid syntax or expression \'%s\'" % args[0])
     elif errno == 16:
-        print("Line No.:", lineno, ": Error: \'%s\' operations are not allowed in global scope" % args[0])
+        print(color.cline, lineno, color.cerror + " \'%s\' operations are not allowed in global scope" % args[0])
     elif errno == 17:
-        print("Line No.:", lineno, ": Error: \'%s\' is not an lvalue, thus cannot be assigned" % id1["name"])
+        print(color.cline, lineno, color.cerror + " \'%s\' is not an lvalue, thus cannot be assigned" % id1["name"])
     elif errno == 18:
-        print("Line No.:", lineno, ": Error: \'%s\' cannot be assigned \'%s\'" % (args[0], args[1]))
+        print(color.cline, lineno, color.cerror + " \'%s\' cannot be assigned \'%s\'" % (args[0], args[1]))
     elif errno == 19:
-        print("Line No.:", lineno, ": Error: const identifier \'%s\' cannot be modified" % id1["name"])
+        print(color.cline, lineno, color.cerror + " const identifier \'%s\' cannot be modified" % id1["name"])
     elif errno == 20:
-        print("Line No.:", lineno, ": Error: empty braced declaration for variables are not allowed")
+        print(color.cline, lineno, color.cerror + " empty braced declaration for variables are not allowed")
     elif errno == 21:
-        print("Line No.:", lineno, ": Error: scalar object \'%s\' requires one element in initializer" % args[0])
+        print(color.cline, lineno, color.cerror + " scalar object \'%s\' requires one element in initializer" % args[0])
     elif errno == 22:
-        print("Line No.:", lineno, ": Error: braces around scalar initializer for type \'%s\'" % args[0])
+        print(color.cline, lineno, color.cerror + " braces around scalar initializer for type \'%s\'" % args[0])
     elif errno == 23:
-        print("Line No.:", lineno, ": Error: invalid types for array \'%s\' subscript" % args[0])
+        print(color.cline, lineno, color.cerror + " invalid types for array \'%s\' subscript" % args[0])
     elif errno == 24:
-        print("Line No.:", lineno, ": Error: braced array \'%s\' subscript" % args[0])
+        print(color.cline, lineno, color.cerror + " braced array \'%s\' subscript" % args[0])
     elif errno == 25:
-        print("Line No.:", lineno, ": Error: incorrect braced declaration \'%s\' subscript" % args[0])
+        print(color.cline, lineno, color.cerror + " incorrect braced declaration \'%s\' subscript" % args[0])
     elif errno == 26:
-        print("Line No.:", lineno, ": Error: incorrect function parameter definitions")
+        print(color.cline, lineno, color.cerror + " incorrect function parameter definitions")
     elif errno == 27:
-        print("Line No.:", lineno, ": Error: function definition is not allowed here")
+        print(color.cline, lineno, color.cerror + " function definition is not allowed here")
     elif errno == 28:
-        print("Line No.:", lineno, ": Error: In function \'%s\' parameter name omitted" % args[0])
+        print(color.cline, lineno, color.cerror + " In function \'%s\' parameter name omitted" % args[0])
     elif errno == 29:
-        print("Line No.:", lineno, ": Error: redeclaration of function \'%s\'" % args[0])
+        print(color.cline, lineno, color.cerror + " redeclaration of function \'%s\'" % args[0])
     elif errno == 30:
-        print("Line No.:", lineno, ": Error: Too \'%s\' arguments for function \'%s\'" % (args[0], args[1]))
+        print(color.cline, lineno, color.cerror + " Too \'%s\' arguments for function \'%s\'" % (args[0], args[1]))
     elif errno == 31:
-        print("Line No.:", lineno, ": Error: parameter type mismatch between \'%s\' and \'%s\'" % (args[0], args[1]))
+        print(color.cline, lineno, color.cerror + " parameter type mismatch between \'%s\' and \'%s\'" % (args[0], args[1]))
     elif errno == 32:
-        print("Line No.:", lineno, ": Error: invalid type of parameter \'%s\'" % args[0])
+        print(color.cline, lineno, color.cerror + " invalid type of parameter \'%s\'" % args[0])
     elif errno == 33:
-        print("Line No.:", lineno, ": Error: invalid parameters")
+        print(color.cline, lineno, color.cerror + " invalid parameters")
     elif errno == 34:
-        print("Line No.:", lineno, ": Error: parameter specifier mismatch between \'%s\' and \'%s\'" % (args[0], args[1]))
+        print(color.cline, lineno, color.cerror + " parameter specifier mismatch between \'%s\' and \'%s\'" % (args[0], args[1]))
     elif errno == 35:
-        print("Line No.:", lineno, ": Error: parameter of array type mismatch between \'%s\' and \'%s\'" % (args[0], args[1]))
+        print(color.cline, lineno, color.cerror + " parameter of array type mismatch between \'%s\' and \'%s\'" % (args[0], args[1]))
     elif errno == 36:
-        print("Line No.:", lineno, ": Error: Return type mismatch of function \'%s\' whose return type is \'%s\'" % (args[0], args[1]))
+        print(color.cline, lineno, color.cerror + " Return type mismatch of function \'%s\' whose return type is \'%s\'" % (args[0], args[1]))
+    elif errno == 37:
+        print(color.cline, lineno, color.cerror + " incorrect condition in conditional statement")
+    elif errno == 38:
+        print(color.cline, lineno, color.cerror + " Multiple parameters in conditional statement, Ignoring all but last valid one")
     pass
 
 def print_table():
     pp = pprint.PrettyPrinter(indent=4)
     for scope in ScopeList.keys():
         if scope != "NULL":
+            print("Scope Name:", scope)
             if ScopeList[scope]["table"].symtab:
                 pp.pprint(ScopeList[scope]["table"].symtab)
+            print("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~")
 
 if __name__ == '__main__':
     """a = SymTab()

@@ -104,7 +104,7 @@ def expression_semantic(lineno, p0, p1, p2, p3):
 	else:
 		p0 = p1
 	p0["name"] = ' '.join([p1["name"], p2, p3["name"]])
-	p0["type"],p0["star"] = st.expression_type(p.lineno(1), p1["type"], p1.get("star", 0) , p3["type"], p3.get("star", 0), op=str(p2))
+	p0["type"],p0["star"] = st.expression_type(lineno, p1["type"], p1.get("star", 0) , p3["type"], p3.get("star", 0), op=str(p2))
 	return p0
 
 def array_assignment(p,inits,store_list):
@@ -746,20 +746,38 @@ def p_expression_list1(p):
 	"expression_list : assignment_expression"
 	add_children(len(list(filter(None, p[1:]))),"expression_list")
 	if p[1].get("is_decl", True) is False:
-		st.print_error(p.lineno(1), p[1], 1)
+		entry = SymbolTable.lookupComplete(p[1]["name"])
+		if entry is None:
+			st.print_error(p.lineno(1), p[1], 1)
+			p[0] = []
+			return
+		else:
+			p[1] = dict(entry)
+			p[1]["is_decl"] = True
+	if p[1]["id_type"] not in ["variable", "literal",]:
+		st.print_error(p.lineno(1), {}, 15, p[1]["name"])
 		p[0] = []
-	else:
-		p[0] = [p[1]]		# list of expressions
+		return
+	p[0] = [p[1]]		# list of expressions
 	pass
 
 def p_expression_list2(p):
 	"expression_list : expression_list ',' assignment_expression"
 	add_children(len(list(filter(None, p[1:]))) - 1,"expression_list")
 	if p[3].get("is_decl", True) is False:
-		st.print_error(p.lineno(1), p[3], 1)
+		entry = SymbolTable.lookupComplete(p[3]["name"])
+		if entry is None:
+			st.print_error(p.lineno(1), p[3], 1)
+			p[0] = p[1]
+			return
+		else:
+			p[3] = dict(entry)
+			p[3]["is_decl"] = True
+	if p[3]["id_type"] not in ["variable", "literal",]:
+		st.print_error(p.lineno(1), {}, 15, p[3]["name"])
 		p[0] = p[1]
-	else:
-		p[0] = p[1] + [p[3]]
+		return
+	p[0] = p[1] + [p[3]]
 	pass
 
 def p_unary_expression1(p):
@@ -1233,23 +1251,23 @@ def p_assignment_expression2(p):
 		if p[3].get("id_type") not in ["variable", "literal"]:
 			st.print_error(p.lineno(1), {}, 15, ' '.join([p[1]["name"], p[2], p[3]["name"]]))
 			return
-		if p[1].get("is_decl", True) is False:	# When only a variable is present in RHS
+		if p[1].get("is_decl", True) is False:	# When only a variable is present in LHS
 			if p[1]["type"]:
 				st.print_error(p.lineno(1), {}, 15, ' '.join([p[1]["name"], p[2], p[3]["name"]]))
 				return
-			entry = SymbolTable.lookupComplete(p[3]["name"])
+			entry = SymbolTable.lookupComplete(p[1]["name"])
 			if entry is None:
-				st.print_error(p.lineno(1), p[3], 1)
+				st.print_error(p.lineno(1), p[1], 1)
 				return
 			else:
-				p[3] = dict(entry)
-				p[3]["is_decl"] = True
-		if p[1].get("id_type") not in ["variable", "array"]:
+				p[0] = dict(entry)
+				p[0]["is_decl"] = True
+		if p[0].get("id_type") not in ["variable", "array"]:
 			st.print_error(p.lineno(1), p[1], 17)
 			return
-		if st.expression_type(p.lineno(1), p[1]["type"], p[1].get("star", 0) , p[3]["type"], p[3].get("star", 0), op=str(p[2])):
-			if "const" in p[1]["specifier"]:
-				st.print_error(p.lineno(1), p[1], 19)
+		if st.expression_type(p.lineno(1), p[0]["type"], p[0].get("star", 0) , p[3]["type"], p[3].get("star", 0), op=str(p[2])):
+			if "const" in p[0]["specifier"]:
+				st.print_error(p.lineno(1), p[0], 19)
 	pass
 
 def p_assignment_expression3(p):
@@ -1320,24 +1338,44 @@ def p_expression1(p):
 	"expression : assignment_expression"
 	add_children(len(list(filter(None, p[1:]))),"expression")
 	p[0] = p[1]
-	if p[0].get("is_decl", True) is False:
-		st.print_error(p.lineno(1), p[0], 1)
+	if p[0].get("is_decl", True) is False:		# variable not declared
+		entry = SymbolTable.lookupComplete(p[0]["name"])
+		if entry is None:
+			st.print_error(p.lineno(1), p[0], 1)
+			p[0] = None
+			return
+		else:
+			p[0] = dict(entry)
+			p[0]["is_decl"] = True
+	if p[0]["id_type"] not in ["variable", "literal",]:
+		st.print_error(p.lineno(1), {}, 15, p[0]["name"])
 		p[0] = None
+		return
 	pass
 
 def p_expression2(p):
 	"expression : expression_list ',' assignment_expression"
 	add_children(len(list(filter(None, p[1:]))) - 1,"expression")
 	if p[3].get("is_decl", True) is False:
-		st.print_error(p.lineno(1), p[3], 1)
+		entry = SymbolTable.lookupComplete(p[3]["name"])
+		if entry is None:
+			st.print_error(p.lineno(1), p[3], 1)
+			p[0] = p[1]
+			return
+		else:
+			p[3] = dict(entry)
+			p[3]["is_decl"] = True
+	if p[3]["id_type"] not in ["variable", "literal",]:
+		st.print_error(p.lineno(1), {}, 15, p[3]["name"])
 		p[0] = p[1]
-	else:
-		p[0] = p[1] + [p[3]]			# this "expression" will be list of expressions which are separated by comma
+		return
+	p[0] = p[1] + [p[3]]			# this "expression" will be list of expressions which are separated by comma
 	pass
 
 def p_constant_expression(p):
 	"constant_expression : conditional_expression"
 	add_children(len(list(filter(None, p[1:]))),"constant_expression")
+	p[0] = p[1]
 	pass
 
 #/*  The grammar is repeated for when the parser stack knows that the next > must end a template.
@@ -1352,17 +1390,20 @@ def p_constant_expression(p):
 def p_looping_statement(p):
 	"looping_statement : start_search looped_statement "
 	add_children(len(list(filter(None, p[1:]))),"looping_statement")
+	p[0] = p[2] if isinstance(p[2], list) else [p[2]]
 	pass
 
 def p_looped_statement1(p):
 	"looped_statement : statement"
 	add_children(len(list(filter(None, p[1:]))),"looped_statement")
+	p[0] = p[1]
 	pass
 
 def p_looped_statement2(p):
 	"looped_statement : advance_search '+' looped_statement"
 	create_children("None",p[2])
 	add_children(len(list(filter(None, p[1:]))),"looped_statement")
+	p[0] = p[3]
 	pass
 
 def p_looped_statement3(p):
@@ -1374,41 +1415,49 @@ def p_looped_statement3(p):
 def p_statement1(p):
 	"statement : control_statement"
 	add_children(len(list(filter(None, p[1:]))),"statement")
+	p[0] = p[1]
 	pass
 
 def p_statement2(p):
 	"statement : compound_statement"
 	add_children(len(list(filter(None, p[1:]))),"statement")
+	p[0] = p[1]
 	pass
 
 def p_statement3(p):
 	"statement : declaration_statement"
 	add_children(len(list(filter(None, p[1:]))),"statement")
+	p[0] = p[1]
 	pass
 
 def p_statement4(p):
 	"statement : try_block"
 	add_children(len(list(filter(None, p[1:]))),"statement")
+	p[0] = p[1]
 	pass
 
 def p_control_statement1(p):
 	"control_statement : labeled_statement"
 	add_children(len(list(filter(None, p[1:]))),"control_statement")
+	p[0] = p[1]
 	pass
 
 def p_control_statement2(p):
 	"control_statement : selection_statement"
 	add_children(len(list(filter(None, p[1:]))),"control_statement")
+	p[0] = p[1]
 	pass
 
 def p_control_statement3(p):
 	"control_statement : iteration_statement"
 	add_children(len(list(filter(None, p[1:]))),"control_statement")
+	p[0] = p[1]
 	pass
 
 def p_control_statement4(p):
 	"control_statement : jump_statement"
 	add_children(len(list(filter(None, p[1:]))),"control_statement")
+	p[0] = p[1]
 	pass
 
 def p_labeled_statement1(p):
@@ -1429,6 +1478,7 @@ def p_labeled_statement3(p):
 	create_child("None",p[1])
 	create_child("None",p[2])
 	add_children(len(list(filter(None, p[1:]))),"labeled_statement")
+	p[0] = p[3]
 	pass
 
 def p_compound_statement1(p):
@@ -1440,6 +1490,7 @@ def p_compound_statement1(p):
 		st.function_list.pop()
 	except:
 		pass
+	p[0] = p[3]
 	pass
 
 def p_new_scope(p):
@@ -1456,6 +1507,8 @@ def p_new_scope(p):
 			SymbolTable.insertID(p.lineno(0), f["name"], f["id_type"], types=f["type"],
 			 					specifiers=f["specifier"], value=f["value"],
 							    num=f["num"], order=f["order"], parameters=f["parameters"], defined=f["is_defined"])
+		else:
+			SymbolTable.updateIDAttr(f["name"], "is_defined", f["is_defined"])
 		SymbolTable.addScope(str(st.scope_ctr))
 		st.scope_ctr += 1
 		for param in f["parameters"]:		# Insert parameters in new scope created for this function
@@ -1473,6 +1526,11 @@ def p_compound_statement2(p):
 	add_children(len(list(filter(None, p[1:]))) - 2,"compund_statement")
 	print("[PARSER] This line should not be printed")
 	SymbolTable.endScope()
+	if p[2]	:
+		p[0] = p[2]
+	else:
+		p[0] = list()
+	p[0] += p[2]
 	pass
 
 def p_statement_seq_opt1(p):
@@ -1482,6 +1540,8 @@ def p_statement_seq_opt1(p):
 def p_statement_seq_opt2(p):
 	"statement_seq_opt : statement_seq_opt looping_statement"
 	add_children(len(list(filter(None, p[1:]))),"statement_seq_opt")
+	p[0] = p[1] if p[1] else []
+	p[0] += p[2]
 	pass
 
 def p_statement_seq_opt3(p):
@@ -1489,6 +1549,8 @@ def p_statement_seq_opt3(p):
 	create_child("None",p[3])
 	create_child("None",p[6])
 	add_children(len(list(filter(None, p[1:]))),"statement_seq_opt")
+	p[0] = p[1] if p[1] else []
+	p[0] += p[2]
 	pass
 
 #/*
@@ -1499,16 +1561,28 @@ def p_selection_statement1(p):
 	"selection_statement : IF '(' condition ')' looping_statement    %prec SHIFT_THERE"
 	create_child("None",p[1])
 	add_children(len(list(filter(None, p[1:]))) -3,"selection_statement")
+	p[0] = dict()
+	p[0]["type"] = "if"
+	p[0]["condition"] = p[3]
+	p[0]["loop_statement"] = p[5]
 	pass
 
 def p_selection_statement2(p):
 	"selection_statement : IF '(' condition ')' looping_statement ELSE looping_statement"
 	add_children(len(list(filter(None, p[1:]))) - 4,"Condition - If - Else")
+	p[0] = dict()
+	p[0]["type"] = "if_else"
+	p[0]["condition"] = p[3]
+	p[0]["loop_statement"] = [p[5], p[7]]
 	pass
 
 def p_selection_statement3(p):
 	"selection_statement : SWITCH '(' condition ')' looping_statement"
 	add_children(len(list(filter(None, p[1:]))),p[1])
+	p[0] = dict()
+	p[0]["type"] = "switch"
+	p[0]["condition"] = p[3]
+	p[0]["loop_statement"] = p[5]
 	pass
 
 def p_condition_opt1(p):
@@ -1518,49 +1592,96 @@ def p_condition_opt1(p):
 def p_condition_opt2(p):
 	"condition_opt : condition"
 	add_children(len(list(filter(None, p[1:]))),"condition_opt")
+	p[0] = p[1]
 	pass
 
 def p_condition(p):
 	"condition : parameter_declaration_list"
 	add_children(len(list(filter(None, p[1:]))),"condition")
+	list_params = list()
+	for param in p[1]:
+		if param.get("is_decl", True) is False:
+			if param.get("type") or param.get("specifier"):
+				st.print_error(p.lineno(1),param,37)
+				continue
+			entry = SymbolTable.lookupComplete(param["name"])
+			if entry is None:
+				st.print_error(p.lineno(1), param, 1)
+				continue
+			else:
+				param = dict(entry)
+				param["is_decl"]  = True
+		if param.get("id_type") in ["variable", "array", "literal" ] :
+			list_params.append(dict(param))
+		else:
+			st.print_error(p.lineno(1),param,37)
+	if len(list_params) == 0:
+		st.print_error(p.lineno(1), {}, 12, ')', "primary_expression")
+		p[0] = dict(name='0', type='literal_int', id_type='literal', value=0)
+	elif len(list_params) > 1:
+		st.print_error(p.lineno(1),param,38)
+		p[0] = dict(name='0', type='literal_int', id_type='literal', value=0)
+	else:
+		p[0] = dict(list_params[-1])
 	pass
 
 def p_iteration_statement1(p):
 	"iteration_statement : WHILE '(' condition ')' looping_statement"
 	add_children(len(list(filter(None, p[1:]))) - 3,"WHILE")
+	p[0] = dict()
+	p[0]["type"] = "while"
+	p[0]["condition"] = p[3]
+	p[0]["loop_statement"] = p[5]
 	pass
 
 def p_iteration_statement2(p):
-	"iteration_statement : DO looping_statement WHILE '(' expression ')' ';'"
+	"iteration_statement : DO looping_statement WHILE '(' condition ')' ';'"
 	add_children(len(list(filter(None, p[1:]))) - 5,"DO - WHILE")
+	p[0] = dict()
+	p[0]["type"] = "do_while"
+	p[0]["condition"] = p[5]
+	p[0]["loop_statement"] = p[2]
 	pass
 
 def p_iteration_statement3(p):
 	"iteration_statement : FOR '(' for_init_statement condition_opt ';' expression_opt ')' looping_statement"
 	add_children(len(list(filter(None, p[1:]))) - 4,"FOR")
+	p[0] = dict()
+	p[0]["type"] = "for"
+	p[0]["for_init"] = p[3]
+	p[0]["condition"] = p[4]
+	p[0]["update_expr"] = p[6]
+	p[0]["loop_statement"] = p[8]
 	pass
 
 def p_for_init_statement(p):
 	"for_init_statement : simple_declaration"
 	add_children(len(list(filter(None, p[1:]))),"for_init_statement")
+	p[0] = p[1]
 	pass
 
 def p_jump_statement1(p):
 	"jump_statement : BREAK ';'"
 	create_child("None", p[1])
+	p[0] = p[1]
 	pass
 
 def p_jump_statement2(p):
 	"jump_statement : CONTINUE ';'"
 	create_child("None", p[1])
+	p[0] = p[1]
 	pass
 
 def p_jump_statement3(p):
 	"jump_statement : RETURN expression_opt ';'"
+	p[0] = p[1]
 	if p[2] != '':
 		add_children(1,"return")
 	else:
 		create_child("None", p[1])
+	if len(st.function_list) == 0:
+		#st.print_error(p.lineno(1), {}, 15, )
+		return
 	func = st.function_list[0]
 	if p[2] is None:
 		if ' '. join(func["type"]) != "void":
@@ -1570,7 +1691,8 @@ def p_jump_statement3(p):
 		expr = p[2][-1]
 	else:
 		expr = p[2]
-	if (expr.get("type") != func["type"]) or (expr.get("order") != func.get("order")) or (expr.get("star") != func.get("star")):
+	if (st.simple_type_specifier[' '.join(expr["type"])]["equiv_type"] != st.simple_type_specifier[' '.join(func["type"])]["equiv_type"]) \
+	 	or (expr.get("order", []) != func.get("order", [])) or (expr.get("star", 0) != func.get("star", 0)):
 		st.print_error(p.lineno(1), {}, 36, func["name"], ' '. join(func["type"]))
 	pass
 
@@ -1584,6 +1706,7 @@ def p_jump_statement4(p):
 def p_declaration_statement(p):
 	"declaration_statement : block_declaration"
 	add_children(len(list(filter(None, p[1:]))),"declaration_statement")
+	p[0] = p[1]
 	pass
 
 #/*---------------------------------------------------------------------------------------------------
@@ -1623,11 +1746,13 @@ def p_declaration_seq_opt3(p):
 def p_looping_declaration(p):
 	"looping_declaration : start_search1 looped_declaration"
 	add_children(len(list(filter(None, p[1:]))),"looping_declaration")
+	p[0] = p[2]
 	pass
 
 def p_looped_declaration1(p):
 	"looped_declaration : declaration"
 	add_children(len(list(filter(None, p[1:]))),"looped_declaration")
+	p[0] = p[1]
 	pass
 
 def p_looped_declaration2(p):
@@ -1645,61 +1770,73 @@ def p_looped_declaration3(p):
 def p_declaration1(p):
 	"declaration : block_declaration"
 	add_children(len(list(filter(None, p[1:]))),"declaration")
+	p[0] = p[1]
 	pass
 
 def p_declaration2(p):
 	"declaration : function_definition"
 	add_children(len(list(filter(None, p[1:]))),"declaration")
+	p[0] = p[1]
 	pass
 
 def p_declaration5(p):
 	"declaration : specialised_declaration"
 	add_children(len(list(filter(None, p[1:]))),"declaration")
+	p[0] = p[1]
 	pass
 
 def p_specialised_declaration1(p):
 	"specialised_declaration : linkage_specification"
 	add_children(len(list(filter(None, p[1:]))),"specialised_declaration")
+	p[0] = p[1]
 	pass
 
 def p_specialised_declaration2(p):
 	"specialised_declaration : namespace_definition"
 	add_children(len(list(filter(None, p[1:]))),"specialised_declaration")
+	p[0] = p[1]
 	pass
 
 
 def p_block_declaration1(p):
 	"block_declaration : simple_declaration"
 	add_children(len(list(filter(None, p[1:]))),"block_declaration")
+	p[0] = p[1]
 	pass
 
 def p_block_declaration2(p):
 	"block_declaration : specialised_block_declaration"
 	add_children(len(list(filter(None, p[1:]))),"block_declaration")
+	p[0] = p[1]
 	pass
 
 def p_specialised_block_declaration1(p):
 	"specialised_block_declaration : asm_definition"
 	add_children(len(list(filter(None, p[1:]))),"specialised_block_declaration")
+	p[0] = p[1]
 	pass
 
 def p_specialised_block_declaration2(p):
 	"specialised_block_declaration : namespace_alias_definition"
 	add_children(len(list(filter(None, p[1:]))),"specialised_block_declaration")
+	p[0] = p[1]
 	pass
 
 def p_specialised_block_declaration3(p):
 	"specialised_block_declaration : using_declaration"
 	add_children(len(list(filter(None, p[1:]))),"specialised_block_declaration")
+	p[0] = p[1]
 	pass
 
 def p_specialised_block_declaration4(p):
 	"specialised_block_declaration : using_directive"
 	add_children(len(list(filter(None, p[1:]))),"specialised_block_declaration")
+	p[0] = p[1]
 	pass
 
 def p_simple_declaration1(p):
 	"simple_declaration : ';'"
+	p[0] = []
 	pass
 
 def p_simple_declaration2(p):
@@ -2557,46 +2694,55 @@ def p_parameter_declaration3(p):
 def p_function_definition1(p):
 	"function_definition : ctor_definition"
 	add_children(len(list(filter(None, p[1:]))),"function_definition")
+	p[0] = p[1]
 	pass
 
 def p_function_definition2(p):
 	"function_definition : func_definition"
 	add_children(len(list(filter(None, p[1:]))),"function_definition")
+	p[0] = p[1]
 	pass
 
 def p_func_definition1(p):
 	"func_definition : assignment_expression function_try_block"
 	add_children(len(list(filter(None, p[1:]))),"func_definition")
+	p[0] = [p[1]] + (p[2] if isinstance(p[2], list) else [p[2]])
 	pass
 
 def p_func_definition2(p):
 	"func_definition : assignment_expression function_body"
 	add_children(len(list(filter(None, p[1:]))),"func_definition")
+	p[0] = [p[1]] + (p[2] if isinstance(p[2], list) else [p[2]])
 	pass
 
 def p_func_definition3(p):
 	"func_definition : decl_specifier_prefix func_definition"
 	add_children(len(list(filter(None, p[1:]))),"func_definition")
+	p[0] = [p[1]] + (p[2] if isinstance(p[2], list) else [p[2]])
 	pass
 
 def p_ctor_definition1(p):
 	"ctor_definition : constructor_head function_try_block"
 	add_children(len(list(filter(None, p[1:]))),"ctor_definition")
+	p[0] = (p[1] if isinstance(p[1], list) else [p[1]]) + (p[2] if isinstance(p[2], list) else [p[2]])
 	pass
 
 def p_ctor_definition2(p):
 	"ctor_definition : constructor_head function_body"
 	add_children(len(list(filter(None, p[1:]))),"ctor_definition")
+	p[0] = (p[1] if isinstance(p[1], list) else [p[1]]) + (p[2] if isinstance(p[2], list) else [p[2]])
 	pass
 
 def p_ctor_definition3(p):
 	"ctor_definition : decl_specifier_prefix ctor_definition"
 	add_children(len(list(filter(None, p[1:]))),"ctor_definition")
+	p[0] = (p[1] if isinstance(p[1], list) else [p[1]]) + (p[2] if isinstance(p[2], list) else [p[2]])
 	pass
 
 def p_constructor_head1(p):
 	"constructor_head : bit_field_init_declaration"
 	add_children(len(list(filter(None, p[1:]))),"constructor_head")
+	p[0] = p[1]
 	pass
 
 def p_constructor_head2(p):
@@ -2608,16 +2754,19 @@ def p_function_try_block(p):
 	"function_try_block : TRY function_block handler_seq"
 	create_child("None",p[1])
 	add_children(len(list(filter(None, p[1:]))),"function_try_block")
+	p[0] = (p[2] if isinstance(p[2], list) else [p[2]]) + (p[3] if isinstance(p[3], list) else [p[3]])
 	pass
 
 def p_function_block(p):
 	"function_block : ctor_initializer_opt function_body"
 	add_children(len(list(filter(None, p[1:]))),"function_block")
+	p[0] = (p[1] if isinstance(p[1], list) else [p[1]]) + (p[2] if isinstance(p[2], list) else [p[2]])
 	pass
 
 def p_function_body(p):
 	"function_body : compound_statement"
 	add_children(len(list(filter(None, p[1:]))),"function_body")
+	p[0] = p[1]
 	pass
 
 #/*
@@ -2637,9 +2786,6 @@ def p_initializer_clause2(p):
 	add_children(len(list(filter(None, p[1:]))),"initializer_clause")
 	p[0] = p[1]			# It is a dictionary with keys inits and is_checked
 	p[0]["is_checked"] = True	# Well! It should be True in p[1] already
-	print("INITIALIZED111111111111111111111111111111111111111")
-	pp = pprint.PrettyPrinter(indent=4)
-	pp.pprint( p[0])
 	pass
 
 def p_braced_initializer1(p):
@@ -2647,19 +2793,12 @@ def p_braced_initializer1(p):
 	add_children(len(list(filter(None, p[1:]))) - 2,"braced_initializer")
 	SymbolTable.endScope()
 	p[0] = p[3]
-	print("BRACED111111111111111111111111111111111111111")
-	pp = pprint.PrettyPrinter(indent=4)
-	pp.pprint( p[3])
-	p[0]["dim"] += 1
 	pass
 
 def p_braced_initializer2(p):
 	"braced_initializer : '{' new_scope initializer_list ',' '}'"
 	add_children(len(list(filter(None, p[1:]))) - 3,"braced_initializer")
 	SymbolTable.endScope()
-	print("BRACED2222222222222222222222222222222222222222")
-	pp = pprint.PrettyPrinter(indent=4)
-	pp.pprint( p[3])
 	p[0] = p[3]
 	p[0]["dim"] += 1
 	pass
@@ -3267,7 +3406,7 @@ def p_empty(p):
 
 # Error rule for syntax errors
 def p_error(p):
-	print("Syntax error in input !",p)
+	print(st.color.cerror, p)
 
 # Build the parser
 if __name__ == "__main__":
@@ -3289,18 +3428,16 @@ if __name__ == "__main__":
 	#if(len(sys.argv) == 2):
 	#	filename = sys.argv[1]
 	#else:
-	#	filename = "../tests/test5	.cpp"
-	#a = open(filename)
-	#data = a.read()
-	data = '''
-	void f1(p);
-	 int main(int x, int y)
-	{
-
-	int b[1][2];
-
-	}
-	'''
+	filename = "../tests/small_test.cpp"
+	a = open(filename)
+	data = a.read()
+	#data = '''	char f1(char p);
+	#int x;
+	# int main(int x, int y)
+	#{
+	#int b[1][2];
+	#}
+	#'''
 	yacc.parse(data, lexer=lex.cpp_scanner.lexer, tracking=True)
 	graph.write_jpeg('parse_tree.jpeg')
 	graph.write_dot('parse_tree.dot')
