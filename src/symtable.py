@@ -1,10 +1,13 @@
 import pprint, copy
+
+### Scopes ###
+
 global ScopeList, currentScope
 ScopeList = { "NULL" : None, "global" : {"name":"global", "parent" : "NULL",}, }
 currentScope = "global"
 scope_ctr = 1
 
-### Funcions ###
+### Functions ###
 function_list = []
 is_func_decl = False
 parameter_specifiers = ["register", "auto", "const", "volatile"]
@@ -73,11 +76,12 @@ simple_type_specifier = {
 
 }
 
+### Specifiers ###
 
 typedef_spec = ['typedef']
 function_spec = ["inline","virtual","explicit" ]
 friend_spec = ['friend']
-storage_class_spec = ["register", 'static', 'extern', 'mutable']
+storage_class_spec = ["register", 'static', 'extern', 'mutable', 'auto']
 #typename_specifier = []
 cv_qualifier = ['const','volatile','const volatile']
 
@@ -124,7 +128,7 @@ class SymTab:
             scope = ScopeList[scope["parent"]]
         return None
 
-    def insertID(self, name, id_type, types=None, specifiers=[], num=1, value=None, stars=0, order=[], parameters=[], defined=False):
+    def insertID(self, lineno, name, id_type, types=None, specifiers=[], num=1, value=None, stars=0, order=[], parameters=[], defined=False):
         currtable = ScopeList[currentScope]["table"]
         #print("[Symbol Table]", currtable.symtab)
 
@@ -140,12 +144,12 @@ class SymTab:
                 "num"       : int(num),            # Number of such id
                 "value"     : list(value) if type(value) is list else value,           # Mostly required for const type variable
                 "order"     : list(order if order else []),          # order of array in case of array
-                "parameters": list(parameters if parameters else []),   # Used for functions only
+                "parameters": copy.deepcopy(parameters if parameters else []),   # Used for functions only
                 "is_defined": bool(defined),
         #        "size"      : size
             }
-            check_datatype(currtable.symtab[str(name)]["type"], name)
-            check_specifier(currtable.symtab[str(name)]["specifier"], name)
+            check_datatype(lineno, currtable.symtab[str(name)]["type"], name, id_type)
+            check_specifier(lineno, currtable.symtab[str(name)]["specifier"], name)
             warning = ''
             if types is None:
                 warning = "(warning: Type is None)"
@@ -201,7 +205,7 @@ class SymTab:
 
 # Helper functions
 
-def check_datatype(types,name):
+def check_datatype(lineno, types, name, id_type):
     """
     types: List of data types
     """
@@ -209,21 +213,23 @@ def check_datatype(types,name):
     currtable = ScopeList[currentScope]["table"]
     if input_type in simple_type_specifier:
         currtable.symtab[str(name)]["type"] = [simple_type_specifier[input_type]["equiv_type"]]
-        SymTab.addIDAttr(name,"size", simple_type_specifier[input_type]["size"]* currtable.symtab[str(name)]["num"])
+        if id_type not in ["function", "class"]:
+            SymTab.addIDAttr(name,"size", simple_type_specifier[input_type]["size"]* currtable.symtab[str(name)]["num"])
         return True
     else :
-        print(" Error - Invalid string of data type - Taking the first element only")
+        print("Line No.:", lineno, "Error: Invalid string of data type - Taking the first element only")
         input_type = "" if len(types) == 0  else types[0]
         if input_type in simple_type_specifier:
             currtable.symtab[str(name)]["type"] = [simple_type_specifier[input_type]["equiv_type"]]
-            SymTab.addIDAttr(name,"size", simple_type_specifier[input_type]["size"] *currtable.symtab[str(name)]["num"])
+            if id_type not in ["function", "class"]:
+                SymTab.addIDAttr(name,"size", simple_type_specifier[input_type]["size"] *currtable.symtab[str(name)]["num"])
             return True
         else :
-            print("Error - Invalid data type")
+            print("Line No.:", lineno, "Error: Invalid data type")
             return False
     pass
 
-def check_specifier(specifier_list,name):
+def check_specifier(lineno, specifier_list, name):
     """
     specifier_list: List of identifier specifiers
     """
@@ -239,25 +245,24 @@ def check_specifier(specifier_list,name):
         if not spec_dict[specifiers[spec]]:
             spec_dict[specifiers[spec]].append(spec)
         else:
-            print("Error - Multiple speciers of one type - Ignoring all but first")
+            print("Line No.:", lineno, "Error: Multiple speciers of one type - Ignoring all but first")
 
     currtable = ScopeList[currentScope]["table"]
     id_type = currtable.symtab[str(name)]["id_type"]
 
-
     if spec_dict["typedef_spec"]:
         if list(filter(lambda x: x!= "typedef",specifier_list)):
-            print("Error - No specifiers with typedef allowed - Ignoring all")
+            print("Line No.:", lineno, "Error: No specifiers with typedef allowed - Ignoring all")
         spec_dict = {"typedef_spec" :"typedef"}
 
     if spec_dict["friend_spec"]:
         if id_type != "class" and id_type !="function" :
-            print(" Error - Friend Specifier only allowed with class or function type of identifier")
+            print("Line No.:", lineno, "Error: Friend Specifier only allowed with class or function type of identifier")
             spec_dict["friend_spec"] = []
 
     if spec_dict["function_spec"]:
         if id_type != "function":
-            print(" Error - Function Specifier only allowed with function type of identifier")
+            print("Line No.:", lineno, "Error: Function Specifier only allowed with function type of identifier")
             spec_dict["function_spec"] = []
     dummy = []
     for attr in spec_dict:
@@ -267,14 +272,14 @@ def check_specifier(specifier_list,name):
     currtable.symtab[str(name)]["specifier"] = list(dummy)
     pass
 
-def expression_type(l1,s1,l2,s2,op=None):
+def expression_type(lineno, l1, s1, l2, s2, op=None):
     if op == "=":
         if s1 == s2:
             return l1,s1
         else :
             return None
     if s1 != s2:
-        print("Error - Different levels of dereferencing in the operands, Ignoring operation")
+        print("Line No.:", lineno, "Error: Different levels of dereferencing in the operands, Ignoring operation")
         return l1,s1
 
     type1 = simple_type_specifier[' '.join(l1)]["equiv_type"]
@@ -284,18 +289,16 @@ def expression_type(l1,s1,l2,s2,op=None):
         if type1 in eq_integral_types[:-2] and type2 in eq_integral_types[:-2]:
             l = eq_integral_types[max(eq_integral_types.index(type1),eq_integral_types.index(type1))]
             return l.split(" "),s1
-
         else:
-            print("Error - Incorrect data types for ",op," Ignoring operation")
+            print("Line No.:", lineno, "Error: Incorrect data types for ",op," Ignoring operation")
             return l1,s1
 
     if op in [ "^", "|" , "&", "+", "-", "/", "*", "^=", "|=" , "&=", "+=", "-=", "/=", "*="]:
         if type1 in eq_integral_types and type2 in eq_integral_types:
             l = eq_integral_types[max(eq_integral_types.index(type1),eq_integral_types.index(type1))]
             return l.split(" "),s1
-
         else:
-            print("Error - Incorrect data types for ",op," Ignoring operation")
+            print("Line No.:", lineno, "Error: Incorrect data types for ",op," Ignoring operation")
             return l1,s1
 
     if op in ["<", '>', '<=', '>=']:
@@ -306,69 +309,134 @@ def expression_type(l1,s1,l2,s2,op=None):
         if type1 in [bool_types, eq_integral_types] and type2 in [bool_types, eq_integral_types]:
             return ["bool"],s1
 
-    print("Error - Incompatible data types of operands, Ignoring operation")
+    print("Line No.:", lineno, "Error: Incompatible data types of operands, Ignoring operation")
     return l1,s1
 
-    pass
 
+def flatten(lineno, l):
+    """ flattens the an irregular list of lists and filters out the empty parentheses
+    """
+    for elt in l:
+        if isinstance(elt, list):
+            if len(elt) == 0:
+                print_error(lineno, {}, 12, ')', "primary_expression")
+            else:
+                yield from flatten(elt)
+        else:
+            yield elt
+
+
+def check_func_params(lineno, func, params, param_list, decl=True):
+    """ Check if all params are consistent with the func's parameter type in function call
+    """
+    if len(params) != len(func["parameters"]):
+        print_error(lineno, {}, 30, "few" if len(params) < len(func["parameters"]) else "many", func["name"])
+        return False
+    c2 = all(param["id_type"] in param_list for param in params)
+    if decl:
+        c3 = all([ param.get("is_decl", True) for param in params])
+    else:
+        c3 = all([ not param.get("is_decl", False) for param in params])
+    if not (c2 and c3):
+        print_error(lineno, {}, 33)
+        return False
+    no_err = True
+    for p1, p2 in zip(params, func["parameters"]):
+        if simple_type_specifier.get(p1["type"]) and simple_type_specifier.get(p2["type"]) :
+            if simple_type_specifier[p1["type"]]["equiv_type"] != simple_type_specifier[p2["type"]]["equiv_type"] :
+                no_err = False
+                print_error(lineno, {}, 31, p1["name"], p2["name"])
+            elif p1["id_type"] in list(param_list.remove("literal") if ("literal" in param_list) else param_list) and set(p1["specifier"]) != set(p2["specifier"]):
+                no_err = False
+                print_error(lineno, {}, 34, p1["name"], p2["name"])
+            elif p1.get("order") != p2.get("order"):
+                no_err = False
+                print_error(lineno, {}, 35, p1["name"], p2["name"])
+            elif p1.get("star", 0) != p2.get("star", 0):
+                no_err = False
+                print_error(lineno, {}, 31, p1["name"], p2["name"])
+        else:
+            no_err = False
+            print_error(lineno,{}, 32, p1["name"])
+    return no_err
 
 
 def print_error(lineno, id1, errno, *args):
     if errno == 1:
-        print("Line No.:", lineno, ": Error: ", id1.get("name"), "was not declared in this scope")
+        print("Line No.:", lineno, ": Error: \'%s\' was not declared in this scope" % id1.get("name"))
     elif errno == 2:
         print("Line No.:", lineno, ": Error: declaration does not declare anything")
     elif errno == 3:
-        print("Line No.:", lineno, ": Error: expected unqualified-id before \'", args[0], "\'")
+        print("Line No.:", lineno, ": Error: expected unqualified-id before \'%s\'" % args[0])
     elif errno == 4:
         if id1["type"] == args[0]:
-            print("Line No.:", lineno, ": Error: ", "redeclaration of ", id1["name"])
+            print("Line No.:", lineno, ": Error: ", "redeclaration of \'%s\'" % id1["name"])
         else:
-            print("Line No.:", lineno, ": Error: ", "conflicting declaration ", id1["name"], ", previously declared as", id1["type"])
+            print("Line No.:", lineno, ": Error: ", "conflicting declaration \'%s\', previously declared as \'%s\'" % (id1["name"], id1["type"]))
     elif errno == 5:
-        print("Line No.:", lineno, ": Error: uninitialized const \'", id1["name"], "\'")
+        print("Line No.:", lineno, ": Error: uninitialized const \'%s\'" % id1["name"])
     elif errno == 6:
-        print("Line No.:", lineno, ": Error: ", "conflicting declaration ", id1["name"], ", previously declared as", id1["specifier"])
+        print("Line No.:", lineno, ": Error: ", "conflicting declaration \'%s\', previously declared as \'%s\'" % (id1["name"], id1["specifier"]))
     elif errno == 7:
-        print("Line No.:", lineno, ": Error: ", id1["name"], "is not of array type")
+        print("Line No.:", lineno, ": Error: \'%s\' is not of array type" % id1["name"])
     elif errno == 8:
-        print("Line No.:", lineno, ": Error: index type: ", args[0], " for array \'", id1["name"], "\' is not of integral type")
+        print("Line No.:", lineno, ": Error: index type: \'%s\' for array \'%s\' is not of integral type" % (args[0], id1["name"]))
     elif errno == 9:
-        print("Line No.:", lineno, ": Error: index type is not const expression for array \'", id1["name"], "\'")
+        print("Line No.:", lineno, ": Error: index type is not const expression for array \'%s\'" % id1["name"])
     elif errno == 10:
-        print("Line No.:", lineno, ": Error: invalid conversion of ", id1["name"], "from ", args[0], " to array")
+        print("Line No.:", lineno, ": Error: invalid conversion of \'%s\' from \'%s\' to array" % (id1["name"], args[0]))
     elif errno == 11:
-        print("Line No.:", lineno, ": Error: storage size of \'", id1["name"], "\' isn’t known")
+        print("Line No.:", lineno, ": Error: storage size of \'%s\' isn’t known" % id1["name"])
     elif errno == 12:
-        print("Line No.:", lineno, ": Error: expected  \'", args[1], "\' before \'", args[0], "\'")
+        print("Line No.:", lineno, ": Error: expected  \'%s\' before \'%s\'" % (args[1], args[0]))
     elif errno == 13:
-        print("Line No.:", lineno, ": Error: lvalue  \'", id1["name"], "\' cannot be incremented or decremented ")
+        print("Line No.:", lineno, ": Error: lvalue  \'%s\' cannot be incremented or decremented " % args[0])
     elif errno == 14:
-        print("Line No.:", lineno, ": Error: \'", args[0], "\' cannot be associated with \'", id1["name"], "\'")
+        print("Line No.:", lineno, ": Error: \'%s\' cannot be associated with \'%s\'" % (args[0], id1["name"]))
     elif errno == 15:
-        print("Line No.:", lineno, ": Syntax Error: invalid expression \'", args[0], "\'")
+        print("Line No.:", lineno, ": Syntax Error: invalid expression \'%s\'" % args[0])
     elif errno == 16:
-        print("Line No.:", lineno, ": Error: \'", args[0], "\' operations are not allowed in global scope")
+        print("Line No.:", lineno, ": Error: \'%s\' operations are not allowed in global scope" % args[0])
     elif errno == 17:
-        print("Line No.:", lineno, ": Error: \'", id1["name"], "\' is not an lvalue, thus cannot be assigned")
+        print("Line No.:", lineno, ": Error: \'%s\' is not an lvalue, thus cannot be assigned" % id1["name"])
     elif errno == 18:
-        print("Line No.:", lineno, ": Error: \'", args[0], "\' cannot be assigned \'", args[1], "\'")
+        print("Line No.:", lineno, ": Error: \'%s\' cannot be assigned \'%s\'" % (args[0], args[1]))
     elif errno == 19:
-        print("Line No.:", lineno, ": Error: const identifier \'", id1["name"], "\' cannot be modified")
+        print("Line No.:", lineno, ": Error: const identifier \'%s\' cannot be modified" % id1["name"])
     elif errno == 20:
         print("Line No.:", lineno, ": Error: empty braced declaration for variables are not allowed")
     elif errno == 21:
-        print("Line No.:", lineno, ": Error: scalar object \'", args[0], "\' requires one element in initializer")
+        print("Line No.:", lineno, ": Error: scalar object \'%s\' requires one element in initializer" % args[0])
     elif errno == 22:
-        print("Line No.:", lineno, ": Error: braces around scalar initializer for type \'", args[0], "\'")
+        print("Line No.:", lineno, ": Error: braces around scalar initializer for type \'%s\'" % args[0])
     elif errno == 23:
-        print("Line No.:", lineno, ": Error: invalid types for array \'", args[0], "\' subscript")
+        print("Line No.:", lineno, ": Error: invalid types for array \'%s\' subscript" % args[0])
     elif errno == 24:
-        print("Line No.:", lineno, ": Error: braced array \'", args[0], "\' subscript")
+        print("Line No.:", lineno, ": Error: braced array \'%s\' subscript" % args[0])
     elif errno == 25:
-        print("Line No.:", lineno, ": Error: incorrect braced declaration \'", args[0], "\' subscript")
+        print("Line No.:", lineno, ": Error: incorrect braced declaration \'%s\' subscript" % args[0])
     elif errno == 26:
         print("Line No.:", lineno, ": Error: incorrect function parameter definitions")
+    elif errno == 27:
+        print("Line No.:", lineno, ": Error: function definition is not allowed here")
+    elif errno == 28:
+        print("Line No.:", lineno, ": Error: In function \'%s\' parameter name omitted" % args[0])
+    elif errno == 29:
+        print("Line No.:", lineno, ": Error: redeclaration of function \'%s\'" % args[0])
+    elif errno == 30:
+        print("Line No.:", lineno, ": Error: Too \'%s\' arguments for function \'%s\'" % (args[0], args[1]))
+    elif errno == 31:
+        print("Line No.:", lineno, ": Error: parameter type mismatch between \'%s\' and \'%s\'" % (args[0], args[1]))
+    elif errno == 32:
+        print("Line No.:", lineno, ": Error: invalid type of parameter \'%s\'" % args[0])
+    elif errno == 33:
+        print("Line No.:", lineno, ": Error: invalid parameters")
+    elif errno == 34:
+        print("Line No.:", lineno, ": Error: parameter specifier mismatch between \'%s\' and \'%s\'" % (args[0], args[1]))
+    elif errno == 35:
+        print("Line No.:", lineno, ": Error: parameter of array type mismatch between \'%s\' and \'%s\'" % (args[0], args[1]))
+    elif errno == 36:
+        print("Line No.:", lineno, ": Error: Return type mismatch of function \'%s\' whose return type is \'%s\'" % (args[0], args[1]))
     pass
 
 def print_table():

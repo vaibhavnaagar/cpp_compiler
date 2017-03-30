@@ -104,7 +104,7 @@ def expression_semantic(lineno, p0, p1, p2, p3):
 	else:
 		p0 = p1
 	p0["name"] = ' '.join([p1["name"], p2, p3["name"]])
-	p0["type"],p0["star"] = st.expression_type(p1["type"], p1.get("star", 0) , p3["type"], p3.get("star", 0), op=str(p2))
+	p0["type"],p0["star"] = st.expression_type(p.lineno(1), p1["type"], p1.get("star", 0) , p3["type"], p3.get("star", 0), op=str(p2))
 	return p0
 
 def array_assignment(p,inits,store_list):
@@ -116,7 +116,7 @@ def array_assignment(p,inits,store_list):
 
 	elif len(inits) == 1:
 			if inits[0]["id_type"] in ["literal", "variable"]:
-				if st.expression_type(p[1]["type"], p[1].get("star", 0) , inits[0]["type"], inits[0].get("star", 0), op=str(p[2])):
+				if st.expression_type(p.lineno(1), p[1]["type"], p[1].get("star", 0) , inits[0]["type"], inits[0].get("star", 0), op=str(p[2])):
 					store_list = [inits[0]["value"]]*len(store_list)
 			return p;
 
@@ -127,7 +127,7 @@ def array_assignment(p,inits,store_list):
 				return None
 			else:
 				if exp["id_type"] in ["literal", "variable"]:
-					if st.expression_type(p[1]["type"], p[1].get("star", 0) , exp["type"], exp.get("star", 0), op=str(p[2])):
+					if st.expression_type(p.lineno(1), p[1]["type"], p[1].get("star", 0) , exp["type"], exp.get("star", 0), op=str(p[2])):
 						store_list[i] = exp["value"]
 		return p;
 
@@ -486,6 +486,14 @@ def p_primary_expression4(p):
 def p_abstract_expression1(p):
 	"abstract_expression : parenthesis_clause"
 	add_children(len(list(filter(None, p[1:]))),"abstract_expression")
+	# Expressions like (a+b, 2*5, x=7+y, z-4) which are evaluated from left to right and
+	# rightmost expression is considered
+	p[0] = list(st.flatten(p.lineno(1), p[1]))
+	if len(p[0]) == 0:
+		st.print_error(p.lineno(1), {}, 12, ')', "primary_expression")
+		p[0] = dict(name="0", type=["literal_int"], id_type="literal", value=0) # Assuming 0
+	else:
+		p[0] = p[0][-1]		# Get last expression
 	pass
 
 def p_abstract_expression2(p):
@@ -527,14 +535,16 @@ def p_postfix_expression2(p):
 			st.print_error(p.lineno(1), p[0], 14, "()")
 			return
 		if p[0]["is_defined"]:				# Function Call
-			check_func_params(p.lineno(1), p[0], p[2])
+			st.check_func_params(p.lineno(1), p[0], p[2], ["variable", "literal", "array"], decl=True)
 			p[0]["id_type"] = "variable"
 		else:								# Function definition
-			if st.parenthesis_ctr > 1:		# parentheses in paramter definitions
+			if st.parenthesis_ctr > 1:		# parentheses in parameter definitions
 				st.print_error(p.lineno(1), {}, 26)
 				return
-			match_func_params(p.lineno(1), p[0], p[2])
-			p[0]["parameters"] = p[2]
+			if st.check_func_params(p.lineno(1), p[0], p[2], ["variable", "array", "parameter"], decl=False):
+				p[0]["parameters"] = p[2]
+			else:
+				p[0]["parameters"] = []
 	else:
 		if p[0]["type"] is None:			# Function call (function from some parent scopes)
 			entry = SymbolTable.lookupComplete(p[0]["name"])
@@ -548,24 +558,28 @@ def p_postfix_expression2(p):
 					st.print_error(p.lineno(1), p[0], 14, "()")
 					return
 				else:
-					check_func_params(p.lineno(1), p[0], p[2])
+					st.check_func_params(p.lineno(1), p[0], p[2], ["variable", "array", "literal"], decl=True)
+					for param in p[0]["parameters"]:
+						param["id_type"] = "variable" if param["id_type"] == "parameter" else param["id_type"]
 					p[0]["id_type"] = "variable"
 		else:								# Function declaration or definition
 			p[0]["id_type"] = "function"
-			if st.parenthesis_ctr > 1:		# parentheses in paramter definitions
+			if st.parenthesis_ctr > 1:		# parentheses in parameter definitions
 				st.print_error(p.lineno(1), {}, 26)
 				return
-			c1 = all(param["id_type"] in ["type_specifier", "varaiable", "array",] for param in p[2])
+			c1 = all(param["id_type"] in ["type_specifier", "variable", "array", "parameter"] for param in p[2])
 			c2 = all([ not param.get("is_decl", False) for param in p[2]])
 			c3 = all([ ' '.join(param["type"] if param["type"] else []) in st.simple_type_specifier for param in p[2]])
 			c4 = all([ set(param["specifier"] if param["specifier"] else []).issubset(st.parameter_specifiers) for param in p[2]])
 			c5 = all([ len(param["specifier"] if param["specifier"] else []) == len(set(param["specifier"] if param["specifier"] else [])) for param in p[2]])
 			if c1 and c2 and c3 and c4 and c5:
-				params_name = [], params = []
+				params_name = []
+				params = []
 				for param in p[2]:
-					if (param["id_type"] in ["variable", "array"]) and (param["name"] in params_name):
+					if (param["id_type"] in ["variable", "array", "parameter"]) and (param["name"] in params_name):
 						st.print_error(p.lineno(1), param, 4, param["type"])
 					else:
+						param["id_type"] = "variable" if param["id_type"] == "parameter" else param["id_type"]
 						params += [param]
 						params_name += [param["name"]]
 				p[0]["parameters"] = params
@@ -598,7 +612,22 @@ def p_postfix_expression6(p):
 	add_children(len(list(filter(None, p[1:]))),"postfix_expression")
 	p[0] = p[1]
 	if p[1].get("is_decl") is None:		# If no identifier received
-		st.print_error(p.lineno(1), {}, 3, p[2])
+		if p[1]["id_type"] in ["type_specifier"] and st.is_func_decl is True:
+			if p[3] is None:
+				st.print_error(p.lineno(1), p[1], 11)
+			elif type(p[3]) is list:
+				st.print_error(p.lineno(1), {}, 12, ',', ']')
+			elif not set(p[3]["type"]).issubset(st.integral_types):
+				st.print_error(p.lineno(1), p[1], 8, p[3]["type"])
+			elif (p[3]["type"] != ["literal_int"]) and ("const" not in p[3].get("specifier")):
+				st.print_error(p.lineno(1), p[1], 9)
+			else:
+				if p[0].get("order"):
+					p[0]["order"].append(p[3]["value"])
+				else:
+					p[0]["order"] = [p[3]["value"]]
+		else:
+			st.print_error(p.lineno(1), {}, 3, p[2])
 		return
 	if p[1]["is_decl"] is False:								# Identifier is not declared
 		if p[1]["type"] is None:
@@ -630,6 +659,8 @@ def p_postfix_expression6(p):
 			st.print_error(p.lineno(1), p[0], 7)
 		elif len(p[0]["order"]) == 0:
 			st.print_error(p.lineno(1), {}, 23, p[0]["name"])
+		elif p[3] is None:
+			st.print_error(p.lineno(1), p[1], 11)
 		elif type(p[3]) is list:
 			st.print_error(p.lineno(1), {}, 12, ',', ']')
 		elif not set(p[3]["type"]).issubset(st.integral_types):
@@ -708,29 +739,32 @@ def p_expression_list_opt1(p):
 def p_expression_list_opt2(p):
 	"expression_list_opt : expression_list"
 	add_children(len(list(filter(None, p[1:]))),"expression_list_opt")
-
 	p[0] = p[1]
 	pass
 
 def p_expression_list1(p):
 	"expression_list : assignment_expression"
 	add_children(len(list(filter(None, p[1:]))),"expression_list")
-
-	p[0] = [p[1]]		# list of expressions
+	if p[1].get("is_decl", True) is False:
+		st.print_error(p.lineno(1), p[1], 1)
+		p[0] = []
+	else:
+		p[0] = [p[1]]		# list of expressions
 	pass
 
 def p_expression_list2(p):
 	"expression_list : expression_list ',' assignment_expression"
-
 	add_children(len(list(filter(None, p[1:]))) - 1,"expression_list")
-
-	p[0] = p[1] + [p[3]]
+	if p[3].get("is_decl", True) is False:
+		st.print_error(p.lineno(1), p[3], 1)
+		p[0] = p[1]
+	else:
+		p[0] = p[1] + [p[3]]
 	pass
 
 def p_unary_expression1(p):
 	"unary_expression : postfix_expression"
 	add_children(len(list(filter(None, p[1:]))),"unary_expression")
-
 	p[0] = p[1]
 	pass
 
@@ -738,8 +772,6 @@ def p_unary_expression2(p):
 	"unary_expression : INC cast_expression"
 	create_child("None",p[1])
 	add_children(len(list(filter(None, p[1:]))),"unary_expression")
-
-
 	p[0] = p[2]
 	if (not set(p[2]["type"]).issubset(st.number_types)) or (p[2].get("id_type") != "variable"):		# Incomplete list
 		st.print_error(p.lineno(1), p[2], 13)
@@ -748,7 +780,6 @@ def p_unary_expression2(p):
 def p_unary_expression3(p):
 	"unary_expression : DEC cast_expression"
 	add_children(len(list(filter(None, p[1:]))),"unary_expression")
-
 	p[0] = p[2]
 	if (not set(p[2]["type"]).issubset(st.number_types)) or (p[2].get("id_type") != "variable"):		# Incomplete list
 		st.print_error(p.lineno(1), p[2], 13)
@@ -757,7 +788,6 @@ def p_unary_expression3(p):
 def p_unary_expression4(p):
 	"unary_expression : ptr_operator cast_expression"
 	add_children(len(list(filter(None, p[1:]))),"unary_expression")
-
 	p[0] = p[2]
 	if ("is_decl" not in p[0].keys()) or ("id_type" not in p[0].keys()):
 		st.print_error(p.lineno(1), p[2], 14, p[1])
@@ -790,8 +820,6 @@ def p_unary_expression6(p):
 	"unary_expression : '+' cast_expression"
 	create_child("None",p[1])
 	add_children(len(list(filter(None, p[1:]))),"unary_expression")
-
-
 	p[0] = p[2]
 	if (not set(p[0].get("type")).issubset(st.number_literals)) and ((p[0].get("id_type") != "variable") or ( not set(p[0].get("type")).issubset(st.number_types))):
 		st.print_error(p.lineno(1), {}, 14, '-')
@@ -801,8 +829,6 @@ def p_unary_expression7(p):
 	"unary_expression : '-' cast_expression"
 	create_child("None",p[1])
 	add_children(len(list(filter(None, p[1:]))),"unary_expression")
-
-
 	p[0] = p[2]
 	if (not set(p[0].get("type")).issubset(st.number_literals)) and ((p[0].get("id_type") != "variable") or ( not set(p[0].get("type")).issubset(st.number_types))):
 		st.print_error(p.lineno(1), {}, 14, '-')
@@ -814,8 +840,6 @@ def p_unary_expression8(p):
 	"unary_expression : '!' cast_expression"
 	create_child("None",p[1])
 	add_children(len(list(filter(None, p[1:]))),"unary_expression")
-
-
 	p[0] = p[2]
 	pass
 
@@ -823,8 +847,6 @@ def p_unary_expression9(p):
 	"unary_expression : '~' cast_expression"
 	create_child("None",p[1])
 	add_children(len(list(filter(None, p[1:]))),"unary_expression")
-
-
 	p[0] = p[2]
 	pass
 
@@ -832,36 +854,30 @@ def p_unary_expression10(p):
 	"unary_expression : SIZEOF unary_expression"
 	create_child("None",p[1])
 	add_children(len(list(filter(None, p[1:]))),"unary_expression")
-
-
 	p[0] = p[2]
 	pass
 
 def p_unary_expression11(p):
 	"unary_expression : new_expression"
 	add_children(len(list(filter(None, p[1:]))),"unary_expression")
-
 	p[0] = p[1]
 	pass
 
 def p_unary_expression12(p):
 	"unary_expression : global_scope new_expression"
 	add_children(len(list(filter(None, p[1:]))),"unary_expression")
-
 	p[0] = p[2]			# Don't know when this rule is called
 	pass
 
 def p_unary_expression13(p):
 	"unary_expression : delete_expression"
 	add_children(len(list(filter(None, p[1:]))),"unary_expression")
-
 	p[0] = p[1]
 	pass
 
 def p_unary_expression14(p):
 	"unary_expression : global_scope delete_expression"
 	add_children(len(list(filter(None, p[1:]))),"unary_expression")
-
 	p[0] = p[2]			# Don't know when this rule is called
 	pass
 
@@ -869,8 +885,6 @@ def p_unary_expression14(p):
 def p_delete_expression(p):
 	"delete_expression : DELETE cast_expression"
 	add_children(len(list(filter(None, p[1:]))) - 1,"delete")
-
-
 	p[0] = p[2]
 	pass
 
@@ -947,7 +961,6 @@ def p_new_initializer_opt2(p):
 def p_cast_expression1(p):
 	"cast_expression : unary_expression"
 	add_children(len(list(filter(None, p[1:]))),"cast_expression")
-
 	p[0] = p[1]
 	pass
 
@@ -959,15 +972,12 @@ def p_cast_expression2(p):
 def p_pm_expression1(p):
 	"pm_expression : cast_expression"
 	add_children(len(list(filter(None, p[1:]))),"pm_expression")
-
 	p[0] = p[1]
 	pass
 
 def p_pm_expression2(p):
 	"pm_expression : pm_expression DOT_STAR cast_expression"
 	add_children(len(list(filter(None, p[1:]))) - 1,p[2])
-
-
 	p[0] = p[3]					# Taking pointed expression into account
 	pass
 
@@ -1175,6 +1185,8 @@ def p_assignment_expression1(p):
 	"assignment_expression : conditional_expression"
 	add_children(len(list(filter(None, p[1:]))),"assignment_expression")
 	p[0] = p[1]
+	if p[0]["id_type"] == "function" and p[0]["is_defined"] is False:
+		st.function_list.append(p[0])
 	pass
 
 def p_assignment_expression2(p):
@@ -1199,13 +1211,13 @@ def p_assignment_expression2(p):
 		if p[1]["id_type"] != p[3]["id_type"]:
 			if (p[1]["id_type"] == "variable") and (p[3]["id_type"] == "literal"):
 				if p[1]["type"]:
-					if st.expression_type(p[1]["type"], p[1].get("star", 0) , p[3]["type"], p[3].get("star", 0), op=str(p[2])):
+					if st.expression_type(p.lineno(1), p[1]["type"], p[1].get("star", 0) , p[3]["type"], p[3].get("star", 0), op=str(p[2])):
 						p[0]["value"] = p[3]["value"]
 			else:
 				st.print_error(p.lineno(1), {}, 18, p[1]["id_type"], p[3]["id_type"])
 		elif p[1]["id_type"] == p[3]["id_type"]:
 			if p[1]["type"]:
-				if st.expression_type(p[1]["type"], p[1].get("star", 0) , p[3]["type"], p[3].get("star", 0), op=str(p[2])):
+				if st.expression_type(p.lineno(1), p[1]["type"], p[1].get("star", 0) , p[3]["type"], p[3].get("star", 0), op=str(p[2])):
 					p[0]["value"] = p[3]["value"]
 		else:
 			st.print_error(p.lineno(1), {}, 15, ' '.join([p[1]["name"], p[2], p[3]["name"]]))
@@ -1235,7 +1247,7 @@ def p_assignment_expression2(p):
 		if p[1].get("id_type") not in ["variable", "array"]:
 			st.print_error(p.lineno(1), p[1], 17)
 			return
-		if st.expression_type(p[1]["type"], p[1].get("star", 0) , p[3]["type"], p[3].get("star", 0), op=str(p[2])):
+		if st.expression_type(p.lineno(1), p[1]["type"], p[1].get("star", 0) , p[3]["type"], p[3].get("star", 0), op=str(p[2])):
 			if "const" in p[1]["specifier"]:
 				st.print_error(p.lineno(1), p[1], 19)
 	pass
@@ -1254,7 +1266,7 @@ def p_assignment_expression3(p):
 			st.print_error(p.lineno(1), {}, 21, p[1]["name"])
 		else:
 			if inits[0]["id_type"] in ["literal", "variable"]:
-				if st.expression_type(p[1]["type"], p[1].get("star", 0) , inits[0]["type"], inits[0].get("star", 0), op=str(p[2])):
+				if st.expression_type(p.lineno(1), p[1]["type"], p[1].get("star", 0) , inits[0]["type"], inits[0].get("star", 0), op=str(p[2])):
 					p[0]["value"] = inits[0]["value"]
 			else:
 				st.print_error(p.lineno(1), {}, 15, ' '.join([p[1]["name"], p[2], inits[0]["name"]]))
@@ -1271,7 +1283,6 @@ def p_assignment_expression3(p):
 def p_assignment_expression4(p):
 	"assignment_expression : throw_expression"
 	add_children(len(list(filter(None, p[1:]))),"assignment_expression")
-
 	p[0] = p[1]
 	pass
 
@@ -1309,14 +1320,19 @@ def p_expression1(p):
 	"expression : assignment_expression"
 	add_children(len(list(filter(None, p[1:]))),"expression")
 	p[0] = p[1]
+	if p[0].get("is_decl", True) is False:
+		st.print_error(p.lineno(1), p[0], 1)
+		p[0] = None
 	pass
 
 def p_expression2(p):
 	"expression : expression_list ',' assignment_expression"
-
 	add_children(len(list(filter(None, p[1:]))) - 1,"expression")
-
-	p[0] = p[1] + [p[3]]			# this "expression" will be list of expressions which are separated by comma
+	if p[3].get("is_decl", True) is False:
+		st.print_error(p.lineno(1), p[3], 1)
+		p[0] = p[1]
+	else:
+		p[0] = p[1] + [p[3]]			# this "expression" will be list of expressions which are separated by comma
 	pass
 
 def p_constant_expression(p):
@@ -1419,18 +1435,43 @@ def p_compound_statement1(p):
 	"compound_statement : '{' new_scope statement_seq_opt '}'"
 	add_children(len(list(filter(None, p[1:])))- 2,"compound_statement")
 	SymbolTable.endScope()
+	try:
+		print("[PARSER] popped function : %s" % st.function_list[0]["name"])
+		st.function_list.pop()
+	except:
+		pass
 	pass
 
 def p_new_scope(p):
 	"new_scope :"
-	SymbolTable.addScope(str(st.scope_ctr))
-	st.scope_ctr += 1
+	if len(st.function_list) > 1:
+		st.print_error(p.lineno(1), {}, 27)
+	elif len(st.function_list) == 1 and st.function_list[0]["is_defined"] is False:
+		f = st.function_list[0]
+		if any([param["id_type"] not in ["variable", "array"] for param in f["parameters"]]):
+			st.print_error(p.lineno(1), {}, 28, f["name"])
+			f["parameters"] = []
+		f["is_defined"] = True
+		if f["is_decl"] is False:
+			SymbolTable.insertID(p.lineno(0), f["name"], f["id_type"], types=f["type"],
+			 					specifiers=f["specifier"], value=f["value"],
+							    num=f["num"], order=f["order"], parameters=f["parameters"], defined=f["is_defined"])
+		SymbolTable.addScope(str(st.scope_ctr))
+		st.scope_ctr += 1
+		for param in f["parameters"]:		# Insert parameters in new scope created for this function
+			SymbolTable.insertID(p.lineno(0), param["name"], param["id_type"], types=param["type"],
+			 					specifiers=param["specifier"], value=param["value"],
+							    num=param["num"], order=param["order"], parameters=param["parameters"], defined=param["is_defined"])
+	else:
+		SymbolTable.addScope(str(st.scope_ctr))
+		st.scope_ctr += 1
 	pass
 
 def p_compound_statement2(p):
 	"compound_statement : '{' new_scope statement_seq_opt looping_statement '#' bang error '}'"
 	create_child("None",p[4])
 	add_children(len(list(filter(None, p[1:]))) - 2,"compund_statement")
+	print("[PARSER] This line should not be printed")
 	SymbolTable.endScope()
 	pass
 
@@ -1520,6 +1561,17 @@ def p_jump_statement3(p):
 		add_children(1,"return")
 	else:
 		create_child("None", p[1])
+	func = st.function_list[0]
+	if p[2] is None:
+		if ' '. join(func["type"]) != "void":
+			st.print_error(p.lineno(1), {}, 36, func["name"], ' '. join(func["type"]))
+			return
+	if type(p[2]) is list:
+		expr = p[2][-1]
+	else:
+		expr = p[2]
+	if (expr.get("type") != func["type"]) or (expr.get("order") != func.get("order")) or (expr.get("star") != func.get("star")):
+		st.print_error(p.lineno(1), {}, 36, func["name"], ' '. join(func["type"]))
 	pass
 
 def p_jump_statement4(p):
@@ -1548,6 +1600,7 @@ def p_compound_declaration2(p):
 	"compound_declaration : '{' new_scope nest declaration_seq_opt util looping_declaration '#' bang error '}'"
 	create_child("None",p[5])
 	add_children(len(list(filter(None, p[1:]))) - 2,"compound_declaration")
+	print("[PARSER] This line should not be printed")
 	SymbolTable.endScope()
 	pass
 
@@ -1657,13 +1710,25 @@ def p_simple_declaration2(p):
 			st.print_error(p.lineno(1), p[1], 2)	# error: declaration does not declare anything
 			p[0] = None
 		else:
-			if (not p[1]["is_decl"]) and (p[1]["type"] is not None):
-				SymbolTable.insertID(p[1]["name"], p[1]["id_type"], types=p[1]["type"], specifiers=p[1]["specifier"], value=p[1]["value"], num=p[1]["num"], order=p[1]["order"])
-			elif (not p[1]["is_decl"]) and (SymbolTable.lookupComplete(p[1]["name"]) is None):
+			if p[1]["is_decl"]:
+				if p[1]["id_type"] == "function" and p[1]["is_defined"] is False and p[1]["is_decl"] is True:
+					st.print_error(p.lineno(1), {}, 29, p[1]["name"]) # function redeclaration
+			elif p[1]["type"] is not None:
+				if p[1]["id_type"] in ["function"]:
+					st.function_list.pop()
+				SymbolTable.insertID(p.lineno(1), p[1]["name"], p[1]["id_type"], types=p[1]["type"], specifiers=p[1]["specifier"],
+				 					value=p[1]["value"], num=p[1]["num"], order=p[1]["order"],
+									parameters=p[1]["parameters"], defined=p[1]["is_defined"])
+			elif SymbolTable.lookupComplete(p[1]["name"]) is None:
 				st.print_error(p.lineno(1), p[1], 1)
-				SymbolTable.insertID(p[1]["name"], p[1]["id_type"], types=p[1]["type"], specifiers=p[1]["specifier"], value=p[1]["value"], num=p[1]["num"], order=p[1]["order"])
+				if p[1]["id_type"] in ["function"]:
+					st.function_list.pop()
+				SymbolTable.insertID(p.lineno(1), p[1]["name"], p[1]["id_type"], types=p[1]["type"], specifiers=p[1]["specifier"],
+				 					value=p[1]["value"], num=p[1]["num"], order=p[1]["order"],
+									parameters=p[1]["parameters"], defined=p[1]["is_defined"])
+			else:
+				pass
 			p[0] = [p[1]]
-
 	pass
 
 def p_simple_declaration3(p):
@@ -1675,11 +1740,20 @@ def p_simple_declaration3(p):
 			if "is_decl" not in decl.keys():
 				st.print_error(p.lineno(1), decl, 2)
 			else:
-				if (not decl["is_decl"]) and (decl["type"] is not None):
-					SymbolTable.insertID(decl["name"], decl["id_type"], types=decl["type"], specifiers=decl["specifier"], value=decl["value"], num=decl["num"], order=decl["order"])
-				elif (not decl["is_decl"]) and (SymbolTable.lookupComplete(decl["name"]) is None):
+				if decl["is_decl"]:
+					if decl["id_type"] == "function" and decl["is_defined"] is False and decl["is_decl"] is True:
+						st.print_error(p.lineno(1), {}, 29, decl["name"])	# function redeclaration
+				elif decl["type"] is not None:
+					SymbolTable.insertID(p.lineno(1), decl["name"], decl["id_type"], types=decl["type"], specifiers=decl["specifier"],
+					 					value=decl["value"], num=decl["num"], order=decl["order"],
+										parameters=decl["parameters"], defined=decl["is_defined"])
+				elif SymbolTable.lookupComplete(decl["name"]) is None:
 					st.print_error(p.lineno(1), decl, 1)
-					SymbolTable.insertID(decl["name"], decl["id_type"], types=decl["type"], specifiers=decl["specifier"], value=decl["value"], num=decl["num"], order=decl["order"])
+					SymbolTable.insertID(p.lineno(1), decl["name"], decl["id_type"], types=decl["type"], specifiers=decl["specifier"],
+					 					value=decl["value"], num=decl["num"], order=decl["order"],
+										parameters=decl["parameters"], defined=decl["is_defined"])
+				else:
+					pass
 			p[0] += [decl]
 		if not p[0]:
 			p[0] = None
@@ -1688,7 +1762,6 @@ def p_simple_declaration3(p):
 def p_simple_declaration4(p):
 	"simple_declaration : decl_specifier_prefix simple_declaration"
 	add_children(len(list(filter(None, p[1:]))),"simple_declaration")
-
 	if p[2] is None:			# i.e. decl_specifier_prefix ;
 		st.print_error(p.lineno(1), {}, 2)
 	else:
@@ -1697,9 +1770,9 @@ def p_simple_declaration4(p):
 				st.print_error(p.lineno(1), decl, 6)
 			elif decl.get("is_decl") is False:
 				SymbolTable.addIDAttr(decl["name"], "specifier", [p[1]])
-				if ("const" == p[1]) and (decl["value"] is None):
+				if (decl["id_type"] in ["variable", "array"]) and ("const" == p[1]) and (decl["value"] is None):
 					st.print_error(p.lineno(1), decl, 5)
-					SymbolTable.addIDAttr(decl["name"], "value", 0)			# DEFAULT value of const varaiable is 0
+					SymbolTable.addIDAttr(decl["name"], "value", 0)			# DEFAULT value of const variable is 0
 	p[0] = p[2]
 	pass
 
@@ -1801,7 +1874,7 @@ def p_suffix_decl_specified_ids2(p):
 		if (p[2]["id_type"] == "function") and (p[2]["is_defined"] is False):
 			if set(p[1]["type"]) != set(p[2]["type"]) :
 				st.print_error(p.lineno(1), p[2], 4, p[1]["type"])
-			elif set(p[1]["specifier"] != p[2]["specifier"]:
+			elif set(p[1]["specifier"]) != set(p[2]["specifier"]):
 				st.print_error(p.lineno(1), p[2], 6)
 			p[0] = p[2]
 		elif st.is_func_decl is True:
@@ -2408,7 +2481,7 @@ def p_parameter_declaration_list1(p):
 def p_parameter_declaration_list2(p):
 	"parameter_declaration_list : parameter_declaration_list ',' parameter_declaration"
 	add_children(len(list(filter(None, p[1:]))) -1,"parameter_declaration_list")
-	p[0] = p[1] + [p[2]]
+	p[0] = p[1] + [p[3]]
 	pass
 
 def p_abstract_pointer_declaration1(p):
@@ -2469,7 +2542,10 @@ def p_parameter_declaration3(p):
 	"parameter_declaration : decl_specifier_prefix parameter_declaration"
 	add_children(len(list(filter(None, p[1:]))),"parameter_declaration")
 	p[0] = p[2]
-	p[0]["specifier"] += [p[1]]
+	if p[0]["specifier"]:
+		p[0]["specifier"] += [p[1]]
+	else:
+		p[0]["specifier"] = [p[1]]
 	pass
 
 
@@ -3217,19 +3293,12 @@ if __name__ == "__main__":
 	#a = open(filename)
 	#data = a.read()
 	data = '''
-	 int main()
+	void f1(p);
+	 int main(int x, int y)
 	{
-	int a[2][3][2][2] = { { { 1, 3,4}, {11,12,13,14,15,16} } , { 1 } };
+
 	int b[1][2];
-	if(a[0][2][1][1]>0)
-		{
-			int y;
-			y = 2;
-			if(a[0][2][1][1] < y){
-				int z;
-				z++;
-			}
-		}
+
 	}
 	'''
 	yacc.parse(data, lexer=lex.cpp_scanner.lexer, tracking=True)
@@ -3239,4 +3308,6 @@ if __name__ == "__main__":
 	f.write(graph.to_string())
 	print("================================================================================================\n\n")
 	st.print_table()
+	print("================================================================================================\n\n")
+
 	pass
