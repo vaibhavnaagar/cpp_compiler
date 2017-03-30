@@ -3,6 +3,15 @@ global ScopeList, currentScope
 ScopeList = { "NULL" : None, "global" : {"name":"global", "parent" : "NULL",}, }
 currentScope = "global"
 scope_ctr = 1
+
+### Funcions ###
+function_list = []
+is_func_decl = False
+parameter_specifiers = ["register", "auto", "const", "volatile"]
+parenthesis_ctr = 0
+
+### Data Types ###
+
 integral_types = ["int", "long", "literal_int", "short", "unsigned", "signed"]
 number_literals = ["literal_int", "literal_float"]
 number_types = ["int", "long", "short", "unsigned", "signed", "float", "double"]
@@ -115,7 +124,7 @@ class SymTab:
             scope = ScopeList[scope["parent"]]
         return None
 
-    def insertID(self, name, id_type, types=None, specifiers=[], num=1, value=None, stars=0, order=[]):
+    def insertID(self, name, id_type, types=None, specifiers=[], num=1, value=None, stars=0, order=[], parameters=[], defined=False):
         currtable = ScopeList[currentScope]["table"]
         #print("[Symbol Table]", currtable.symtab)
 
@@ -130,7 +139,9 @@ class SymTab:
                 "star"      : int(stars),
                 "num"       : int(num),            # Number of such id
                 "value"     : list(value) if type(value) is list else value,           # Mostly required for const type variable
-                "order"     : list(order if order else [])          # order of array in case of array
+                "order"     : list(order if order else []),          # order of array in case of array
+                "parameters": list(parameters if parameters else []),   # Used for functions only
+                "is_defined": bool(defined),
         #        "size"      : size
             }
             check_datatype(currtable.symtab[str(name)]["type"], name)
@@ -356,6 +367,13 @@ def print_error(lineno, id1, errno, *args):
         print("Line No.:", lineno, ": Error: braced array \'", args[0], "\' subscript")
     elif errno == 25:
         print("Line No.:", lineno, ": Error: incorrect braced declaration \'", args[0], "\' subscript")
+    elif errno == 26:
+        print("Line No.:", lineno, ": Error: incorrect function parameter definitions")
+    elif errno == 27:
+        print("Line No.:", lineno, ": Error: incorrect condition in conditional statement ")
+    elif errno == 28:
+        print("Line No.:", lineno, ": Error: Multiple parameters in conditional statement, Ignoring all but last valid one ")
+    
     pass
 
 def print_table():
