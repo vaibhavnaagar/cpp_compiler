@@ -73,7 +73,7 @@ simple_type_specifier = {
 "float": {"size" : 4 , "equiv_type" : "float"  },
 "double": {"size" : 8 , "equiv_type" : "double"  },
 #"long double": {"size" : 10 , "equiv_type" : "long double"}
-
+"void": {"size" : 0, "equiv_type" : "void"},
 }
 
 ### Specifiers ###
@@ -157,9 +157,9 @@ class SymTab:
                 "id_type"   : str(id_type),
                 "type"      : list([] if types is None else types),        # List of data_types
                 "specifier" : list([] if specifiers is None else specifiers),    # List of type specifiers
-                "star"      : int(stars),
                 "num"       : int(num),            # Number of such id
                 "value"     : list(value) if type(value) is list else value,           # Mostly required for const type variable
+                "star"      : int(stars),
                 "order"     : list(order if order else []),          # order of array in case of array
                 "parameters": copy.deepcopy(parameters if parameters else []),   # Used for functions only
                 "is_defined": bool(defined),
@@ -236,7 +236,10 @@ def check_datatype(lineno, types, name, id_type):
     if input_type in simple_type_specifier:
         currtable.symtab[str(name)]["type"] = [simple_type_specifier[input_type]["equiv_type"]]
         if id_type not in ["function", "class"]:
-            SymTab.addIDAttr(name,"size", simple_type_specifier[input_type]["size"]* currtable.symtab[str(name)]["num"])
+            size = simple_type_specifier[input_type]["size"]
+            if currtable.symtab[str(name)]["star"] > 0:
+                size = 8
+            SymTab.addIDAttr(name,"size", size * currtable.symtab[str(name)]["num"])
         return True
     else :
         print(color.cline, lineno, color.cerror + " Invalid string of data type - Taking the first element only")
@@ -244,7 +247,10 @@ def check_datatype(lineno, types, name, id_type):
         if input_type in simple_type_specifier:
             currtable.symtab[str(name)]["type"] = [simple_type_specifier[input_type]["equiv_type"]]
             if id_type not in ["function", "class"]:
-                SymTab.addIDAttr(name,"size", simple_type_specifier[input_type]["size"] *currtable.symtab[str(name)]["num"])
+                size = simple_type_specifier[input_type]["size"]
+                if currtable.symtab[str(name)]["star"] > 0:
+                    size = 8
+                SymTab.addIDAttr(name,"size", size * currtable.symtab[str(name)]["num"])
             return True
         else :
             print(color.cline, lineno, color.cerror + " Invalid data type")
@@ -295,17 +301,20 @@ def check_specifier(lineno, specifier_list, name):
     pass
 
 def expression_type(lineno, l1, s1, l2, s2, op=None):
+    type1 = simple_type_specifier[' '.join(l1)]["equiv_type"]
+    type2 = simple_type_specifier[' '.join(l2)]["equiv_type"]
     if op == "=":
+        if type2 == "void" or type1 == "void":
+            print(color.cline, lineno, color.cerror + " Incorrect data types for ",op," Ignoring operation")
+            return None
         if s1 == s2:
             return l1,s1
-        else :
+        else:
+            print(color.cline, lineno, color.cerror + " Different levels of dereferencing in the operands, Ignoring operation")
             return None
     if s1 != s2:
         print(color.cline, lineno, color.cerror + " Different levels of dereferencing in the operands, Ignoring operation")
         return l1,s1
-
-    type1 = simple_type_specifier[' '.join(l1)]["equiv_type"]
-    type2 = simple_type_specifier[' '.join(l2)]["equiv_type"]
 
     if op in ["%","<<",">>","%=","<<=",">>="]:
         if type1 in eq_integral_types[:-2] and type2 in eq_integral_types[:-2]:

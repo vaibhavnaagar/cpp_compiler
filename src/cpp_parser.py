@@ -536,6 +536,7 @@ def p_postfix_expression2(p):
 			return
 		if p[0]["is_defined"]:				# Function Call
 			st.check_func_params(p.lineno(1), p[0], p[2], ["variable", "literal", "array"], decl=True)
+			p[0]["real_id_type"] = p[0]["id_type"]
 			p[0]["id_type"] = "variable"
 		else:								# Function definition
 			if st.parenthesis_ctr > 1:		# parentheses in parameter definitions
@@ -561,6 +562,7 @@ def p_postfix_expression2(p):
 					st.check_func_params(p.lineno(1), p[0], p[2], ["variable", "array", "literal"], decl=True)
 					for param in p[0]["parameters"]:
 						param["id_type"] = "variable" if param["id_type"] == "parameter" else param["id_type"]
+					p[0]["real_id_type"] = p[0]["id_type"]
 					p[0]["id_type"] = "variable"
 		else:								# Function declaration or definition
 			p[0]["id_type"] = "function"
@@ -569,9 +571,9 @@ def p_postfix_expression2(p):
 				return
 			c1 = all(param["id_type"] in ["type_specifier", "variable", "array", "parameter"] for param in p[2])
 			c2 = all([ not param.get("is_decl", False) for param in p[2]])
-			c3 = all([ ' '.join(param["type"] if param["type"] else []) in st.simple_type_specifier for param in p[2]])
-			c4 = all([ set(param["specifier"] if param["specifier"] else []).issubset(st.parameter_specifiers) for param in p[2]])
-			c5 = all([ len(param["specifier"] if param["specifier"] else []) == len(set(param["specifier"] if param["specifier"] else [])) for param in p[2]])
+			c3 = all([ ' '.join(param["type"] if param.get("type") else []) in st.simple_type_specifier for param in p[2]])
+			c4 = all([ set(param["specifier"] if param.get("specifier") else []).issubset(st.parameter_specifiers) for param in p[2]])
+			c5 = all([ len(param["specifier"] if param.get("specifier") else []) == len(set(param.get("specifier") if param.get("specifier") else [])) for param in p[2]])
 			if c1 and c2 and c3 and c4 and c5:
 				params_name = []
 				params = []
@@ -668,6 +670,7 @@ def p_postfix_expression6(p):
 		else:
 			p[0]["order"] = p[0]["order"][:-1]
 			if len(p[0]["order"]) == 0:
+				p[0]["real_id_type"] = p[0]["id_type"]
 				p[0]["id_type"] = "variable"		# Array is completely dereferenced to a single memory location
 	pass
 
@@ -1211,7 +1214,7 @@ def p_assignment_expression2(p):
 	"assignment_expression : logical_or_expression assignment_operator assignment_expression"
 	add_children(len(list(filter(None, p[1:]))) -1 ,p[2])
 	p[0] = p[1]
-	if p[1].get("id_type") not in ["variable", "array"]:
+	if (p[1].get("id_type") not in ["variable", "array"]) or (p[1].get("real_id_type") in ["function", "class"]):
 		st.print_error(p.lineno(1), p[1], 17)
 		return
 	if p[2] == '=':			# simple assignment
@@ -1262,8 +1265,8 @@ def p_assignment_expression2(p):
 			else:
 				p[0] = dict(entry)
 				p[0]["is_decl"] = True
-		if p[0].get("id_type") not in ["variable", "array"]:
-			st.print_error(p.lineno(1), p[1], 17)
+		if (p[0].get("id_type") not in ["variable", "array"]) or (p[0].get("real_id_type") in ["function", "class"]):
+			st.print_error(p.lineno(1), p[0], 17)
 			return
 		if st.expression_type(p.lineno(1), p[0]["type"], p[0].get("star", 0) , p[3]["type"], p[3].get("star", 0), op=str(p[2])):
 			if "const" in p[0]["specifier"]:
@@ -1496,25 +1499,26 @@ def p_compound_statement1(p):
 def p_new_scope(p):
 	"new_scope :"
 	if len(st.function_list) > 1:
-		st.print_error(p.lineno(1), {}, 27)
+		st.print_error(p.lineno(0), {}, 27)
 	elif len(st.function_list) == 1 and st.function_list[0]["is_defined"] is False:
 		f = st.function_list[0]
+		f["parameters"] = f["parameters"] if f["parameters"] else []
 		if any([param["id_type"] not in ["variable", "array"] for param in f["parameters"]]):
-			st.print_error(p.lineno(1), {}, 28, f["name"])
+			st.print_error(p.lineno(0), {}, 28, f["name"])
 			f["parameters"] = []
 		f["is_defined"] = True
 		if f["is_decl"] is False:
 			SymbolTable.insertID(p.lineno(0), f["name"], f["id_type"], types=f["type"],
-			 					specifiers=f["specifier"], value=f["value"],
-							    num=f["num"], order=f["order"], parameters=f["parameters"], defined=f["is_defined"])
+			 					specifiers=f["specifier"], num=f["num"], value=f["value"],
+							    stars=f["star"], order=f["order"], parameters=f["parameters"], defined=f["is_defined"])
 		else:
 			SymbolTable.updateIDAttr(f["name"], "is_defined", f["is_defined"])
 		SymbolTable.addScope(str(st.scope_ctr))
 		st.scope_ctr += 1
 		for param in f["parameters"]:		# Insert parameters in new scope created for this function
 			SymbolTable.insertID(p.lineno(0), param["name"], param["id_type"], types=param["type"],
-			 					specifiers=param["specifier"], value=param["value"],
-							    num=param["num"], order=param["order"], parameters=param["parameters"], defined=param["is_defined"])
+			 					specifiers=param["specifier"], num=param["num"], value=param["value"],
+							    stars=param["star"], order=param["order"], parameters=param["parameters"], defined=param["is_defined"])
 	else:
 		SymbolTable.addScope(str(st.scope_ctr))
 		st.scope_ctr += 1
@@ -1686,7 +1690,7 @@ def p_jump_statement3(p):
 	if p[2] is None:
 		if ' '. join(func["type"]) != "void":
 			st.print_error(p.lineno(1), {}, 36, func["name"], ' '. join(func["type"]))
-			return
+		return
 	if type(p[2]) is list:
 		expr = p[2][-1]
 	else:
@@ -1842,26 +1846,28 @@ def p_simple_declaration1(p):
 def p_simple_declaration2(p):
 	"simple_declaration : init_declaration ';'"
 	add_children(len(list(filter(None, p[1:]))) -1,"simple_declaration")
+	p[0] = []
 	if p[1]:
 		if "is_decl" not in p[1].keys():	# i.e. built_in_type_specifier ; (Illegal statement)
-			st.print_error(p.lineno(1), p[1], 2)	# error: declaration does not declare anything
-			p[0] = None
+			if p[1]["id_type"] in ["type_specifier",]:
+				st.print_error(p.lineno(1), p[1], 2)	# error: declaration does not declare anything
 		else:
 			if p[1]["is_decl"]:
 				if p[1]["id_type"] == "function" and p[1]["is_defined"] is False and p[1]["is_decl"] is True:
 					st.print_error(p.lineno(1), {}, 29, p[1]["name"]) # function redeclaration
+					st.function_list.pop()
 			elif p[1]["type"] is not None:
 				if p[1]["id_type"] in ["function"]:
 					st.function_list.pop()
 				SymbolTable.insertID(p.lineno(1), p[1]["name"], p[1]["id_type"], types=p[1]["type"], specifiers=p[1]["specifier"],
-				 					value=p[1]["value"], num=p[1]["num"], order=p[1]["order"],
+				 					num=p[1]["num"], value=p[1]["value"], stars=p[1]["star"], order=p[1]["order"],
 									parameters=p[1]["parameters"], defined=p[1]["is_defined"])
 			elif SymbolTable.lookupComplete(p[1]["name"]) is None:
 				st.print_error(p.lineno(1), p[1], 1)
 				if p[1]["id_type"] in ["function"]:
 					st.function_list.pop()
 				SymbolTable.insertID(p.lineno(1), p[1]["name"], p[1]["id_type"], types=p[1]["type"], specifiers=p[1]["specifier"],
-				 					value=p[1]["value"], num=p[1]["num"], order=p[1]["order"],
+				 					num=p[1]["num"], value=p[1]["value"], stars=p[1]["star"], order=p[1]["order"],
 									parameters=p[1]["parameters"], defined=p[1]["is_defined"])
 			else:
 				pass
@@ -1875,31 +1881,32 @@ def p_simple_declaration3(p):
 	if p[1]:
 		for decl in p[1]:
 			if "is_decl" not in decl.keys():
-				st.print_error(p.lineno(1), decl, 2)
+				if decl["id_type"] in ["type_specifier",]:
+					st.print_error(p.lineno(1), decl, 2)
 			else:
 				if decl["is_decl"]:
 					if decl["id_type"] == "function" and decl["is_defined"] is False and decl["is_decl"] is True:
 						st.print_error(p.lineno(1), {}, 29, decl["name"])	# function redeclaration
 				elif decl["type"] is not None:
 					SymbolTable.insertID(p.lineno(1), decl["name"], decl["id_type"], types=decl["type"], specifiers=decl["specifier"],
-					 					value=decl["value"], num=decl["num"], order=decl["order"],
+					 					num=decl["num"], value=decl["value"], stars=decl["star"], order=decl["order"],
 										parameters=decl["parameters"], defined=decl["is_defined"])
 				elif SymbolTable.lookupComplete(decl["name"]) is None:
 					st.print_error(p.lineno(1), decl, 1)
 					SymbolTable.insertID(p.lineno(1), decl["name"], decl["id_type"], types=decl["type"], specifiers=decl["specifier"],
-					 					value=decl["value"], num=decl["num"], order=decl["order"],
+					 					num=decl["num"], value=decl["value"], stars=decl["star"], order=decl["order"],
 										parameters=decl["parameters"], defined=decl["is_defined"])
 				else:
 					pass
 			p[0] += [decl]
 		if not p[0]:
-			p[0] = None
+			p[0] = []
 	pass
 
 def p_simple_declaration4(p):
 	"simple_declaration : decl_specifier_prefix simple_declaration"
 	add_children(len(list(filter(None, p[1:]))),"simple_declaration")
-	if p[2] is None:			# i.e. decl_specifier_prefix ;
+	if len(p[2]) == 0:			# i.e. decl_specifier_prefix ;
 		st.print_error(p.lineno(1), {}, 2)
 	else:
 		for decl in p[2]:
@@ -3446,5 +3453,5 @@ if __name__ == "__main__":
 	print("================================================================================================\n\n")
 	st.print_table()
 	print("================================================================================================\n\n")
-
+	print(st.function_list)
 	pass

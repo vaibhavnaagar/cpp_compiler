@@ -13,11 +13,11 @@ int ComputeFactorial(int number) {
   return fact;
 }
 
-double ComputeSeriesValue(double x, int n) {
+int ComputeSeriesValue( (int x) ,(int y)) {
   double seriesValue = 0.0;
   double xpow = 1;
 
-  return seriesValue;
+  return 1;
 }
 
 int main() {
@@ -26,8 +26,10 @@ int main() {
 
   double x;
   //cin >> x;
-
+  int** p;
   int n;
+  *p= &n;
+
   //cout << endl << "Please enter an integer value for n : " ;
   //cin >> n;
   //cout << endl;
@@ -43,12 +45,12 @@ int main() {
   while (1) {
     x += 2*n;
   }
-  for (;-1;){
+  for (int j;-1;){
     ;
+    j = 3;
   }
-  double seriesValue = ComputeSeriesValue(x, n);
   //cout << "The value of the series for the values entered is "
 	//<< seriesValue << endl;
-
+  n = ComputeSeriesValue(j);
   return 0;
 }
