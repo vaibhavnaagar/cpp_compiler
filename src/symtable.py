@@ -3,7 +3,7 @@ import pprint, copy
 ### Scopes ###
 
 global ScopeList, currentScope
-ScopeList = { "NULL" : None, "global" : {"name":"global", "parent" : "NULL",}, }
+ScopeList = { "NULL" : None, "global" : {"name":"global", "parent" : "NULL", "scope_type" : "global"}, }
 currentScope = "global"
 scope_ctr = 1
 
@@ -13,6 +13,9 @@ is_func_decl = False
 parameter_specifiers = ["register", "auto", "const", "volatile"]
 parenthesis_ctr = 0
 
+### Namespaces ###
+namespace_list = []
+is_namespace = False
 ### Data Types ###
 
 integral_types = ["int", "long", "literal_int", "short", "unsigned", "signed"]
@@ -165,8 +168,9 @@ class SymTab:
                 "is_defined": bool(defined),
         #        "size"      : size
             }
-            check_datatype(lineno, currtable.symtab[str(name)]["type"], name, id_type)
-            check_specifier(lineno, currtable.symtab[str(name)]["specifier"], name)
+            if id_type not in ["namespace",]:
+                check_datatype(lineno, currtable.symtab[str(name)]["type"], name, id_type)
+                check_specifier(lineno, currtable.symtab[str(name)]["specifier"], name)
             warning = ''
             if types is None:
                 warning = "(warning: Type is None)"
@@ -194,17 +198,22 @@ class SymTab:
     def addScopeAttr(self,attribute,value):
         self.scope.update({attribute:value})
 
-    def addScope(self,name):
+    def addScope(self, name, scope_type):
         global ScopeList, currentScope
         new_scope = {
                 "name"       : str(name),
                 "parent"     : ScopeList[currentScope]["name"],
-                "table"      : None
+                "table"      : dict(),
+                "scope_type" : str(scope_type)
                 }
         ScopeList[str(name)] =  new_scope
         currentScope = str(name)
         SymTab()
         print("[Symbol Table](addScope) Adding New Scope: ", name)
+
+    def changeScope(self, name):
+        global currentScope
+        currentScope = name
 
     def endScope(self):
         """
@@ -400,7 +409,7 @@ def print_error(lineno, id1, errno, *args):
     elif errno == 3:
         print(color.cline, lineno, color.cerror + " expected unqualified-id before \'%s\'" % args[0])
     elif errno == 4:
-        if id1["type"] == args[0]:
+        if id1.get("type") == args[0]:
             print(color.cline, lineno, color.cerror + " ", "redeclaration of \'%s\'" % id1["name"])
         else:
             print(color.cline, lineno, color.cerror + " ", "conflicting declaration \'%s\', previously declared as \'%s\'" % (id1["name"], id1["type"]))
@@ -472,13 +481,17 @@ def print_error(lineno, id1, errno, *args):
         print(color.cline, lineno, color.cerror + " incorrect condition in conditional statement")
     elif errno == 38:
         print(color.cline, lineno, color.cerror + " Multiple parameters in conditional statement, Ignoring all but last valid one")
+    elif errno == 39:
+        print(color.cline, lineno, color.cerror + " \'%s\' is not a namespace-name, expected namespace-name before \';\'" %args[0])
+    elif errno == 40:
+        print(color.cline, lineno, color.cerror + " incorrect condition in conditional statement")
     pass
 
 def print_table():
     pp = pprint.PrettyPrinter(indent=4)
     for scope in ScopeList.keys():
         if scope != "NULL":
-            print("Scope Name:", scope)
+            print("Scope Name:", scope, "Scope Type:", ScopeList[scope]["scope_type"])
             if ScopeList[scope]["table"].symtab:
                 pp.pprint(ScopeList[scope]["table"].symtab)
             print("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~")

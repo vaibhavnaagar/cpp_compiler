@@ -18,7 +18,7 @@
 > nested_ptr_operator : id_scope nested_ptr_operator  => Scoping rules
 > "global_scope" => Don't know when this global_scope is used (Currently ignored)
 
->> id_type: variable, array, function, class, type_specifier, literal, parameter (means- int x)
+>> id_type: variable, array, function, class, type_specifier, literal, parameter (means- int x), namespace
 
 >> No new scope is created if error occurs like in func(int a,int b) { } inside another function
 

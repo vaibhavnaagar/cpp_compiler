@@ -188,6 +188,14 @@ def p_id1(p):
 	"id : identifier"
 	add_children(len(list(filter(None, p[1:]))),"id")
 	p[0] = p[1]
+	if st.is_namespace:
+		st.is_namespace = False
+		if p[0].get("is_decl") and (p[0].get("id_type") not in ["namespace",]):
+			st.print_error(p.lineno(2), p[3], 4, None)
+			return
+		else:
+			p[0]["id_type"] = "namespace"
+			st.namespace_list.append(p[0])
 	pass
 
 
@@ -1498,6 +1506,7 @@ def p_compound_statement1(p):
 
 def p_new_scope(p):
 	"new_scope :"
+	st.is_namespace = False
 	if len(st.function_list) > 1:
 		st.print_error(p.lineno(0), {}, 27)
 	elif len(st.function_list) == 1 and st.function_list[0]["is_defined"] is False:
@@ -1513,14 +1522,18 @@ def p_new_scope(p):
 							    stars=f["star"], order=f["order"], parameters=f["parameters"], defined=f["is_defined"])
 		else:
 			SymbolTable.updateIDAttr(f["name"], "is_defined", f["is_defined"])
-		SymbolTable.addScope(str(st.scope_ctr))
-		st.scope_ctr += 1
+		SymbolTable.addScope(f["name"], "function_scope")
 		for param in f["parameters"]:		# Insert parameters in new scope created for this function
 			SymbolTable.insertID(p.lineno(0), param["name"], param["id_type"], types=param["type"],
 			 					specifiers=param["specifier"], num=param["num"], value=param["value"],
 							    stars=param["star"], order=param["order"], parameters=param["parameters"], defined=param["is_defined"])
+	elif len(st.namespace_list) > 0 and len(st.function_list) == 0:
+		if st.namespace_list[-1]["name"] in st.ScopeList.keys():
+			SymbolTable.changeScope(st.namespace_list[-1]["name"])	# Scope Extension
+		else:
+			SymbolTable.addScope(st.namespace_list[-1]["name"], "namespace_scope")
 	else:
-		SymbolTable.addScope(str(st.scope_ctr))
+		SymbolTable.addScope(str(st.scope_ctr), "block_scope")
 		st.scope_ctr += 1
 	pass
 
@@ -1721,6 +1734,12 @@ def p_compound_declaration1(p):
 	"compound_declaration : '{' new_scope nest declaration_seq_opt '}'"
 	add_children(len(list(filter(None, p[1:]))) - 2,"compound_declaration")
 	SymbolTable.endScope()
+	try:
+		print("[PARSER] popped namespace : %s" % st.namespace_list[-1]["name"])
+		st.namespace_list.pop()
+	except:
+		pass
+	p[0] = p[4]
 	pass
 
 def p_compound_declaration2(p):
@@ -1738,6 +1757,10 @@ def p_declaration_seq_opt1(p):
 def p_declaration_seq_opt2(p):
 	"declaration_seq_opt : declaration_seq_opt util looping_declaration"
 	add_children(len(list(filter(None, p[1:]))),"declaration_seq_opt")
+	if p[1]:
+		p[0] = (p[1] if isinstance(p[1], list) else [p[1]]) + (p[3] if isinstance(p[3], list) else [p[3]])
+	else:
+		p[0] = [] + (p[2] if isinstance(p[2], list) else [p[2]])
 	pass
 
 def p_declaration_seq_opt3(p):
@@ -2202,6 +2225,7 @@ def p_elaborate_type_specifier3(p):
 def p_simple_type_specifier1(p):
 	"simple_type_specifier : scoped_id"
 	add_children(len(list(filter(None, p[1:]))),"simple_type_specifier")
+	p[0] = p[1]
 	pass
 
 def p_simple_type_specifier2(p):
@@ -2346,21 +2370,34 @@ def p_enumerator(p):
 	pass
 
 def p_namespace_definition1(p):
-	"namespace_definition : NAMESPACE scoped_id compound_declaration"
+	"namespace_definition : NAMESPACE m_namespace scoped_id compound_declaration"
 	create_child("None",p[1])
 	add_children(len(list(filter(None, p[1:]))),"namespace_definition")
+	p[0] = p[4]
+	if p[3].get("is_decl") or (p[3].get("id_type") not in ["namespace",]):
+		return
+	SymbolTable.insertID(p.lineno(1), p[3]["name"], p[3]["id_type"], types=[], specifiers=[],
+						num=p[3]["num"], value=p[3]["value"], stars=p[3]["star"], order=p[3]["order"],
+						parameters=p[3]["parameters"], defined=True)
+	pass
+
+def p_m_namespace(p):
+	"m_namespace :"
+	st.is_namespace = True
 	pass
 
 def p_namespace_definition2(p):
-	"namespace_definition : NAMESPACE compound_declaration"
+	"namespace_definition : NAMESPACE m_namespace compound_declaration"
 	create_child("None",p[1])
 	add_children(len(list(filter(None, p[1:]))),"namespace_definition")
+	p[0] = p[3]
 	pass
 
 def p_namespace_alias_definition(p):
-	"namespace_alias_definition : NAMESPACE scoped_id '=' scoped_id ';'"
+	"namespace_alias_definition : NAMESPACE m_namespace scoped_id '=' scoped_id ';'"
 	create_child("None",p[1])
-	add_children(len(list(filter(None, p[1:]))) - 2,p[3])
+	add_children(len(list(filter(None, p[1:]))) - 2,p[4])
+	# pop scoped_id from namespace_list, okay !
 	pass
 
 def p_using_declaration1(p):
@@ -2377,10 +2414,27 @@ def p_using_declaration2(p):
 	pass
 
 def p_using_directive(p):
-	"using_directive : USING NAMESPACE scoped_id ';'"
+	"using_directive : USING NAMESPACE m_namespace scoped_id ';'"
 	create_child("None",p[1])
 	create_child("None",p[2])
 	add_children(len(list(filter(None, p[1:]))) - 1,"using_directive")
+	p[0] = p[4]
+	try:
+		st.namespace_list.pop()
+	except:
+		pass
+	if not p[0].get("is_decl"):
+		entry = SymbolTable.lookupComplete(p[0]["name"])
+		if entry is None:
+			st.print_error(p.lineno(1), p[0], 1)
+			return
+		else:
+			p[0] = dict(entry)
+			p[0]["is_decl"] = True
+	if p[0]["id_type"] not in ["namespace",]:
+		st.print_error(p.lineno(1), {}, 39, p[0]["name"])
+	else:
+		augment_scope(st.currentScope, p[0]["name"])
 	pass
 
 def p_asm_definition(p):
@@ -2941,7 +2995,7 @@ def p_class_specifier_head1(p):
 	"class_specifier_head : class_key scoped_id colon_mark base_specifier_list '{'"
 	create_child("None",p[5])
 	add_children(len(list(filter(None, p[1:]))),"class_specifier_head")
-	SymbolTable.addScope(str(st.scope_ctr))
+	SymbolTable.addScope(str(st.scope_ctr), "class_scope")
 	st.scope_ctr += 1
 	pass
 
@@ -2950,7 +3004,7 @@ def p_class_specifier_head2(p):
 	create_child("None",p[2])
 	create_child("None",p[4])
 	add_children(len(list(filter(None, p[1:]))),"class_specifier_head")
-	SymbolTable.addScope(str(st.scope_ctr))
+	SymbolTable.addScope(str(st.scope_ctr), "class_scope")
 	st.scope_ctr += 1
 	pass
 
@@ -2958,7 +3012,7 @@ def p_class_specifier_head3(p):
 	"class_specifier_head : class_key scoped_id '{'"
 	create_child("None",p[3])
 	add_children(len(list(filter(None, p[1:]))),"class_specifier_head")
-	SymbolTable.addScope(str(st.scope_ctr))
+	SymbolTable.addScope(str(st.scope_ctr), "class_scope")
 	st.scope_ctr += 1
 	pass
 
@@ -2966,7 +3020,7 @@ def p_class_specifier_head4(p):
 	"class_specifier_head : class_key '{'"
 	create_child("None",p[2])
 	add_children(len(list(filter(None, p[1:]))),"class_specifier_head")
-	SymbolTable.addScope(str(st.scope_ctr))
+	SymbolTable.addScope(str(st.scope_ctr), "class_scope")
 	st.scope_ctr += 1
 	pass
 
@@ -3430,12 +3484,12 @@ if __name__ == "__main__":
 	#log = logging.getLogger('ply')
 
 	#sys.exit()
-	parser = yacc.yacc(errorlog=yacc.NullLogger())
-	#parser = yacc.yacc(debug=True)
+	#parser = yacc.yacc(errorlog=yacc.NullLogger())
+	parser = yacc.yacc(debug=True)
 	#if(len(sys.argv) == 2):
 	#	filename = sys.argv[1]
 	#else:
-	filename = "../tests/small_test.cpp"
+	filename = "../tests/test5.cpp"
 	a = open(filename)
 	data = a.read()
 	#data = '''	char f1(char p);
