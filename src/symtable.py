@@ -6,6 +6,8 @@ global ScopeList, currentScope
 ScopeList = { "NULL" : None, "global" : {"name":"global", "parent" : "NULL", "scope_type" : "global"}, }
 currentScope = "global"
 scope_ctr = 1
+previous_scope = ""
+scope_transitions = []
 
 ### Functions ###
 function_list = []
@@ -16,6 +18,8 @@ parenthesis_ctr = 0
 ### Namespaces ###
 namespace_list = []
 is_namespace = False
+is_ns_member = False
+
 ### Data Types ###
 
 integral_types = ["int", "long", "literal_int", "short", "unsigned", "signed"]
@@ -400,6 +404,18 @@ def check_func_params(lineno, func, params, param_list, decl=True):
             print_error(lineno,{}, 32, p1["name"])
     return no_err
 
+def augment_scope(lineno, scope1, scope2):
+    """ Copies all identifiers from scope2 to scope1
+    """
+    table1 = ScopeList[scope1]["table"].symtab
+    table2 = ScopeList[scope2]["table"].symtab
+    for identifier in table2.keys():
+        if identifier in table1.keys():
+            print_error(lineno, {}, 41, identifier)
+        else:
+            table1.update({str(identifier) : table2[identifier]})   # adding identifier as a reference to scope2 (not copying)
+    pass
+
 
 def print_error(lineno, id1, errno, *args):
     if errno == 1:
@@ -482,16 +498,21 @@ def print_error(lineno, id1, errno, *args):
     elif errno == 38:
         print(color.cline, lineno, color.cerror + " Multiple parameters in conditional statement, Ignoring all but last valid one")
     elif errno == 39:
-        print(color.cline, lineno, color.cerror + " \'%s\' is not a namespace-name, expected namespace-name before \';\'" %args[0])
+        print(color.cline, lineno, color.cerror + " \'%s\' is not a namespace-name, expected namespace-name before \'%s\'" % (args[0], args[1]))
     elif errno == 40:
-        print(color.cline, lineno, color.cerror + " incorrect condition in conditional statement")
+        print(color.cline, lineno, color.cerror + " \'%s\' is not a member of %s \'%s\'" % (args[0], args[1], args[2]))
+    elif errno == 41:
+        print(color.cline, lineno, color.cerror + " reference to \'%s\' is ambiguous, multiple candidates exist" % args[0])
+    elif errno == 42:
+        print(color.cline, lineno, color.cerror + " \'%s\' \'%s\' not allowed in using-declaration" % (args[0], arg[1]))
+
     pass
 
 def print_table():
     pp = pprint.PrettyPrinter(indent=4)
     for scope in ScopeList.keys():
         if scope != "NULL":
-            print("Scope Name:", scope, "Scope Type:", ScopeList[scope]["scope_type"])
+            print("Scope Name:", scope, ", ", "Scope Type:", ScopeList[scope]["scope_type"])
             if ScopeList[scope]["table"].symtab:
                 pp.pprint(ScopeList[scope]["table"].symtab)
             print("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~")

@@ -15,21 +15,27 @@ namespace first_space{
 
    // second name space
    namespace second_space{
-      void func2(){
+      void func3(){
         // cout << "Inside second_space" << endl;
       }
    }
 }
 
-namespace first_space {
-  int abc;
+namespace second_space{
+   void func2(){
+     // cout << "Inside second_space" << endl;
+   }
 }
 
-//using namespace first_space::second_space;
+namespace x {
+  int b;
+}
+//using namespace first_space;
 int main () {
+  using second_space::func2;
 
    // This calls function from second name space.
-   //func();
+   func2();
 
    return 0;
 }
