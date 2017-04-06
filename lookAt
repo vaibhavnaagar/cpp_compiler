@@ -18,7 +18,8 @@
 > nested_ptr_operator : id_scope nested_ptr_operator  => Scoping rules
 > "global_scope" => Don't know when this global_scope is used (Currently ignored)
 
->> id_type: variable, array, function, class, type_specifier, literal, parameter (means- int x), namespace
+>> id_type: variable, array, function, class, type_specifier, literal, parameter (means- int x), namespace, object
+   scope_type: block_scope, function_scope, class_scope, namespace_scope, struct_scope, union_scope
 
 >> No new scope is created if error occurs like in func(int a,int b) { } inside another function
 
@@ -28,3 +29,16 @@
 > "pm_expression : pm_expression ARROW_STAR cast_expression"
 
 > "advance_search" (not using at all)
+
+
+
+
+
+
+
+
+
+
+
+
+2149: "suffix_decl_specified_scope : suffix_named_decl_specifiers SCOPE"

@@ -9,6 +9,9 @@ scope_ctr = 1
 previous_scope = ""
 scope_transitions = []
 
+### Classes ###
+access_specifier = "public"
+
 ### Functions ###
 function_list = []
 is_func_decl = False
@@ -129,12 +132,10 @@ class SymTab:
         global ScopeList
         self.symtab = dict()
        # self.numVar = 0
-
-       # I think, there is no need of this self.scope
         self.scope =  {
                 "name"       : ScopeList[currentScope]["name"],
                 "parent"     : ScopeList[currentScope]["parent"],
-                "table"      : self,                          # No need, I guess
+                "table"      : self,
             }
         ScopeList[currentScope]["table"] = self
 
@@ -152,10 +153,9 @@ class SymTab:
             scope = ScopeList[scope["parent"]]
         return None
 
-    def insertID(self, lineno, name, id_type, types=None, specifiers=[], num=1, value=None, stars=0, order=[], parameters=[], defined=False):
+    def insertID(self, lineno, name, id_type, types=None, specifiers=[], num=1, value=None, stars=0, order=[], parameters=[], defined=False, access="public"):
         currtable = ScopeList[currentScope]["table"]
         #print("[Symbol Table]", currtable.symtab)
-
         if currtable.lookup(str(name)):         # No need to check again
             print("[Symbol Table] Entry already exists")
         else:
@@ -170,14 +170,16 @@ class SymTab:
                 "order"     : list(order if order else []),          # order of array in case of array
                 "parameters": copy.deepcopy(parameters if parameters else []),   # Used for functions only
                 "is_defined": bool(defined),
+                "access"    : str(access),   # Default 'public'
+                "myscope"   : str(st.currentScope),
         #        "size"      : size
             }
-            if id_type not in ["namespace",]:
+            warning = ''
+            if id_type not in ["namespace", "class", "struct", "union", ]:
                 check_datatype(lineno, currtable.symtab[str(name)]["type"], name, id_type)
                 check_specifier(lineno, currtable.symtab[str(name)]["specifier"], name)
-            warning = ''
-            if types is None:
-                warning = "(warning: Type is None)"
+                if types is None:
+                    warning = "(warning: Type is None)"
             print("[Symbol Table] ", warning, " Inserting new identifier: ", name, " type: ", types, "specifier: ", specifiers)
             #ScopeList[-1]["table"].numVar += 1
 
@@ -505,6 +507,12 @@ def print_error(lineno, id1, errno, *args):
         print(color.cline, lineno, color.cerror + " reference to \'%s\' is ambiguous, multiple candidates exist" % args[0])
     elif errno == 42:
         print(color.cline, lineno, color.cerror + " \'%s\' \'%s\' not allowed in using-declaration" % (args[0], arg[1]))
+    elif errno == 43:
+        print(color.cline, lineno, color.cerror + " redifinition of \'%s\', previously defined as \'%s\'" % (args[0], args[1]))
+    elif errno == 44:
+        print(color.cline, lineno, color.cerror + " id \'%s\' with \'%s\' tag does not exist" % (args[0], args[1]))
+    elif errno == 45:
+        print(color.cline, lineno, color.cerror + " redifinition of \'%s\', previously defined as \'%s\'" % (args[0], args[1]))
 
     pass
 
