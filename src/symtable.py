@@ -3,15 +3,25 @@ import pprint, copy
 ### Scopes ###
 
 global ScopeList, currentScope
-ScopeList = { "NULL" : None, "global" : {"name":"global", "parent" : "NULL",}, }
+ScopeList = { "NULL" : None, "global" : {"name":"global", "parent" : "NULL", "scope_type" : "global"}, }
 currentScope = "global"
 scope_ctr = 1
+previous_scope = ""
+scope_transitions = []
+
+### Classes ###
+access_specifier = "public"
 
 ### Functions ###
 function_list = []
 is_func_decl = False
 parameter_specifiers = ["register", "auto", "const", "volatile"]
 parenthesis_ctr = 0
+
+### Namespaces ###
+namespace_list = []
+is_namespace = False
+is_ns_member = False
 
 ### Data Types ###
 
@@ -73,7 +83,7 @@ simple_type_specifier = {
 "float": {"size" : 4 , "equiv_type" : "float"  },
 "double": {"size" : 8 , "equiv_type" : "double"  },
 #"long double": {"size" : 10 , "equiv_type" : "long double"}
-
+"void": {"size" : 0, "equiv_type" : "void"},
 }
 
 ### Specifiers ###
@@ -122,12 +132,10 @@ class SymTab:
         global ScopeList
         self.symtab = dict()
        # self.numVar = 0
-
-       # I think, there is no need of this self.scope
         self.scope =  {
                 "name"       : ScopeList[currentScope]["name"],
                 "parent"     : ScopeList[currentScope]["parent"],
-                "table"      : self,                          # No need, I guess
+                "table"      : self,
             }
         ScopeList[currentScope]["table"] = self
 
@@ -145,10 +153,9 @@ class SymTab:
             scope = ScopeList[scope["parent"]]
         return None
 
-    def insertID(self, lineno, name, id_type, types=None, specifiers=[], num=1, value=None, stars=0, order=[], parameters=[], defined=False):
+    def insertID(self, lineno, name, id_type, types=None, specifiers=[], num=1, value=None, stars=0, order=[], parameters=[], defined=False, access="public", scope=""):
         currtable = ScopeList[currentScope]["table"]
         #print("[Symbol Table]", currtable.symtab)
-
         if currtable.lookup(str(name)):         # No need to check again
             print("[Symbol Table] Entry already exists")
         else:
@@ -157,19 +164,22 @@ class SymTab:
                 "id_type"   : str(id_type),
                 "type"      : list([] if types is None else types),        # List of data_types
                 "specifier" : list([] if specifiers is None else specifiers),    # List of type specifiers
-                "star"      : int(stars),
                 "num"       : int(num),            # Number of such id
                 "value"     : list(value) if type(value) is list else value,           # Mostly required for const type variable
+                "star"      : int(stars),
                 "order"     : list(order if order else []),          # order of array in case of array
                 "parameters": copy.deepcopy(parameters if parameters else []),   # Used for functions only
                 "is_defined": bool(defined),
+                "access"    : str(access),   # Default 'public'
+                "myscope"   : scope if scope != ""  else str(currentScope),
         #        "size"      : size
             }
-            check_datatype(lineno, currtable.symtab[str(name)]["type"], name, id_type)
-            check_specifier(lineno, currtable.symtab[str(name)]["specifier"], name)
             warning = ''
-            if types is None:
-                warning = "(warning: Type is None)"
+            if id_type not in ["namespace", "class", "struct", "union", "object"]:
+                check_datatype(lineno, currtable.symtab[str(name)]["type"], name, id_type)
+                check_specifier(lineno, currtable.symtab[str(name)]["specifier"], name)
+                if types is None:
+                    warning = "(warning: Type is None)"
             print("[Symbol Table] ", warning, " Inserting new identifier: ", name, " type: ", types, "specifier: ", specifiers)
             #ScopeList[-1]["table"].numVar += 1
 
@@ -194,17 +204,22 @@ class SymTab:
     def addScopeAttr(self,attribute,value):
         self.scope.update({attribute:value})
 
-    def addScope(self,name):
+    def addScope(self, name, scope_type):
         global ScopeList, currentScope
         new_scope = {
                 "name"       : str(name),
                 "parent"     : ScopeList[currentScope]["name"],
-                "table"      : None
+                "table"      : dict(),
+                "scope_type" : str(scope_type)
                 }
         ScopeList[str(name)] =  new_scope
         currentScope = str(name)
         SymTab()
         print("[Symbol Table](addScope) Adding New Scope: ", name)
+
+    def changeScope(self, name):
+        global currentScope
+        currentScope = name
 
     def endScope(self):
         """
@@ -236,18 +251,24 @@ def check_datatype(lineno, types, name, id_type):
     if input_type in simple_type_specifier:
         currtable.symtab[str(name)]["type"] = [simple_type_specifier[input_type]["equiv_type"]]
         if id_type not in ["function", "class"]:
-            SymTab.addIDAttr(name,"size", simple_type_specifier[input_type]["size"]* currtable.symtab[str(name)]["num"])
+            size = simple_type_specifier[input_type]["size"]
+            if currtable.symtab[str(name)]["star"] > 0:
+                size = 8
+            SymTab.addIDAttr(name,"size", size * currtable.symtab[str(name)]["num"])
         return True
     else :
-        print(color.cline, lineno, color.cerror + " Invalid string of data type - Taking the first element only")
+        print_error(lineno, {}, 46)
         input_type = "" if len(types) == 0  else types[0]
         if input_type in simple_type_specifier:
             currtable.symtab[str(name)]["type"] = [simple_type_specifier[input_type]["equiv_type"]]
             if id_type not in ["function", "class"]:
-                SymTab.addIDAttr(name,"size", simple_type_specifier[input_type]["size"] *currtable.symtab[str(name)]["num"])
+                size = simple_type_specifier[input_type]["size"]
+                if currtable.symtab[str(name)]["star"] > 0:
+                    size = 8
+                SymTab.addIDAttr(name,"size", size * currtable.symtab[str(name)]["num"])
             return True
         else :
-            print(color.cline, lineno, color.cerror + " Invalid data type")
+            print_error(lineno, {}, 51)
             return False
     pass
 
@@ -267,24 +288,24 @@ def check_specifier(lineno, specifier_list, name):
         if not spec_dict[specifiers[spec]]:
             spec_dict[specifiers[spec]].append(spec)
         else:
-            print(color.cline, lineno, color.cerror + " Multiple speciers of one type - Ignoring all but first")
+            print_error(lineno, {}, 47)
 
     currtable = ScopeList[currentScope]["table"]
     id_type = currtable.symtab[str(name)]["id_type"]
 
     if spec_dict["typedef_spec"]:
         if list(filter(lambda x: x!= "typedef",specifier_list)):
-            print(color.cline, lineno, color.cerror + " No specifiers with typedef allowed - Ignoring all")
+            print_error(lineno, {}, 48)
         spec_dict = {"typedef_spec" :"typedef"}
 
     if spec_dict["friend_spec"]:
         if id_type != "class" and id_type !="function" :
-            print(color.cline, lineno, color.cerror + " Friend Specifier only allowed with class or function type of identifier")
+            print_error(lineno, {}, 49)
             spec_dict["friend_spec"] = []
 
     if spec_dict["function_spec"]:
         if id_type != "function":
-            print(color.cline, lineno, color.cerror + " Function Specifier only allowed with function type of identifier")
+            print_error(lineno, {}, 50)
             spec_dict["function_spec"] = []
     dummy = []
     for attr in spec_dict:
@@ -295,24 +316,27 @@ def check_specifier(lineno, specifier_list, name):
     pass
 
 def expression_type(lineno, l1, s1, l2, s2, op=None):
-    if op == "=":
-        if s1 == s2:
-            return l1,s1
-        else :
-            return None
-    if s1 != s2:
-        print(color.cline, lineno, color.cerror + " Different levels of dereferencing in the operands, Ignoring operation")
-        return l1,s1
-
     type1 = simple_type_specifier[' '.join(l1)]["equiv_type"]
     type2 = simple_type_specifier[' '.join(l2)]["equiv_type"]
+    if op == "=":
+        if type2 == "void" or type1 == "void":
+            print_error(lineno, {}, 52, op)
+            return None
+        if s1 == s2:
+            return l1,s1
+        else:
+            print_error(lineno, {}, 53)
+            return None
+    if s1 != s2:
+        print_error(lineno, {}, 53)
+        return l1,s1
 
     if op in ["%","<<",">>","%=","<<=",">>="]:
         if type1 in eq_integral_types[:-2] and type2 in eq_integral_types[:-2]:
             l = eq_integral_types[max(eq_integral_types.index(type1),eq_integral_types.index(type1))]
             return l.split(" "),s1
         else:
-            print(color.cline, lineno, color.cerror + " Incorrect data types for ",op," Ignoring operation")
+            print_error(lineno, {}, 52, op)
             return l1,s1
 
     if op in [ "^", "|" , "&", "+", "-", "/", "*", "^=", "|=" , "&=", "+=", "-=", "/=", "*="]:
@@ -320,7 +344,7 @@ def expression_type(lineno, l1, s1, l2, s2, op=None):
             l = eq_integral_types[max(eq_integral_types.index(type1),eq_integral_types.index(type1))]
             return l.split(" "),s1
         else:
-            print(color.cline, lineno, color.cerror + " Incorrect data types for ",op," Ignoring operation")
+            print_error(lineno, {}, 52, op)
             return l1,s1
 
     if op in ["<", '>', '<=', '>=', '==']:
@@ -330,8 +354,7 @@ def expression_type(lineno, l1, s1, l2, s2, op=None):
     if op in ["&&","||"]:
         if type1 in [bool_types, eq_integral_types] and type2 in [bool_types, eq_integral_types]:
             return ["bool"],s1
-
-    print(color.cline, lineno, color.cerror + " Incompatible data types of operands, Ignoring operation")
+    print_error(lineno, {}, 52, "operands")
     return l1,s1
 
 
@@ -382,6 +405,18 @@ def check_func_params(lineno, func, params, param_list, decl=True):
             print_error(lineno,{}, 32, p1["name"])
     return no_err
 
+def augment_scope(lineno, scope1, scope2):
+    """ Copies all identifiers from scope2 to scope1
+    """
+    table1 = ScopeList[scope1]["table"].symtab
+    table2 = ScopeList[scope2]["table"].symtab
+    for identifier in table2.keys():
+        if identifier in table1.keys():
+            print_error(lineno, {}, 41, identifier)
+        else:
+            table1.update({str(identifier) : table2[identifier]})   # adding identifier as a reference to scope2 (not copying)
+    pass
+
 
 def print_error(lineno, id1, errno, *args):
     if errno == 1:
@@ -391,7 +426,7 @@ def print_error(lineno, id1, errno, *args):
     elif errno == 3:
         print(color.cline, lineno, color.cerror + " expected unqualified-id before \'%s\'" % args[0])
     elif errno == 4:
-        if id1["type"] == args[0]:
+        if id1.get("type") == args[0]:
             print(color.cline, lineno, color.cerror + " ", "redeclaration of \'%s\'" % id1["name"])
         else:
             print(color.cline, lineno, color.cerror + " ", "conflicting declaration \'%s\', previously declared as \'%s\'" % (id1["name"], id1["type"]))
@@ -463,13 +498,55 @@ def print_error(lineno, id1, errno, *args):
         print(color.cline, lineno, color.cerror + " incorrect condition in conditional statement")
     elif errno == 38:
         print(color.cline, lineno, color.cerror + " Multiple parameters in conditional statement, Ignoring all but last valid one")
+    elif errno == 39:
+        print(color.cline, lineno, color.cerror + " \'%s\' is not a namespace-name, expected namespace-name before \'%s\'" % (args[0], args[1]))
+    elif errno == 40:
+        print(color.cline, lineno, color.cerror + " \'%s\' is not a member of %s \'%s\'" % (args[0], args[1], args[2]))
+    elif errno == 41:
+        print(color.cline, lineno, color.cerror + " reference to \'%s\' is ambiguous, multiple candidates exist" % args[0])
+    elif errno == 42:
+        print(color.cline, lineno, color.cerror + " \'%s\' \'%s\' not allowed in using-declaration" % (args[0], arg[1]))
+    elif errno == 43:
+        print(color.cline, lineno, color.cerror + " redifinition of \'%s\', previously defined as \'%s\'" % (args[0], args[1]))
+    elif errno == 44:
+        print(color.cline, lineno, color.cerror + " id \'%s\' with \'%s\' tag does not exist" % (args[0], args[1]))
+    elif errno == 45:
+        print(color.cline, lineno, color.cerror + " redifinition of \'%s\', previously defined as \'%s\'" % (args[0], args[1]))
+    elif errno == 46:
+        print(color.cline, lineno, color.cerror + " Invalid string of data type - Taking the first element only")
+    elif errno == 47:
+        print(color.cline, lineno, color.cerror + " Multiple speciers of one type - Ignoring all but first")
+    elif errno == 48:
+        print(color.cline, lineno, color.cerror + " No specifiers with typedef allowed - Ignoring all")
+    elif errno == 49:
+        print(color.cline, lineno, color.cerror + " Friend Specifier only allowed with class or function type of identifier")
+    elif errno == 50:
+        print(color.cline, lineno, color.cerror + " Function Specifier only allowed with function type of identifier")
+    elif errno == 51:
+        print(color.cline, lineno, color.cerror + " Invalid data type")
+    elif errno == 52:
+        print(color.cline, lineno, color.cerror + " Incorrect data types for \'%s\' Ignoring operation" % args[0])
+    elif errno == 53:
+        print(color.cline, lineno, color.cerror + " Different levels of dereferencing in the operands, Ignoring operation")
+    elif errno == 54:
+        print(color.cline, lineno, color.cerror + " \'%s\' is not of class or structure object" % args[0])
+    elif errno == 55:
+        print(color.cline, lineno, color.cerror + " member \'%s\' does not exist in \'%s\'" % (args[0], args[1]))
+    elif errno == 56:
+        print(color.cline, lineno, color.cerror + " request for member \'%s\' in \'%s\', which is of pointer type (maybe you meant to use \'->\' ?)" % (args[0], args[1]))
+    elif errno == 57:
+        print(color.cline, lineno, color.cerror + " base operand of \'->\' has non-pointer type \'%s\'" % args[0])
+    elif errno == 58:
+        print(color.cline, lineno, color.cerror + " request for member \'%s\' in \'%s\', which is of non-class or non-struct type " % (args[0], args[1]))
+    elif errno == 59:
+        print(color.cline, lineno, color.cerror + " \'%s\' is \'%s\', not accessible in this scope" % (args[0], args[1]))
     pass
 
 def print_table():
     pp = pprint.PrettyPrinter(indent=4)
     for scope in ScopeList.keys():
         if scope != "NULL":
-            print("Scope Name:", scope)
+            print("Scope Name:", scope, ", ", "Scope Type:", ScopeList[scope]["scope_type"])
             if ScopeList[scope]["table"].symtab:
                 pp.pprint(ScopeList[scope]["table"].symtab)
             print("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~")
