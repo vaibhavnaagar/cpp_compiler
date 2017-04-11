@@ -25,10 +25,11 @@ def add_children(n,name):
 	global i
 	global orphan_children
 	if n > len(orphan_children):
-		print("===========================================ERROR============================> " + name)
-		for child in orphan_children:
-			print(child.get_label())
-		print(n)
+		#print("===========================================ERROR============================> " + name)
+		#for child in orphan_children:
+			#print(child.get_label())
+		#print(n)
+		pass
 	node_a = pydot.Node(str(i),label=str(name))
 	if n==0:
 		return
@@ -47,7 +48,7 @@ def add_children(n,name):
 		children = orphan_children[-n:]
 		for child in children:
 			if child == None:
-				print("Error")
+				#print("Error")
 			graph.add_edge(pydot.Edge(node_a, child))
 			orphan_children.remove(child)
 		orphan_children.append(node_a)
@@ -136,18 +137,15 @@ def array_assignment(p,inits,store_list):
 		size = len(store_list)/len(inits)
 		for i,exp in enumerate(inits):
 			if type(exp) is not list:
-				print(exp)
 				st.print_error(p.lineno(1), {}, 22, p[1]["type"])
 				return None
 			else :
 				p = array_assignment(p,exp,store_list[size*i,size*(i+1)])
-				print(store_list)
 				if not p:
 					st.print_error(p.lineno(1), {}, 22, p[1]["type"])
 					return None
 	else:
-				print(len(inits))
-				st.print_error(p.lineno(1), {}, 22, p[1]["type"])
+		st.print_error(p.lineno(1), {}, 22, p[1]["type"])
 
 # Get the token map
 tokens = lex.cpp_scanner.tokens
@@ -214,7 +212,7 @@ def p_id_scope(p):
 		else:
 			p[1] = dict(entry)
 			p[1]["is_decl"] = True
-	if p[1]["id_type"] not in ["namespace", "class"]:
+	if p[1]["id_type"] not in ["namespace", "class", "struct",]:
 		st.print_error(p.lineno(1), {}, 39, p[1]["name"], "::")
 		return
 	st.is_ns_member = True
@@ -571,6 +569,14 @@ def p_postfix_expression2(p):
 			st.print_error(p.lineno(1), p[0], 14, "()")
 			return
 		if p[0]["is_defined"]:				# Function Call
+			for idx, param in enumerate(p[2]):
+				if param.get("is_decl", True) is False:
+					entry = SymbolTable.lookupComplete(param["name"])
+					if entry is None:
+						st.print_error(p.lineno(1), param, 1)
+					else:
+						p[2][idx] = dict(entry)
+						p[2][idx]["is_decl"] = True
 			st.check_func_params(p.lineno(1), p[0], p[2], ["variable", "literal", "array"], decl=True)
 			p[0]["real_id_type"] = p[0]["id_type"]
 			p[0]["id_type"] = "variable"
@@ -595,6 +601,14 @@ def p_postfix_expression2(p):
 					st.print_error(p.lineno(1), p[0], 14, "()")
 					return
 				else:
+					for idx, param in enumerate(p[2]):
+						if param.get("is_decl", True) is False:
+							entry = SymbolTable.lookupComplete(param["name"])
+							if entry is None:
+								st.print_error(p.lineno(1), param, 1)
+							else:
+								p[2][idx] = dict(entry)
+								p[2][idx]["is_decl"] = True
 					st.check_func_params(p.lineno(1), p[0], p[2], ["variable", "array", "literal"], decl=True)
 					for param in p[0]["parameters"]:
 						param["id_type"] = "variable" if param["id_type"] == "parameter" else param["id_type"]
@@ -714,6 +728,35 @@ def p_postfix_expression7(p):
 	"postfix_expression : postfix_expression '.' declarator_id"
 	create_child("None",".")
 	add_children(len(list(filter(None, p[1:]))),"postfix_expression")
+	p[0] = p[3]
+	if (p[1].get("is_decl", True) is False) and  (p[1].get("id_type") in ["variable"]):
+		entry = SymbolTable.lookupComplete(p[1]["name"])
+		if entry is None:
+			st.print_error(p.lineno(1), p[1], 1)
+			return
+		else:
+			p[1] = dict(entry)
+			p[1]["is_decl"] = True
+	if p[1].get("id_type") not in ["object"]:
+		st.print_error(p.lineno(1), {}, 54, "*"*p[1]["star"] + p[1]["name"])
+		return
+	if p[1].get("star", 0) == 1:
+		st.print_error(p.lineno(1), {}, 56, p[0]["name"], "*"*p[1]["star"] + p[1]["name"])
+	elif p[1].get("star", 0) > 1:
+		st.print_error(p.lineno(1), {}, 54, "*"*p[1]["star"] + p[1]["name"])
+	else:
+		if p[1]["myscope"] in st.ScopeList.keys():
+			entry = st.ScopeList[str(p[1]["myscope"])]["table"].lookup(p[0]["name"])
+			if entry is None:
+				st.print_error(p.lineno(1), {}, 55, p[0]["name"], p[1]["name"])
+			else:
+				if entry["access"] in ["private", "protected"]:
+					st.print_error(p.lineno(1), {}, 59, " ".join([entry["id_type"]] + entry["type"] + [entry["name"]]), entry["access"])
+				else:
+					p[0] = dict(entry)
+					p[0]["is_decl"] = True
+		else:
+			st.print_error(p.lineno(1), {}, 54, "*"*p[1]["star"] + p[1]["name"])
 	pass
 
 def p_postfix_expression8(p):
@@ -726,6 +769,35 @@ def p_postfix_expression9(p):
 	"postfix_expression : postfix_expression ARROW declarator_id"
 	create_child("None",p[2])
 	add_children(len(list(filter(None, p[1:]))),"postfix_expression")
+	p[0] = p[3]
+	if (p[1].get("is_decl", True) is False) and  (p[1].get("id_type") in ["variable"]):
+		entry = SymbolTable.lookupComplete(p[1]["name"])
+		if entry is None:
+			st.print_error(p.lineno(1), p[1], 1)
+			return
+		else:
+			p[1] = dict(entry)
+			p[1]["is_decl"] = True
+	if p[1].get("id_type") not in ["object"]:
+		st.print_error(p.lineno(1), {}, 54, "*"*p[1]["star"] + p[1]["name"])
+		return
+	if p[1].get("star", 0) == 0:
+		st.print_error(p.lineno(1), {}, 57, p[1]["name"])
+	elif p[1].get("star", 0) > 1:
+		st.print_error(p.lineno(1), {}, 58, p[0]["name"], "*"*p[1]["star"] + p[1]["name"])
+	else:
+		if p[1]["myscope"] in st.ScopeList.keys():
+			entry = st.ScopeList[str(p[1]["myscope"])]["table"].lookup(p[0]["name"])
+			if entry is None:
+				st.print_error(p.lineno(1), {}, 55, p[0]["name"], p[1]["name"])
+			else:
+				if entry["access"] in ["private", "protected"]:
+					st.print_error(p.lineno(1), {}, 59, " ".join([entry["id_type"]] + entry["type"] + [entry["name"]]), entry["access"])
+				else:
+					p[0] = dict(entry)
+					p[0]["is_decl"] = True
+		else:
+			st.print_error(p.lineno(1), {}, 54, "*"*p[1]["star"] + p[1]["name"])
 	pass
 
 def p_postfix_expression10(p):
@@ -738,12 +810,26 @@ def p_postfix_expression11(p):
 	"postfix_expression : postfix_expression INC"
 	create_child("None",p[2])
 	add_children(len(list(filter(None, p[1:]))),"postfix_expression")
+	p[0] = p[1]
+	if (not set(p[1]["type"]).issubset(st.number_types)) or (p[1].get("id_type") not in ["variable", "array"]):		# Incomplete list
+		st.print_error(p.lineno(1), p[1], 13)
+		return
+	if p[1].get("is_decl", False) is False:
+		st.print_error(p.lineno(1), p[1], 1)
+		return
 	pass
 
 def p_postfix_expression12(p):
 	"postfix_expression : postfix_expression DEC"
 	create_child("None",p[2])
 	add_children(len(list(filter(None, p[1:]))),"postfix_expression")
+	p[0] = p[1]
+	if (not set(p[1]["type"]).issubset(st.number_types)) or (p[1].get("id_type") not in ["variable", "array"]):		# Incomplete list
+		st.print_error(p.lineno(1), p[1], 13)
+		return
+	if p[1].get("is_decl", False) is False:
+		st.print_error(p.lineno(1), p[1], 1)
+		return
 	pass
 
 def p_postfix_expression13(p):
@@ -830,16 +916,24 @@ def p_unary_expression2(p):
 	create_child("None",p[1])
 	add_children(len(list(filter(None, p[1:]))),"unary_expression")
 	p[0] = p[2]
-	if (not set(p[2]["type"]).issubset(st.number_types)) or (p[2].get("id_type") != "variable"):		# Incomplete list
+	if (not set(p[2]["type"]).issubset(st.number_types)) or (p[2].get("id_type") not in ["variable", "array"]):		# Incomplete list
 		st.print_error(p.lineno(1), p[2], 13)
+		return
+	if p[2].get("is_decl", False) is False:
+		st.print_error(p.lineno(1), p[2], 1)
+		return
 	pass
 
 def p_unary_expression3(p):
 	"unary_expression : DEC cast_expression"
 	add_children(len(list(filter(None, p[1:]))),"unary_expression")
 	p[0] = p[2]
-	if (not set(p[2]["type"]).issubset(st.number_types)) or (p[2].get("id_type") != "variable"):		# Incomplete list
+	if (not set(p[2]["type"]).issubset(st.number_types)) or (p[2].get("id_type") not in ["variable", "array"]):		# Incomplete list
 		st.print_error(p.lineno(1), p[2], 13)
+		return
+	if p[2].get("is_decl", False) is False:
+		st.print_error(p.lineno(1), p[2], 1)
+		return
 	pass
 
 def p_unary_expression4(p):
@@ -854,7 +948,7 @@ def p_unary_expression4(p):
 		else:
 			p[0]["star"] += 1
 	elif p[0]["is_decl"] is True:
-		if p[0]["id_type"] not in ["variable", "array", "function"]:	# Then it is not pointer type
+		if p[0]["id_type"] not in ["variable", "array", "function", "object"]:	# Then it is not pointer type
 			st.print_error(p.lineno(1), p[2], 14, p[1])
 		else:
 			if p[1] == '*':
@@ -1052,7 +1146,7 @@ def p_multiplicative_expression1(p):
 def p_multiplicative_expression2(p):
 	"multiplicative_expression : multiplicative_expression star_ptr_operator pm_expression"
 	add_children(len(list(filter(None, p[1:]))) - 1,p[2])
-	if p[1].get("id_type") == "type_specifier":		# pointer type variable declaration
+	if p[1].get("id_type") in ["type_specifier", "class", "struct", "union"]:		# pointer type variable declaration
 		p[0] = p[3]
 		if "is_decl" not in p[0].keys():
 			st.print_error(p.lineno(1), {}, 15, ' '.join([p[1]["name"], p[2], p[3]["name"]]))
@@ -1063,8 +1157,37 @@ def p_multiplicative_expression2(p):
 		p[0]["star"] += 1
 		p[0]["type"] = p[1]["type"]
 		p[0]["specifier"] = p[1]["specifier"]
+		if p[1]["id_type"] in ["class", "struct", "union"]:
+			p[0]["id_type"] = "object"
+			p[0]["myscope"] = p[1]["name"]
+
 	else:											# normal multiplication
-		p[0] = expression_semantic(p.lineno(1), p[0], p[1], p[2], p[3])
+		if p[1].get("is_decl", True) is False:
+			p[0] = p[3]
+			key = "____" + str(p[1]["name"]) + "____"
+			if key in st.ScopeList.keys():
+				entry = SymbolTable.lookupComplete(key)
+				if entry is None:
+					if p[1]["is_decl"]:
+						st.print_error(p.lineno(1), {}, 12, ";", p[1]["name"])
+					else:
+						st.print_error(p.lineno(1), p[1], 1)
+				else:
+					if p[0]["is_decl"]:
+						st.print_error(p.lineno(1), p[2], 4, p[1]["type"])	# error: conflicting declaration 'p[1] p[2]["name"]' / error:  redeclaration of 'p[2]["name"]'
+					else:
+						p[0]["star"] += 1
+						p[0]["id_type"] = "object"
+						p[0]["type"] = p[1]["type"]
+						p[0]["specifier"] = p[1]["specifier"]
+						p[0]["myscope"] = key
+			else:
+				if p[1]["is_decl"]:
+					st.print_error(p.lineno(1), {}, 12, ";", p[1]["name"])
+				else:
+					st.print_error(p.lineno(1), p[1], 1)
+		else:
+			p[0] = expression_semantic(p.lineno(1), p[0], p[1], p[2], p[3])
 	pass
 
 def p_multiplicative_expression3(p):
@@ -1552,6 +1675,7 @@ def p_m_new_scope(p):
 			SymbolTable.updateIDAttr(f["name"], "is_defined", f["is_defined"])
 		SymbolTable.addScope(f["name"], "function_scope")
 		for param in f["parameters"]:		# Insert parameters in new scope created for this function
+			param["myscope"] = f["name"]
 			SymbolTable.insertID(p.lineno(0), param["name"], param["id_type"], types=param["type"], specifiers=param["specifier"],
 								num=param["num"], value=param["value"], stars=param["star"], order=param["order"],
 								parameters=param["parameters"], defined=param["is_defined"], scope=param["myscope"])
@@ -1911,7 +2035,7 @@ def p_simple_declaration2(p):
 				if p[1]["id_type"] == "function" and p[1]["is_defined"] is False and p[1]["is_decl"] is True:
 					st.print_error(p.lineno(1), {}, 29, p[1]["name"]) # function redeclaration
 					st.function_list.pop()
-			elif p[1]["type"] is not None:
+			elif (p[1]["id_type"] in ["object"]) or (p[1]["type"] is not None):
 				if p[1]["id_type"] in ["function"]:
 					st.function_list.pop()
 				SymbolTable.insertID(p.lineno(1), p[1]["name"], p[1]["id_type"], types=p[1]["type"], specifiers=p[1]["specifier"],
@@ -1921,9 +2045,6 @@ def p_simple_declaration2(p):
 				st.print_error(p.lineno(1), p[1], 1)
 				if p[1]["id_type"] in ["function"]:
 					st.function_list.pop()
-				#SymbolTable.insertID(p.lineno(1), p[1]["name"], p[1]["id_type"], types=p[1]["type"], specifiers=p[1]["specifier"],
-				# 					num=p[1]["num"], value=p[1]["value"], stars=p[1]["star"], order=p[1]["order"],
-				#					parameters=p[1]["parameters"], defined=p[1]["is_defined"])
 				pass
 			else:
 				pass
@@ -1943,15 +2064,12 @@ def p_simple_declaration3(p):
 				if decl["is_decl"]:
 					if decl["id_type"] == "function" and decl["is_defined"] is False and decl["is_decl"] is True:
 						st.print_error(p.lineno(1), {}, 29, decl["name"])	# function redeclaration
-				elif decl["type"] is not None:
+				elif (decl["id_type"] in ["object"]) or (decl["type"] is not None):
 					SymbolTable.insertID(p.lineno(1), decl["name"], decl["id_type"], types=decl["type"], specifiers=decl["specifier"],
 					 					num=decl["num"], value=decl["value"], stars=decl["star"], order=decl["order"],
 										parameters=decl["parameters"], defined=decl["is_defined"], scope=decl["myscope"])
 				elif SymbolTable.lookupComplete(decl["name"]) is None:
 					st.print_error(p.lineno(1), decl, 1)
-					#SymbolTable.insertID(p.lineno(1), decl["name"], decl["id_type"], types=decl["type"], specifiers=decl["specifier"],
-					# 					num=decl["num"], value=decl["value"], stars=decl["star"], order=decl["order"],
-					#					parameters=decl["parameters"], defined=decl["is_defined"])
 					pass
 				else:
 					pass
@@ -2558,6 +2676,9 @@ def p_init_declarations1(p):
 	else:
 		if p[3]["type"] is not None:
 			st.print_error(p.lineno(1), {}, 3, p[3]["type"])
+		p[3]["id_type"] = p[1]["id_type"]
+		p[3]["myscope"] = p[1]["myscope"]
+		p[3]["star"] = p[1]["star"]
 		p[3]["type"] = p[1]["type"]			# Consider first type only
 		p[3]["specifier"] = p[1]["specifier"]
 	p[0] = [p[1], p[3]]			# List of declarations
@@ -2571,6 +2692,9 @@ def p_init_declarations2(p):
 	else:
 		if p[3]["type"] is not None:
 			st.print_error(p.lineno(1), {}, 3, p[3]["type"])
+		p[3]["id_type"] = p[1][0]["id_type"]
+		p[3]["myscope"] = p[1][0]["myscope"]
+		p[3]["star"] = p[1][0]["star"]
 		p[3]["type"] = p[1][0]["type"]		# Assign type of new init_declaration from first element of list of declarations
 		p[3]["specifier"] = p[1][0]["specifier"]
 	p[0] = p[1] + [p[3]]				# List of declarations
@@ -3113,7 +3237,7 @@ def p_class_specifier_head3(p):
 	p[0] = p[2]
 	new_name = "____" + str(p[2]["name"]) + "____"
 	if new_name in st.ScopeList.keys():
-		st.print_error(p.lineno(1), {}, 43, st.ScopeList[st.currentScope]["table"].symtab[new_name]["id_type"])
+		st.print_error(p.lineno(1), {}, 43, p[0]["name"], st.ScopeList[st.currentScope]["table"].symtab[new_name]["id_type"])
 		SymbolTable.addScope(str(st.scope_ctr), "block_scope")
 		st.scope_ctr += 1
 	else:
@@ -3703,7 +3827,7 @@ if __name__ == "__main__":
 	#if(len(sys.argv) == 2):
 	#	filename = sys.argv[1]
 	#else:
-	filename = "../tests/test5.cpp"
+	filename = "../tests/small_test.cpp"
 	a = open(filename)
 	data = a.read()
 	#data = '''	char f1(char p);
@@ -3721,5 +3845,4 @@ if __name__ == "__main__":
 	print("================================================================================================\n\n")
 	st.print_table()
 	print("================================================================================================\n\n")
-	print(st.function_list)
 	pass

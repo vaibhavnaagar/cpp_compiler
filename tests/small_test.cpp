@@ -4,26 +4,35 @@
 #include <iostream>
 #include <cmath>
 
-using namespace std;
-int ComputeFactorial(int);
+//using namespace std;
 
 
-int ComputeFactorial(int number) {
-  int fact = 1;
-  return fact;
-}
-
-int ComputeSeriesValue( (int x) ,(int y)) {
+int ComputeSeriesValue( (int x)) {
   double seriesValue = 0.0;
   double xpow = 1;
 
   return 1;
 }
 
+struct abc{
+  int m;
+//private:
+  int ComputeFactorial(int);
+  int ComputeFactorial(int number) {
+    int fact = 1;
+    return fact;
+  }
+} ac, ad;
+
+struct abc{
+  int k;
+};
 int main() {
 
   //cout << "Please enter the value of x : " ;
-
+  abc **sm,ws;
+  ac.ComputeFactorial(1);
+  (*sm)->m;
   double x;
   //cin >> x;
   int** p;
