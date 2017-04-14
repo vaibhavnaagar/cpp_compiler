@@ -15,6 +15,7 @@ import ply.yacc as yacc
 import pydot
 import symtable as st
 import pprint
+import tac
 # Symbol table
 #SymbolTable = None
 
@@ -48,7 +49,7 @@ def add_children(n,name):
 		children = orphan_children[-n:]
 		for child in children:
 			if child == None:
-				#print("Error")
+				print("Error")
 			graph.add_edge(pydot.Edge(node_a, child))
 			orphan_children.remove(child)
 		orphan_children.append(node_a)
@@ -106,6 +107,24 @@ def expression_semantic(lineno, p0, p1, p2, p3):
 		p0 = p1
 	p0["name"] = ' '.join([p1["name"], p2, p3["name"]])
 	p0["type"],p0["star"] = st.expression_type(lineno, p1["type"], p1.get("star", 0) , p3["type"], p3.get("star", 0), op=str(p2))
+	
+	#if str(p2) == '=':
+	#	p0["tac_name"] = p3["tac_name"]
+	#	st.ScopeList[st.currentScope]["tac"].expression_emit(p1["tac_name"],'','',p3["tac_name"])
+	
+	#else:
+	temp = st.ScopeList[st.currentScope]["tac"].getnewtemp()
+	st.ScopeList[st.currentScope]["tac"].expression_emit(temp,p1["tac_name"],p2,p3["tac_name"],p0["type"])
+	p0["tac_name"] = temp
+	if p1.get("inc",False):
+		st.ScopeList[st.currentScope]["tac"].expression_emit(p1["tac_name"],'',"++", '')
+	if p3.get("inc",False):
+		st.ScopeList[st.currentScope]["tac"].expression_emit(p3["tac_name"],'',"++", '')
+	if p1.get("dec",False):
+		st.ScopeList[st.currentScope]["tac"].expression_emit(p1["tac_name"],'',"--", '')
+	if p3.get("dec",False):
+		st.ScopeList[st.currentScope]["tac"].expression_emit(p3["tac_name"],'',"--", '')
+
 	return p0
 
 def array_assignment(p,inits,store_list):
@@ -166,6 +185,8 @@ def p_identifier(p):
 	if entry is not None:
 		p[0] = dict(entry)
 		p[0]["is_decl"] = True
+		p[0]["tac_name"] = str(p[1])
+
 	else:
 		p[0] = {
 			"name" : str(p[1]),
@@ -180,6 +201,7 @@ def p_identifier(p):
 			"parameters" : None,
 			"is_defined" : False,	# Used For functions only
 			"myscope" : str(st.currentScope),
+			"tac_name" : str(p[1])
 		}
 	pass
 
@@ -406,6 +428,7 @@ def p_literal1(p):
 		"type"  : ["literal_int"],
 		"id_type" : "literal",
 		"value" : int(p[1]),
+		"tac_name" : str(p[1])
 	}
 	pass
 
@@ -417,6 +440,8 @@ def p_literal2(p):
 		"type"  : ["literal_char"],
 		"id_type" : "literal",
 		"value" : None,
+		"tac_name" : str(p[1])
+
 	}
 	pass
 
@@ -428,6 +453,8 @@ def p_literal3(p):
 		"type"  : ["literal_float"],
 		"id_type" : "literal",
 		"value" : float(p[1]),
+		"tac_name" : str(p[1])
+
 	}
 	pass
 
@@ -456,6 +483,8 @@ def p_boolean_literal1(p):
 		"type"  : ["literal_bool"],
 		"id_type" : "literal",
 		"value" : 0,
+		"tac_name" : str(p[1])
+
 	}
 	pass
 
@@ -467,6 +496,8 @@ def p_boolean_literal2(p):
 		"type"  : ["literal_bool"],
 		"id_type" : "literal",
 		"value" : 1,
+		"tac_name" : str(p[1])
+
 	}
 	pass
 
@@ -817,6 +848,8 @@ def p_postfix_expression11(p):
 	if p[1].get("is_decl", False) is False:
 		st.print_error(p.lineno(1), p[1], 1)
 		return
+	SymbolTable.addIDAttr(decl["name"], "specifier", [p[1]])
+	p[0]["inc"] = True
 	pass
 
 def p_postfix_expression12(p):
@@ -830,6 +863,7 @@ def p_postfix_expression12(p):
 	if p[1].get("is_decl", False) is False:
 		st.print_error(p.lineno(1), p[1], 1)
 		return
+	p[0]["inc"] = True
 	pass
 
 def p_postfix_expression13(p):
@@ -922,6 +956,8 @@ def p_unary_expression2(p):
 	if p[2].get("is_decl", False) is False:
 		st.print_error(p.lineno(1), p[2], 1)
 		return
+	st.ScopeList[st.currentScope]["tac"].expression_emit(p[2]["tac_name"],'',p[1], '')
+	p[0]["tac_name"] = p[2]["tac_name"]
 	pass
 
 def p_unary_expression3(p):
@@ -934,6 +970,8 @@ def p_unary_expression3(p):
 	if p[2].get("is_decl", False) is False:
 		st.print_error(p.lineno(1), p[2], 1)
 		return
+	st.ScopeList[st.currentScope]["tac"].expression_emit(p[2]["tac_name"],'',p[1], '')
+	p[0]["tac_name"] = p[2]["tac_name"]
 	pass
 
 def p_unary_expression4(p):
@@ -1211,6 +1249,7 @@ def p_additive_expression1(p):
 def p_additive_expression2(p):
 	"additive_expression : additive_expression '+' multiplicative_expression"
 	add_children(len(list(filter(None, p[1:]))) - 1 ,p[2])
+	print(p[3])
 	p[0] = expression_semantic(p.lineno(1), p[0], p[1], p[2], p[3])
 	pass
 
@@ -1385,6 +1424,12 @@ def p_assignment_expression2(p):
 			else:
 				p[3] = dict(entry)
 				p[3]["is_decl"] = True
+				st.ScopeList[st.currentScope]["tac"].expression_emit(p[1]["tac_name"],'',p[2],p[3]["tac_name"])
+				p[0]["tac_name"] = p[3]["tac_name"]
+				if p[3].get("inc",False):
+					st.ScopeList[st.currentScope]["tac"].expression_emit(p[3]["tac_name"],'',"++", '')
+				if p[3].get("dec",False):
+					st.ScopeList[st.currentScope]["tac"].expression_emit(p[3]["tac_name"],'',"--", '')
 		if p[3].get("id_type") not in ["variable", "literal", "array"]:
 			st.print_error(p.lineno(1), {}, 15, ' '.join([p[1]["name"], p[2], p[3]["name"]]))
 			return
@@ -1393,12 +1438,24 @@ def p_assignment_expression2(p):
 				if p[1]["type"]:
 					if st.expression_type(p.lineno(1), p[1]["type"], p[1].get("star", 0) , p[3]["type"], p[3].get("star", 0), op=str(p[2])):
 						p[0]["value"] = p[3]["value"]
+						st.ScopeList[st.currentScope]["tac"].expression_emit(p[1]["tac_name"],'',p[2],p[3]["tac_name"])
+						p[0]["tac_name"] = p[3]["tac_name"]
+						if p[3].get("inc",False):
+							st.ScopeList[st.currentScope]["tac"].expression_emit(p[3]["tac_name"],'',"++", '')
+						if p[3].get("dec",False):
+							st.ScopeList[st.currentScope]["tac"].expression_emit(p[3]["tac_name"],'',"--", '')
 			else:
 				st.print_error(p.lineno(1), {}, 18, p[1]["id_type"], p[3]["id_type"])
 		elif p[1]["id_type"] == p[3]["id_type"]:
 			if p[1]["type"]:
 				if st.expression_type(p.lineno(1), p[1]["type"], p[1].get("star", 0) , p[3]["type"], p[3].get("star", 0), op=str(p[2])):
 					p[0]["value"] = p[3]["value"]
+					st.ScopeList[st.currentScope]["tac"].expression_emit(p[1]["tac_name"],'',p[2],p[3]["tac_name"])
+					p[0]["tac_name"] = p[3]["tac_name"]
+					if p[3].get("inc",False):
+						st.ScopeList[st.currentScope]["tac"].expression_emit(p[3]["tac_name"],'',"++", '')
+					if p[3].get("dec",False):
+						st.ScopeList[st.currentScope]["tac"].expression_emit(p[3]["tac_name"],'',"--", '')
 		else:
 			st.print_error(p.lineno(1), {}, 15, ' '.join([p[1]["name"], p[2], p[3]["name"]]))
 	else:
@@ -1410,6 +1467,12 @@ def p_assignment_expression2(p):
 			else:
 				p[3] = dict(entry)
 				p[3]["is_decl"] = True
+				st.ScopeList[st.currentScope]["tac"].expression_emit(p[1]["tac_name"],'',p[2],p[3]["tac_name"],p[1]["type"])
+				p[0]["tac_name"] = p[3]["tac_name"]
+				if p[3].get("inc",False):
+					st.ScopeList[st.currentScope]["tac"].expression_emit(p[3]["tac_name"],'',"++", '')
+				if p[3].get("dec",False):
+					st.ScopeList[st.currentScope]["tac"].expression_emit(p[3]["tac_name"],'',"--", '')
 		if p[3].get("id_type") not in ["variable", "literal"]:
 			st.print_error(p.lineno(1), {}, 15, ' '.join([p[1]["name"], p[2], p[3]["name"]]))
 			return
@@ -1424,12 +1487,25 @@ def p_assignment_expression2(p):
 			else:
 				p[0] = dict(entry)
 				p[0]["is_decl"] = True
+				st.ScopeList[st.currentScope]["tac"].expression_emit(p[1]["tac_name"],'',p[2],p[3]["tac_name"],p[1]["type"])
+				p[0]["tac_name"] = p[3]["tac_name"]
+				if p[3].get("inc",False):
+					st.ScopeList[st.currentScope]["tac"].expression_emit(p[3]["tac_name"],'',"++", '')
+				if p[3].get("dec",False):
+					st.ScopeList[st.currentScope]["tac"].expression_emit(p[3]["tac_name"],'',"--", '')
 		if (p[0].get("id_type") not in ["variable", "array"]) or (p[0].get("real_id_type") in ["function", "class"]):
 			st.print_error(p.lineno(1), p[0], 17)
 			return
 		if st.expression_type(p.lineno(1), p[0]["type"], p[0].get("star", 0) , p[3]["type"], p[3].get("star", 0), op=str(p[2])):
 			if "const" in p[0]["specifier"]:
 				st.print_error(p.lineno(1), p[0], 19)
+			else:
+				st.ScopeList[st.currentScope]["tac"].expression_emit(p[1]["tac_name"],'',p[2],p[3]["tac_name"],p[1]["type"])
+				p[0]["tac_name"] = p[3]["tac_name"]
+				if p[3].get("inc",False):
+					st.ScopeList[st.currentScope]["tac"].expression_emit(p[3]["tac_name"],'',"++", '')
+				if p[3].get("dec",False):
+					st.ScopeList[st.currentScope]["tac"].expression_emit(p[3]["tac_name"],'',"--", '')
 	pass
 
 def p_assignment_expression3(p):
@@ -3827,16 +3903,20 @@ if __name__ == "__main__":
 	#if(len(sys.argv) == 2):
 	#	filename = sys.argv[1]
 	#else:
-	filename = "../tests/small_test.cpp"
-	a = open(filename)
-	data = a.read()
-	#data = '''	char f1(char p);
-	#int x;
-	# int main(int x, int y)
-	#{
-	#int b[1][2];
-	#}
-	#'''
+	#filename = "../tests/small_test.cpp"
+	#a = open(filename)
+	#data = a.read()
+	data = '''	
+	int main()
+	{
+	int x,y;
+	float z;
+	 x = 3 + 2*x;
+	 x = --z;
+	 x = z--;
+	 y = (z*x) + 3*(x-5);
+	 }
+	'''
 	yacc.parse(data, lexer=lex.cpp_scanner.lexer, tracking=True)
 	graph.write_jpeg('parse_tree.jpeg')
 	graph.write_dot('parse_tree.dot')

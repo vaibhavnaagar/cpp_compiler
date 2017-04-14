@@ -1,10 +1,13 @@
 import pprint, copy
+import csv
+import tac
 
 ### Scopes ###
 
-global ScopeList, currentScope
-ScopeList = { "NULL" : None, "global" : {"name":"global", "parent" : "NULL", "scope_type" : "global"}, }
+global ScopeList, currentScope, AttrList
+ScopeList = { "NULL" : None, "global" : {"name":"global", "parent" : "NULL", "scope_type" : "global", "tac" : tac.TAC("global") }, }
 currentScope = "global"
+AttrList = ['name','type', 'star', 'id_type', 'specifier', 'value', 'is_defined', 'order',  'num', 'parameters', 'access', 'myscope', 'inc', 'dec' ]
 scope_ctr = 1
 previous_scope = ""
 scope_transitions = []
@@ -172,6 +175,8 @@ class SymTab:
                 "is_defined": bool(defined),
                 "access"    : str(access),   # Default 'public'
                 "myscope"   : scope if scope != ""  else str(currentScope),
+                "inc"       : False,
+                "dec"       : False
         #        "size"      : size
             }
             warning = ''
@@ -193,6 +198,8 @@ class SymTab:
                 currtable.symtab[str(name)][str(attribute)] = list(value) if value is list else value
         else:
             currtable.symtab[str(name)].update({attribute : value})
+        if attribute not in AttrList:
+            AttrList.append(attribute)
         print("[Symbol Table] Adding attribute of identifier: ", name, " attribute: ", attribute, "value: ", value)
 
     @staticmethod
@@ -210,7 +217,8 @@ class SymTab:
                 "name"       : str(name),
                 "parent"     : ScopeList[currentScope]["name"],
                 "table"      : dict(),
-                "scope_type" : str(scope_type)
+                "scope_type" : str(scope_type),
+                "tac"        : tac.TAC(str(name))
                 }
         ScopeList[str(name)] =  new_scope
         currentScope = str(name)
@@ -544,12 +552,27 @@ def print_error(lineno, id1, errno, *args):
 
 def print_table():
     pp = pprint.PrettyPrinter(indent=4)
+    print(AttrList)
+    with open("symtab.csv", 'w') as outf:
+        writer = csv.DictWriter(outf, AttrList)
+        writer.writeheader()
+        for scope in ScopeList.keys():
+            if scope != "NULL":
+                if ScopeList[scope]["table"].symtab:
+                    for k in ScopeList[scope]["table"].symtab.keys():
+                        writer.writerows([dict(ScopeList[scope]["table"].symtab[k])])
     for scope in ScopeList.keys():
         if scope != "NULL":
             print("Scope Name:", scope, ", ", "Scope Type:", ScopeList[scope]["scope_type"])
             if ScopeList[scope]["table"].symtab:
                 pp.pprint(ScopeList[scope]["table"].symtab)
             print("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~")
+    for scope in ScopeList.keys():
+        if scope != "NULL":
+            print("Scope Name:", scope, ", ", "Scope Type:", ScopeList[scope]["scope_type"])
+            ScopeList[scope]["tac"].print_code()
+            print("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~")
+
 
 if __name__ == '__main__':
     """a = SymTab()
