@@ -3910,9 +3910,10 @@ if __name__ == "__main__":
 	int main()
 	{
 	int x,y;
+	int a[2] = {1,2};
 	float z;
 	 x = 3 + 2*x;
-	 x = --z;
+	 x = a[1];
 	 x = z--;
 	 y = (z*x) + 3*(x-5);
 	 }
