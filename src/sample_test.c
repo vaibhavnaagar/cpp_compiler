@@ -20,8 +20,13 @@ int main()
 	}
 	else 
 	{
-		x = 99;
+		do{
+		
 		x = 77;
+		x /= 6;
+
+		}
+		while(x<3);
 	}
 
  	y--;

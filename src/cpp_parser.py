@@ -1842,6 +1842,8 @@ def p_compound_statement2(p):
 		else:
 			p[0]["stmt_list"] = p[5]["stmt_list"]
 		p[0]["nextlist"] = p[5]["nextlist"] if "nextlist" in p[5] else []
+		p[0]["breaklist"] = p[5]["breaklist"] if "breaklist" in p[5] else []
+
 
 	pass
 
@@ -1860,6 +1862,8 @@ def p_statement_seq_opt2(p):
 		else:
 			p[0]["stmt_list"] = p[3]["stmt_list"] if ("stmt_list" in p[3]) else p[3]["loop_statement"]["stmt_list"]
 		p[0]["nextlist"] = p[3]["nextlist"] if "nextlist" in p[3] else []
+		p[0]["breaklist"] = p[3]["breaklist"] if "breaklist" in p[3] else []
+
 	pass
 
 def p_statement_seq_opt3(p):
@@ -1875,6 +1879,8 @@ def p_statement_seq_opt3(p):
 		else:
 			p[0]["stmt_list"] = p[3]["stmt_list"]
 		p[0]["nextlist"] = p[3]["nextlist"] if "nextlist" in p[3] else []
+		p[0]["breaklist"] = p[3]["breaklist"] if "breaklist" in p[3] else []
+
 	pass
 
 #/*
@@ -1891,6 +1897,7 @@ def p_selection_statement1(p):
 	p[0]["loop_statement"] = p[6]
 	st.ScopeList[st.currentScope]["tac"].backpatch(p[3]["truelist"], p[5]["quad"]  )
 	p[0]["nextlist"] = list(set(p[3]["falselist"] + p[6]["nextlist"]))
+
 	pass
 
 def p_selection_statement2(p):
@@ -1956,21 +1963,28 @@ def p_condition(p):
 	pass
 
 def p_iteration_statement1(p):
-	"iteration_statement : WHILE '(' condition ')' marker_M looping_statement"
+	"iteration_statement : WHILE '(' marker_M condition ')' marker_M looping_statement"
 	add_children(len(list(filter(None, p[1:]))) - 3,"WHILE")
 	p[0] = dict()
 	p[0]["type"] = "while"
-	p[0]["condition"] = p[3]
-	p[0]["loop_statement"] = p[6]
+	p[0]["condition"] = p[4]
+	p[0]["loop_statement"] = p[7]
+	st.ScopeList[st.currentScope]["tac"].backpatch(p[7]["nextlist"], p[3]["quad"]  )
+	st.ScopeList[st.currentScope]["tac"].backpatch(p[4]["truelist"], p[6]["quad"]  )
+	p[0]["nextlist"] = p[4]["falselist"]
+	st.ScopeList[st.currentScope]["tac"].emit(["goto",str(p[3]["quad"])])
 	pass
 
 def p_iteration_statement2(p):
-	"iteration_statement : DO looping_statement WHILE '(' condition ')' marker_M ';'"
+	"iteration_statement : DO marker_M looping_statement marker_N WHILE '(' marker_M condition ')'  ';'"
 	add_children(len(list(filter(None, p[1:]))) - 5,"DO - WHILE")
 	p[0] = dict()
 	p[0]["type"] = "do_while"
-	p[0]["condition"] = p[5]
-	p[0]["loop_statement"] = p[2]
+	p[0]["condition"] = p[8]
+	p[0]["loop_statement"] = p[3]
+	st.ScopeList[st.currentScope]["tac"].backpatch(p[4]["nextlist"], p[7]["quad"]  )
+	st.ScopeList[st.currentScope]["tac"].backpatch(p[8]["truelist"], p[2]["quad"]  )
+	p[0]["nextlist"] = p[8]["falselist"]
 	pass
 
 def p_iteration_statement3(p):
@@ -1991,15 +2005,19 @@ def p_for_init_statement(p):
 	pass
 
 def p_jump_statement1(p):
-	"jump_statement : BREAK ';'"
-	create_child("None", p[1])
-	p[0] = p[1]
+	"jump_statement : marker_N BREAK ';'"
+	create_child("None", p[2])
+	p[0] = dict()
+	p[0]["breaklist"] = [p[1]["quad"]]
+	p[0]["nextlist"] = []
 	pass
 
 def p_jump_statement2(p):
-	"jump_statement : CONTINUE ';'"
-	create_child("None", p[1])
-	p[0] = p[1]
+	"jump_statement : marker_N CONTINUE ';'"
+	create_child("None", p[2])
+	p[0] = dict()
+	p[0]["nextlist"] = [p[1]["quad"]]
+	p[0]["breaklist"] = []	
 	pass
 
 def p_jump_statement3(p):
@@ -2182,12 +2200,20 @@ def p_specialised_block_declaration4(p):
 def p_simple_declaration1(p):
 	"simple_declaration : ';'"
 	p[0] = dict()
+	p[0]["nextlist"] = []
+	p[0]["truelist"] = []
+	p[0]["falselist"] = []
+	p[0]["breaklist"] = []
 	pass
 
 def p_simple_declaration2(p):
 	"simple_declaration : init_declaration ';'"
 	add_children(len(list(filter(None, p[1:]))) -1,"simple_declaration")
 	p[0] = dict()
+	p[0]["nextlist"] = []
+	p[0]["truelist"] = []
+	p[0]["falselist"] = []
+
 	if p[1]:
 		if "is_decl" not in p[1].keys():	# i.e. built_in_type_specifier ; (Illegal statement)
 			if p[1]["id_type"] in ["type_specifier",]:
@@ -2217,6 +2243,9 @@ def p_simple_declaration3(p):
 	"simple_declaration : init_declarations ';'"
 	add_children(len(list(filter(None, p[1:]))) - 1,"simple_declaration")
 	p[0] = dict()
+	p[0]["nextlist"] = []
+	p[0]["truelist"] = []
+	p[0]["falselist"] = []
 	p[0]["stmt_list"] = []
 	if p[1]:
 		for decl in p[1]:
