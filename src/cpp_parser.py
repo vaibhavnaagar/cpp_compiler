@@ -1856,11 +1856,6 @@ def p_statement_seq_opt2(p):
 	if p[3]:
 		if p[1]:
 			p[0]["stmt_list"] += p[3]["stmt_list"] if ("stmt_list" in p[3]) else p[3]["loop_statement"]["stmt_list"]
-			#print("hello")
-			#print(p[3])
-			#print(p[1]["nextlist"], p[2]["quad"],st.ScopeList[st.currentScope]["tac"].startquad )
-			#print(st.currentScope)
-
 			st.ScopeList[st.currentScope]["tac"].backpatch(p[1]["nextlist"], p[2]["quad"]  ) 	 
 		else:
 			p[0]["stmt_list"] = p[3]["stmt_list"] if ("stmt_list" in p[3]) else p[3]["loop_statement"]["stmt_list"]
@@ -1894,19 +1889,21 @@ def p_selection_statement1(p):
 	p[0]["type"] = "if"
 	p[0]["condition"] = p[3]
 	p[0]["loop_statement"] = p[6]
-	#print(p[5]["quad"])
-	#st.ScopeList[st.currentScope]["tac"].print_code()
 	st.ScopeList[st.currentScope]["tac"].backpatch(p[3]["truelist"], p[5]["quad"]  )
 	p[0]["nextlist"] = list(set(p[3]["falselist"] + p[6]["nextlist"]))
 	pass
 
 def p_selection_statement2(p):
-	"selection_statement : IF '(' condition ')' marker_M looping_statement ELSE marker_M looping_statement"
-	add_children(len(list(filter(None, p[1:]))) - 4,"Condition - If - Else")
+	"selection_statement : IF '(' condition ')' marker_M looping_statement  ELSE marker_N marker_M looping_statement"
+	add_children(len(list(filter(None, p[1:]))) - 6,"Condition - If - Else")
 	p[0] = dict()
 	p[0]["type"] = "if_else"
 	p[0]["condition"] = p[3]
-	p[0]["loop_statement"] = [p[6], p[9]]
+	p[0]["loop_statement"] = dict((k, [p[6][k], p[10].get(k)]) for k in p[6])
+	p[0]["loop_statement"].update((k, [None, p[10][k]]) for k in p[10] if k not in p[6])
+	st.ScopeList[st.currentScope]["tac"].backpatch(p[3]["truelist"], p[5]["quad"]  )
+	st.ScopeList[st.currentScope]["tac"].backpatch(p[3]["falselist"], p[9]["quad"]  )
+	p[0]["nextlist"] = list(set(p[6]["nextlist"] + p[8]["nextlist"] + p[10]["nextlist"]))
 	pass
 
 def p_selection_statement3(p):
@@ -4014,7 +4011,7 @@ def p_marker_N(p):
 	"marker_N : empty"
 	p[0] = dict()
 	p[0]["nextlist"] = [st.ScopeList[st.currentScope]["tac"].getnext()]
-	st.ScopeList[st.currentScope]["tab"].emit(["goto",""])
+	st.ScopeList[st.currentScope]["tac"].emit(["goto",""])
 	pass
 	
 
