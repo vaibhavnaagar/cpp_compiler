@@ -1,0 +1,6 @@
+name,type,star,id_type,specifier,value,is_defined,order,num,parameters,access,myscope,inc,dec,tac_name,size
+main,['int'],0,function,[],,True,[],1,[],public,global,False,False,main_global,
+x,['int'],0,variable,[],,False,[],1,[],public,main,False,False,x_main,4
+y,['int'],0,variable,[],,False,[],1,[],public,main,False,False,y_main,4
+m,['int'],0,variable,[],,False,[],1,[],public,1,False,False,m_1,4
+l,['int'],0,variable,[],,False,[],1,[],public,3,False,False,l_3,4

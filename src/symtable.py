@@ -5,9 +5,9 @@ import tac
 ### Scopes ###
 
 global ScopeList, currentScope, AttrList
-ScopeList = { "NULL" : None, "global" : {"name":"global", "parent" : "NULL", "scope_type" : "global", "tac" : tac.TAC("global") }, }
+ScopeList = { "NULL" : None, "global" : {"name":"global", "parent" : "NULL", "scope_type" : "global", "tac" : tac.TAC("global",0) }, }
 currentScope = "global"
-AttrList = ['name','type', 'star', 'id_type', 'specifier', 'value', 'is_defined', 'order',  'num', 'parameters', 'access', 'myscope', 'inc', 'dec' ]
+AttrList = ['name','type', 'star', 'id_type', 'specifier', 'value', 'is_defined', 'order',  'num', 'parameters', 'access', 'myscope', 'inc', 'dec', "tac_name" ]
 scope_ctr = 1
 previous_scope = ""
 scope_transitions = []
@@ -174,9 +174,10 @@ class SymTab:
                 "parameters": copy.deepcopy(parameters if parameters else []),   # Used for functions only
                 "is_defined": bool(defined),
                 "access"    : str(access),   # Default 'public'
-                "myscope"   : scope if scope != ""  else str(currentScope),
+                "myscope"   : str(scope if scope != ""  else str(currentScope)),
                 "inc"       : False,
-                "dec"       : False
+                "dec"       : False,
+                "tac_name"  : str(name) + "_" + str(scope if scope != ""  else str(currentScope)) ,
         #        "size"      : size
             }
             warning = ''
@@ -218,9 +219,10 @@ class SymTab:
                 "parent"     : ScopeList[currentScope]["name"],
                 "table"      : dict(),
                 "scope_type" : str(scope_type),
-                "tac"        : tac.TAC(str(name))
+                "tac"        : tac.TAC(str(name),ScopeList[currentScope]["tac"].nextquad)
                 }
         ScopeList[str(name)] =  new_scope
+        #new_scope["tac"].startquad = ScopeList[currentScope]["tac"].nextquad
         currentScope = str(name)
         SymTab()
         print("[Symbol Table](addScope) Adding New Scope: ", name)
@@ -235,7 +237,15 @@ class SymTab:
         """
         global currentScope
         print("[Symbol Table](endScope) End Scope of: ", currentScope, end='')
+        #print("The scope",currentScope,"nextquad was ", ScopeList[currentScope]["tac"].nextquad )
+       # print(ScopeList[currentScope]["tac"].code)
+
+        ScopeList[ScopeList[currentScope]["parent"]]["tac"].code += ScopeList[currentScope]["tac"].code
+        ScopeList[ScopeList[currentScope]["parent"]]["tac"].nextquad = ScopeList[currentScope]["tac"].nextquad
+        ScopeList[ScopeList[currentScope]["parent"]]["tac"].temp_count = 0
         currentScope = ScopeList[currentScope]["parent"]
+        #print("The scope",currentScope,"nextquad is ", ScopeList[currentScope]["tac"].nextquad )
+
         print(" Current Scope: ", currentScope)
         if ScopeList[currentScope] is None:
             print("[Symbol Table] Error: This line should not be printed")
@@ -336,6 +346,9 @@ def expression_type(lineno, l1, s1, l2, s2, op=None):
             print_error(lineno, {}, 53)
             return None
     if s1 != s2:
+        print(s1,s2)
+        print(op)
+        print(l1,l2)
         print_error(lineno, {}, 53)
         return l1,s1
 
@@ -355,12 +368,12 @@ def expression_type(lineno, l1, s1, l2, s2, op=None):
             print_error(lineno, {}, 52, op)
             return l1,s1
 
-    if op in ["<", '>', '<=', '>=', '==']:
+    if op in ["<", '>', '<=', '>=', '==', '!=']:
         if type1 in eq_integral_types and type2 in eq_integral_types:
             return ["bool"],s1
 
     if op in ["&&","||"]:
-        if type1 in [bool_types, eq_integral_types] and type2 in [bool_types, eq_integral_types]:
+        if type1 in (bool_type + eq_integral_types) and type2 in (bool_type + eq_integral_types):
             return ["bool"],s1
     print_error(lineno, {}, 52, "operands")
     return l1,s1
@@ -567,6 +580,8 @@ def print_table():
             if ScopeList[scope]["table"].symtab:
                 pp.pprint(ScopeList[scope]["table"].symtab)
             print("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~")
+
+def print_tac():
     for scope in ScopeList.keys():
         if scope != "NULL":
             print("Scope Name:", scope, ", ", "Scope Type:", ScopeList[scope]["scope_type"])

@@ -8,7 +8,6 @@
 # *  Date:           19-Nov-1999
 # Template feature is removed from the grammar to remove reduce-reduce conflicts.
 #-----------------------------------------------------------------------------
-
 import sys
 import cpp_lexer as lex
 import ply.yacc as yacc
@@ -185,7 +184,6 @@ def p_identifier(p):
 	if entry is not None:
 		p[0] = dict(entry)
 		p[0]["is_decl"] = True
-		p[0]["tac_name"] = str(p[1])
 
 	else:
 		p[0] = {
@@ -201,7 +199,6 @@ def p_identifier(p):
 			"parameters" : None,
 			"is_defined" : False,	# Used For functions only
 			"myscope" : str(st.currentScope),
-			"tac_name" : str(p[1])
 		}
 	pass
 
@@ -592,7 +589,7 @@ def p_postfix_expression2(p):
 	"postfix_expression : postfix_expression parenthesis_clause"
 	add_children(len(list(filter(None, p[1:]))),"postfix_expression")
 	p[0] = p[1]
-	if p[0]["id_type"] not in ["variable", "function"]:
+	if p[0]["id_type"] not in ["variable", "function","literal"]:
 		st.print_error(p.lineno(1), p[0], 14, "()")
 		return
 	if p[0]["is_decl"]:
@@ -842,13 +839,19 @@ def p_postfix_expression11(p):
 	create_child("None",p[2])
 	add_children(len(list(filter(None, p[1:]))),"postfix_expression")
 	p[0] = p[1]
-	if (not set(p[1]["type"]).issubset(st.number_types)) or (p[1].get("id_type") not in ["variable", "array"]):		# Incomplete list
-		st.print_error(p.lineno(1), p[1], 13)
+	if p[0].get("is_decl", False) is False:
+		entry = SymbolTable.lookupComplete(p[0]["name"])
+		if entry is None:
+			st.print_error(p.lineno(1), p[0], 1)
+			p[0] = []
+		else:
+			p[0] = dict(entry)
+			p[0]["is_decl"] = True
+
+	if (not set(p[0]["type"]).issubset(st.number_types)) or (p[0].get("id_type") not in ["variable", "array"]):		# Incomplete list
+		st.print_error(p.lineno(1), p[0], 13)
 		return
-	if p[1].get("is_decl", False) is False:
-		st.print_error(p.lineno(1), p[1], 1)
-		return
-	SymbolTable.addIDAttr(decl["name"], "specifier", [p[1]])
+	
 	p[0]["inc"] = True
 	pass
 
@@ -857,32 +860,40 @@ def p_postfix_expression12(p):
 	create_child("None",p[2])
 	add_children(len(list(filter(None, p[1:]))),"postfix_expression")
 	p[0] = p[1]
-	if (not set(p[1]["type"]).issubset(st.number_types)) or (p[1].get("id_type") not in ["variable", "array"]):		# Incomplete list
-		st.print_error(p.lineno(1), p[1], 13)
+	if p[0].get("is_decl", False) is False:
+		entry = SymbolTable.lookupComplete(p[0]["name"])
+		if entry is None:
+			st.print_error(p.lineno(1), p[0], 1)
+			p[0] = []
+			returns
+		else:
+			p[0] = dict(entry)
+			p[0]["is_decl"] = True
+
+	if (not set(p[0]["type"]).issubset(st.number_types)) or (p[0].get("id_type") not in ["variable", "array"]):		# Incomplete list
+		st.print_error(p.lineno(1), p[0], 13)
 		return
-	if p[1].get("is_decl", False) is False:
-		st.print_error(p.lineno(1), p[1], 1)
-		return
-	p[0]["inc"] = True
+
+	p[0]["dec"] = True
 	pass
 
 def p_postfix_expression13(p):
-	"postfix_expression : DYNAMIC_CAST '<' type_id '>' '(' expression ')'"
+	"postfix_expression : DYNAMIC_CAST '<' type_id '>' '('  expression ')' "
 	add_children(len(list(filter(None, p[1:]))) - 5,p[1])
 	pass
 
 def p_postfix_expression14(p):
-	"postfix_expression : STATIC_CAST '<' type_id '>' '(' expression ')'"
+	"postfix_expression : STATIC_CAST '<' type_id '>' '('  expression ')'  "
 	add_children(len(list(filter(None, p[1:]))) -5,p[1])
 	pass
 
 def p_postfix_expression15(p):
-	"postfix_expression : REINTERPRET_CAST '<' type_id '>' '(' expression ')'"
+	"postfix_expression : REINTERPRET_CAST '<' type_id '>' '('  expression ')' "
 	add_children(len(list(filter(None, p[1:]))) -5 ,p[1])
 	pass
 
 def p_postfix_expression16(p):
-	"postfix_expression : CONST_CAST '<' type_id '>' '(' expression ')'"
+	"postfix_expression : CONST_CAST '<' type_id '>' '('  expression ')' "
 	add_children(len(list(filter(None, p[1:]))) - 5,p[1])
 	pass
 
@@ -950,12 +961,21 @@ def p_unary_expression2(p):
 	create_child("None",p[1])
 	add_children(len(list(filter(None, p[1:]))),"unary_expression")
 	p[0] = p[2]
-	if (not set(p[2]["type"]).issubset(st.number_types)) or (p[2].get("id_type") not in ["variable", "array"]):		# Incomplete list
-		st.print_error(p.lineno(1), p[2], 13)
+	if p[0].get("is_decl", False) is False:
+		entry = SymbolTable.lookupComplete(p[0]["name"])
+		if entry is None:
+			st.print_error(p.lineno(1), p[0], 1)
+			p[0] = []
+			return
+		else:
+			p[0] = dict(entry)
+			p[0]["is_decl"] = True
 		return
-	if p[2].get("is_decl", False) is False:
-		st.print_error(p.lineno(1), p[2], 1)
+
+	if (not set(p[0]["type"]).issubset(st.number_types)) or (p[0].get("id_type") not in ["variable", "array"]):		# Incomplete list
+		st.print_error(p.lineno(1), p[0], 13)
 		return
+
 	st.ScopeList[st.currentScope]["tac"].expression_emit(p[2]["tac_name"],'',p[1], '')
 	p[0]["tac_name"] = p[2]["tac_name"]
 	pass
@@ -964,11 +984,19 @@ def p_unary_expression3(p):
 	"unary_expression : DEC cast_expression"
 	add_children(len(list(filter(None, p[1:]))),"unary_expression")
 	p[0] = p[2]
-	if (not set(p[2]["type"]).issubset(st.number_types)) or (p[2].get("id_type") not in ["variable", "array"]):		# Incomplete list
-		st.print_error(p.lineno(1), p[2], 13)
+	if p[0].get("is_decl", False) is False:
+		entry = SymbolTable.lookupComplete(p[0]["name"])
+		if entry is None:
+			st.print_error(p.lineno(1), p[0], 1)
+			p[0] = []
+			return
+		else:
+			p[0] = dict(entry)
+			p[0]["is_decl"] = True
 		return
-	if p[2].get("is_decl", False) is False:
-		st.print_error(p.lineno(1), p[2], 1)
+
+	if (not set(p[0]["type"]).issubset(st.number_types)) or (p[0].get("id_type") not in ["variable", "array"]):		# Incomplete list
+		st.print_error(p.lineno(1), p[0], 13)
 		return
 	st.ScopeList[st.currentScope]["tac"].expression_emit(p[2]["tac_name"],'',p[1], '')
 	p[0]["tac_name"] = p[2]["tac_name"]
@@ -1012,6 +1040,8 @@ def p_unary_expression6(p):
 	p[0] = p[2]
 	if (not set(p[0].get("type")).issubset(st.number_literals)) and ((p[0].get("id_type") != "variable") or ( not set(p[0].get("type")).issubset(st.number_types))):
 		st.print_error(p.lineno(1), {}, 14, '-')
+	st.ScopeList[st.currentScope]["tac"].expression_emit(p[2]["tac_name"],'',p[1]*3, '')
+	p[0]["tac_name"] = p[2]["tac_name"]
 	pass
 
 def p_unary_expression7(p):
@@ -1023,6 +1053,8 @@ def p_unary_expression7(p):
 		st.print_error(p.lineno(1), {}, 14, '-')
 	elif p[0].get("value"):
 		p[0]["value"] = -p[0]["value"]
+		st.ScopeList[st.currentScope]["tac"].expression_emit(p[2]["tac_name"],'',p[1]*3, '')
+		p[0]["tac_name"] = p[2]["tac_name"]
 	pass
 
 def p_unary_expression8(p):
@@ -1030,6 +1062,9 @@ def p_unary_expression8(p):
 	create_child("None",p[1])
 	add_children(len(list(filter(None, p[1:]))),"unary_expression")
 	p[0] = p[2]
+	st.ScopeList[st.currentScope]["tac"].expression_emit(p[2]["tac_name"],'',p[1], '')
+	p[0]["truelist"] = p[2]["falselist"]
+	p[0]["falselist"] = p[2]["truelist"]
 	pass
 
 def p_unary_expression9(p):
@@ -1037,6 +1072,7 @@ def p_unary_expression9(p):
 	create_child("None",p[1])
 	add_children(len(list(filter(None, p[1:]))),"unary_expression")
 	p[0] = p[2]
+	st.ScopeList[st.currentScope]["tac"].expression_emit(p[2]["tac_name"],'',p[1], '')
 	pass
 
 def p_unary_expression10(p):
@@ -1139,7 +1175,7 @@ def p_new_initializer_opt1(p):
 	pass
 
 def p_new_initializer_opt2(p):
-	"new_initializer_opt : '(' expression_list_opt ')'"
+	"new_initializer_opt : '(' expression_list_opt ')' "
 	add_children(len(list(filter(None, p[1:]))),"new_initializer_opt")
 	pass
 
@@ -1249,7 +1285,6 @@ def p_additive_expression1(p):
 def p_additive_expression2(p):
 	"additive_expression : additive_expression '+' multiplicative_expression"
 	add_children(len(list(filter(None, p[1:]))) - 1 ,p[2])
-	print(p[3])
 	p[0] = expression_semantic(p.lineno(1), p[0], p[1], p[2], p[3])
 	pass
 
@@ -1287,24 +1322,32 @@ def p_relational_expression2(p):
 	"relational_expression : relational_expression '<' shift_expression"
 	add_children(len(list(filter(None, p[1:]))) - 1 ,p[2])
 	p[0] = expression_semantic(p.lineno(1), p[0], p[1], p[2], p[3])
+	p[0]["truelist"] = [st.ScopeList[st.currentScope]["tac"].getnext() -2 ]
+	p[0]["falselist"] = [st.ScopeList[st.currentScope]["tac"].getnext() - 1]
 	pass
 
 def p_relational_expression3(p):
 	"relational_expression : relational_expression '>' shift_expression"
 	add_children(len(list(filter(None, p[1:]))) - 1 ,p[2])
 	p[0] = expression_semantic(p.lineno(1), p[0], p[1], p[2], p[3])
+	p[0]["truelist"] = [st.ScopeList[st.currentScope]["tac"].getnext() -2]
+	p[0]["falselist"] = [st.ScopeList[st.currentScope]["tac"].getnext()-1]
 	pass
 
 def p_relational_expression4(p):
 	"relational_expression : relational_expression LE shift_expression"
 	add_children(len(list(filter(None, p[1:]))) - 1,p[2])
 	p[0] = expression_semantic(p.lineno(1), p[0], p[1], p[2], p[3])
+	p[0]["truelist"] = [st.ScopeList[st.currentScope]["tac"].getnext() - 2]
+	p[0]["falselist"] = [st.ScopeList[st.currentScope]["tac"].getnext() - 1]
 	pass
 
 def p_relational_expression5(p):
 	"relational_expression : relational_expression GE shift_expression"
 	add_children(len(list(filter(None, p[1:]))) - 1,p[2])
 	p[0] = expression_semantic(p.lineno(1), p[0], p[1], p[2], p[3])
+	p[0]["truelist"] = [st.ScopeList[st.currentScope]["tac"].getnext() - 2 ]
+	p[0]["falselist"] = [st.ScopeList[st.currentScope]["tac"].getnext() - 1]
 	pass
 
 def p_equality_expression1(p):
@@ -1317,12 +1360,16 @@ def p_equality_expression2(p):
 	"equality_expression : equality_expression EQ relational_expression"
 	add_children(len(list(filter(None, p[1:]))) - 1,p[2])
 	p[0] = expression_semantic(p.lineno(1), p[0], p[1], p[2], p[3])
+	p[0]["truelist"] = [st.ScopeList[st.currentScope]["tac"].getnext() - 2]
+	p[0]["falselist"] = [st.ScopeList[st.currentScope]["tac"].getnext() - 1]
 	pass
 
 def p_equality_expression3(p):
 	"equality_expression : equality_expression NE relational_expression"
 	add_children(len(list(filter(None, p[1:]))) - 1 , p[2])
 	p[0] = expression_semantic(p.lineno(1), p[0], p[1], p[2], p[3])
+	p[0]["truelist"] = [st.ScopeList[st.currentScope]["tac"].getnext() - 2]
+	p[0]["falselist"] = [st.ScopeList[st.currentScope]["tac"].getnext() - 1]
 	pass
 
 def p_and_expression1(p):
@@ -1368,9 +1415,12 @@ def p_logical_and_expression1(p):
 	pass
 
 def p_logical_and_expression2(p):
-	"logical_and_expression : logical_and_expression LOG_AND inclusive_or_expression"
+	"logical_and_expression : logical_and_expression LOG_AND marker_M inclusive_or_expression"
 	add_children(len(list(filter(None, p[1:]))) - 1,p[2])
-	p[0] = expression_semantic(p.lineno(1), p[0], p[1], p[2], p[3])
+	p[0] = expression_semantic(p.lineno(1), p[0], p[1], p[2], p[4])
+	st.ScopeList[st.currentScope]["tac"].backpatch(p[1]["truelist"], p[3]["quad"]  )
+	p[0]["falselist"] = list(set(p[1]["falselist"] + p[4]["falselist"]))
+	p[0]["truelist"] = p[4]["truelist"]
 	pass
 
 def p_logical_or_expression1(p):
@@ -1380,9 +1430,12 @@ def p_logical_or_expression1(p):
 	pass
 
 def p_logical_or_expression2(p):
-	"logical_or_expression : logical_or_expression LOG_OR logical_and_expression"
+	"logical_or_expression : logical_or_expression LOG_OR marker_M logical_and_expression"
 	add_children(len(list(filter(None, p[1:]))) - 1,p[2])
-	p[0] = expression_semantic(p.lineno(1), p[0], p[1], p[2], p[3])
+	p[0] = expression_semantic(p.lineno(1), p[0], p[1], p[2], p[4])
+	st.ScopeList[st.currentScope]["tac"].backpatch(p[1]["falselist"], p[3]["quad"] )
+	p[0]["truelist"] = list(set(p[1]["truelist"] + p[4]["truelist"]))
+	p[0]["falselist"] = p[4]["falselist"]
 	pass
 
 def p_conditional_expression1(p):
@@ -1411,6 +1464,14 @@ def p_assignment_expression1(p):
 def p_assignment_expression2(p):
 	"assignment_expression : logical_or_expression assignment_operator assignment_expression"
 	add_children(len(list(filter(None, p[1:]))) -1 ,p[2])
+	if p[1].get("is_decl", True) is False:
+		entry = SymbolTable.lookupComplete(p[1]["name"])
+		if entry is None:
+			st.print_error(p.lineno(1), p[1], 1)
+			return
+		else:
+			p[1] = dict(entry)
+			p[1]["is_decl"] = True
 	p[0] = p[1]
 	if (p[1].get("id_type") not in ["variable", "array"]) or (p[1].get("real_id_type") in ["function", "class"]):
 		st.print_error(p.lineno(1), p[1], 17)
@@ -1628,7 +1689,7 @@ def p_constant_expression(p):
 def p_looping_statement(p):
 	"looping_statement : start_search looped_statement "
 	add_children(len(list(filter(None, p[1:]))),"looping_statement")
-	p[0] = p[2] if isinstance(p[2], list) else [p[2]]
+	p[0] = p[2]
 	pass
 
 def p_looped_statement1(p):
@@ -1767,16 +1828,21 @@ def p_m_new_scope(p):
 	pass
 
 def p_compound_statement2(p):
-	"compound_statement : '{' m_new_scope statement_seq_opt looping_statement '#' bang error '}'"
-	create_child("None",p[4])
+	"compound_statement : '{' m_new_scope statement_seq_opt marker_M looping_statement '#' bang error '}'"
+	create_child("None",p[6])
 	add_children(len(list(filter(None, p[1:]))) - 2,"compund_statement")
 	print("[PARSER] This line should not be printed")
 	SymbolTable.endScope()
-	if p[2]	:
-		p[0] = p[2]
-	else:
-		p[0] = list()
-	p[0] += p[2]
+	p[0] = p[3] if p[3] else {}
+	if p[5]:
+		if p[3]:
+			p[0]["stmt_list"] += p[5]["stmt_list"] 
+			st.ScopeList[st.currentScope]["tac"].backpatch(p[3]["nextlist"], p[4]["quad"]   ) 
+
+		else:
+			p[0]["stmt_list"] = p[5]["stmt_list"]
+		p[0]["nextlist"] = p[5]["nextlist"] if "nextlist" in p[5] else []
+
 	pass
 
 def p_statement_seq_opt1(p):
@@ -1784,19 +1850,36 @@ def p_statement_seq_opt1(p):
 	pass
 
 def p_statement_seq_opt2(p):
-	"statement_seq_opt : statement_seq_opt looping_statement"
+	"statement_seq_opt : statement_seq_opt marker_M looping_statement"
 	add_children(len(list(filter(None, p[1:]))),"statement_seq_opt")
-	p[0] = p[1] if p[1] else []
-	p[0] += p[2]
+	p[0] = p[1] if p[1] else {}
+	if p[3]:
+		if p[1]:
+			p[0]["stmt_list"] += p[3]["stmt_list"] if ("stmt_list" in p[3]) else p[3]["loop_statement"]["stmt_list"]
+			#print("hello")
+			#print(p[3])
+			#print(p[1]["nextlist"], p[2]["quad"],st.ScopeList[st.currentScope]["tac"].startquad )
+			#print(st.currentScope)
+
+			st.ScopeList[st.currentScope]["tac"].backpatch(p[1]["nextlist"], p[2]["quad"]  ) 	 
+		else:
+			p[0]["stmt_list"] = p[3]["stmt_list"] if ("stmt_list" in p[3]) else p[3]["loop_statement"]["stmt_list"]
+		p[0]["nextlist"] = p[3]["nextlist"] if "nextlist" in p[3] else []
 	pass
 
 def p_statement_seq_opt3(p):
-	"statement_seq_opt : statement_seq_opt looping_statement '#' bang error ';'"
+	"statement_seq_opt : statement_seq_opt marker_M looping_statement '#' bang error ';'"
 	create_child("None",p[3])
 	create_child("None",p[6])
 	add_children(len(list(filter(None, p[1:]))),"statement_seq_opt")
-	p[0] = p[1] if p[1] else []
-	p[0] += p[2]
+	p[0] = p[1] if p[1] else {}
+	if p[3]:
+		if p[1]:
+			p[0]["stmt_list"] += p[3]["stmt_list"]
+			st.ScopeList[st.currentScope]["tac"].backpatch(p[1]["nextlist"], p[2]["quad"]  ) 
+		else:
+			p[0]["stmt_list"] = p[3]["stmt_list"]
+		p[0]["nextlist"] = p[3]["nextlist"] if "nextlist" in p[3] else []
 	pass
 
 #/*
@@ -1804,31 +1887,35 @@ def p_statement_seq_opt3(p):
 # */
 
 def p_selection_statement1(p):
-	"selection_statement : IF '(' condition ')' looping_statement    %prec SHIFT_THERE"
+	"selection_statement : IF '(' condition ')' marker_M looping_statement    %prec SHIFT_THERE"
 	create_child("None",p[1])
-	add_children(len(list(filter(None, p[1:]))) -3,"selection_statement")
+	add_children(len(list(filter(None, p[1:]))) -4,"Condition - If")
 	p[0] = dict()
 	p[0]["type"] = "if"
 	p[0]["condition"] = p[3]
-	p[0]["loop_statement"] = p[5]
+	p[0]["loop_statement"] = p[6]
+	#print(p[5]["quad"])
+	#st.ScopeList[st.currentScope]["tac"].print_code()
+	st.ScopeList[st.currentScope]["tac"].backpatch(p[3]["truelist"], p[5]["quad"]  )
+	p[0]["nextlist"] = list(set(p[3]["falselist"] + p[6]["nextlist"]))
 	pass
 
 def p_selection_statement2(p):
-	"selection_statement : IF '(' condition ')' looping_statement ELSE looping_statement"
+	"selection_statement : IF '(' condition ')' marker_M looping_statement ELSE marker_M looping_statement"
 	add_children(len(list(filter(None, p[1:]))) - 4,"Condition - If - Else")
 	p[0] = dict()
 	p[0]["type"] = "if_else"
 	p[0]["condition"] = p[3]
-	p[0]["loop_statement"] = [p[5], p[7]]
+	p[0]["loop_statement"] = [p[6], p[9]]
 	pass
 
 def p_selection_statement3(p):
-	"selection_statement : SWITCH '(' condition ')' looping_statement"
+	"selection_statement : SWITCH '(' condition ')' marker_M looping_statement"
 	add_children(len(list(filter(None, p[1:]))),p[1])
 	p[0] = dict()
 	p[0]["type"] = "switch"
 	p[0]["condition"] = p[3]
-	p[0]["loop_statement"] = p[5]
+	p[0]["loop_statement"] = p[6]
 	pass
 
 def p_condition_opt1(p):
@@ -1872,16 +1959,16 @@ def p_condition(p):
 	pass
 
 def p_iteration_statement1(p):
-	"iteration_statement : WHILE '(' condition ')' looping_statement"
+	"iteration_statement : WHILE '(' condition ')' marker_M looping_statement"
 	add_children(len(list(filter(None, p[1:]))) - 3,"WHILE")
 	p[0] = dict()
 	p[0]["type"] = "while"
 	p[0]["condition"] = p[3]
-	p[0]["loop_statement"] = p[5]
+	p[0]["loop_statement"] = p[6]
 	pass
 
 def p_iteration_statement2(p):
-	"iteration_statement : DO looping_statement WHILE '(' condition ')' ';'"
+	"iteration_statement : DO looping_statement WHILE '(' condition ')' marker_M ';'"
 	add_children(len(list(filter(None, p[1:]))) - 5,"DO - WHILE")
 	p[0] = dict()
 	p[0]["type"] = "do_while"
@@ -1890,14 +1977,14 @@ def p_iteration_statement2(p):
 	pass
 
 def p_iteration_statement3(p):
-	"iteration_statement : FOR '(' for_init_statement condition_opt ';' expression_opt ')' looping_statement"
+	"iteration_statement : FOR '(' for_init_statement marker_M condition_opt ';' marker_M expression_opt ')' marker_M looping_statement"
 	add_children(len(list(filter(None, p[1:]))) - 4,"FOR")
 	p[0] = dict()
 	p[0]["type"] = "for"
 	p[0]["for_init"] = p[3]
-	p[0]["condition"] = p[4]
-	p[0]["update_expr"] = p[6]
-	p[0]["loop_statement"] = p[8]
+	p[0]["condition"] = p[5]
+	p[0]["update_expr"] = p[8]
+	p[0]["loop_statement"] = p[11]
 	pass
 
 def p_for_init_statement(p):
@@ -1920,7 +2007,7 @@ def p_jump_statement2(p):
 
 def p_jump_statement3(p):
 	"jump_statement : RETURN expression_opt ';'"
-	p[0] = p[1]
+	p[0] = dict()
 	if p[2] != '':
 		add_children(1,"return")
 	else:
@@ -1940,6 +2027,7 @@ def p_jump_statement3(p):
 	if (st.simple_type_specifier[' '.join(expr["type"])]["equiv_type"] != st.simple_type_specifier[' '.join(func["type"])]["equiv_type"]) \
 	 	or (expr.get("order", []) != func.get("order", [])) or (expr.get("star", 0) != func.get("star", 0)):
 		st.print_error(p.lineno(1), {}, 36, func["name"], ' '. join(func["type"]))
+	p[0]["stmt_list"] = [p[1:]]
 	pass
 
 def p_jump_statement4(p):
@@ -1989,10 +2077,11 @@ def p_declaration_seq_opt1(p):
 def p_declaration_seq_opt2(p):
 	"declaration_seq_opt : declaration_seq_opt util looping_declaration"
 	add_children(len(list(filter(None, p[1:]))),"declaration_seq_opt")
+	p[0] = p[1] if p[1] else {}
 	if p[1]:
-		p[0] = (p[1] if isinstance(p[1], list) else [p[1]]) + (p[3] if isinstance(p[3], list) else [p[3]])
+		p[0]["stmt_list"] += p[3]["stmt_list"] 
 	else:
-		p[0] = [] + (p[2] if isinstance(p[2], list) else [p[2]])
+		p[0]["stmt_list"] = p[3]["stmt_list"]
 	pass
 
 def p_declaration_seq_opt3(p):
@@ -2095,13 +2184,13 @@ def p_specialised_block_declaration4(p):
 
 def p_simple_declaration1(p):
 	"simple_declaration : ';'"
-	p[0] = []
+	p[0] = dict()
 	pass
 
 def p_simple_declaration2(p):
 	"simple_declaration : init_declaration ';'"
 	add_children(len(list(filter(None, p[1:]))) -1,"simple_declaration")
-	p[0] = []
+	p[0] = dict()
 	if p[1]:
 		if "is_decl" not in p[1].keys():	# i.e. built_in_type_specifier ; (Illegal statement)
 			if p[1]["id_type"] in ["type_specifier",]:
@@ -2124,13 +2213,14 @@ def p_simple_declaration2(p):
 				pass
 			else:
 				pass
-			p[0] = [p[1]]
+			p[0]["stmt_list"] = [p[1]]
 	pass
 
 def p_simple_declaration3(p):
 	"simple_declaration : init_declarations ';'"
 	add_children(len(list(filter(None, p[1:]))) - 1,"simple_declaration")
-	p[0] = []
+	p[0] = dict()
+	p[0]["stmt_list"] = []
 	if p[1]:
 		for decl in p[1]:
 			if "is_decl" not in decl.keys():
@@ -2149,9 +2239,9 @@ def p_simple_declaration3(p):
 					pass
 				else:
 					pass
-			p[0] += [decl]
-		if not p[0]:
-			p[0] = []
+			p[0]["stmt_list"] += [decl]
+		#if not p[0]:
+		#	p[0] = []
 	pass
 
 def p_simple_declaration4(p):
@@ -2747,6 +2837,10 @@ def p_linkage_specification2(p):
 def p_init_declarations1(p):
 	"init_declarations : assignment_expression ',' init_declaration"
 	add_children(len(list(filter(None, p[1:]))) -1,"init_declarations")
+	if p[1].get("inc",False):
+		st.ScopeList[st.currentScope]["tac"].expression_emit(p[1]["tac_name"],'',"++", '')
+	if p[1].get("dec",False):
+		st.ScopeList[st.currentScope]["tac"].expression_emit(p[1]["tac_name"],'',"--", '')
 	if p[3].get("is_decl"):
 		st.print_error(p.lineno(1), p[3], 4, p[1]["type"])
 	else:
@@ -2780,6 +2874,10 @@ def p_init_declaration(p):
 	"init_declaration : assignment_expression"
 	add_children(len(list(filter(None, p[1:]))),"init_declaration")
 	p[0] = p[1]
+	if p[1].get("inc",False):
+		st.ScopeList[st.currentScope]["tac"].expression_emit(p[1]["tac_name"],'',"++", '')
+	if p[1].get("dec",False):
+		st.ScopeList[st.currentScope]["tac"].expression_emit(p[1]["tac_name"],'',"--", '')
 	pass
 
 def p_star_ptr_operator1(p):
@@ -2921,7 +3019,7 @@ def p_parenthesis_clause2(p):
 	pass
 
 def p_parameters_clause(p):
-	"parameters_clause : '(' m_open_paren parameter_declaration_clause ')'"
+	"parameters_clause : '(' m_open_paren parameter_declaration_clause ')' "
 	add_children(len(list(filter(None, p[1:]))) - 2,"paremeters_clause")
 	p[0] = p[3] if p[3] else []
 	st.parenthesis_ctr -= 1
@@ -3050,37 +3148,62 @@ def p_function_definition2(p):
 def p_func_definition1(p):
 	"func_definition : assignment_expression function_try_block"
 	add_children(len(list(filter(None, p[1:]))),"func_definition")
-	p[0] = [p[1]] + (p[2] if isinstance(p[2], list) else [p[2]])
+	p[0] = p[1] if p[1] else {}
+	if p[1]:
+		p[0]["stmt_list"] += p[2]["stmt_list"] 
+	else:
+		p[0]["stmt_list"] = p[2]["stmt_list"]
 	pass
 
 def p_func_definition2(p):
 	"func_definition : assignment_expression function_body"
 	add_children(len(list(filter(None, p[1:]))),"func_definition")
-	p[0] = [p[1]] + (p[2] if isinstance(p[2], list) else [p[2]])
+	
+	p[0] = p[1] if p[1] else {}
+	#if p[1]:
+	p[0]["stmt_list"] = p[2]["stmt_list"] 
+	#else:
+	#	p[0]["stmt_list"] = p[2]["stmt_list"]
 	pass
 
 def p_func_definition3(p):
 	"func_definition : decl_specifier_prefix func_definition"
 	add_children(len(list(filter(None, p[1:]))),"func_definition")
-	p[0] = [p[1]] + (p[2] if isinstance(p[2], list) else [p[2]])
+	p[0] = p[1] if p[1] else {}
+	if p[1]:
+		p[0]["stmt_list"] += p[2]["stmt_list"] 
+	else:
+		p[0]["stmt_list"] = p[2]["stmt_list"]
 	pass
 
 def p_ctor_definition1(p):
 	"ctor_definition : constructor_head function_try_block"
 	add_children(len(list(filter(None, p[1:]))),"ctor_definition")
-	p[0] = (p[1] if isinstance(p[1], list) else [p[1]]) + (p[2] if isinstance(p[2], list) else [p[2]])
+	p[0] = p[1] if p[1] else {}
+	if p[1]:
+		p[0]["stmt_list"] += p[2]["stmt_list"] 
+	else:
+		p[0]["stmt_list"] = p[2]["stmt_list"]
 	pass
 
 def p_ctor_definition2(p):
 	"ctor_definition : constructor_head function_body"
 	add_children(len(list(filter(None, p[1:]))),"ctor_definition")
-	p[0] = (p[1] if isinstance(p[1], list) else [p[1]]) + (p[2] if isinstance(p[2], list) else [p[2]])
+	p[0] = p[1] if p[1] else {}
+	if p[1]:
+		p[0]["stmt_list"] += p[2]["stmt_list"] 
+	else:
+		p[0]["stmt_list"] = p[2]["stmt_list"]
 	pass
 
 def p_ctor_definition3(p):
 	"ctor_definition : decl_specifier_prefix ctor_definition"
 	add_children(len(list(filter(None, p[1:]))),"ctor_definition")
-	p[0] = (p[1] if isinstance(p[1], list) else [p[1]]) + (p[2] if isinstance(p[2], list) else [p[2]])
+	p[0] = p[1] if p[1] else {}
+	if p[1]:
+		p[0]["stmt_list"] += p[2]["stmt_list"] 
+	else:
+		p[0]["stmt_list"] = p[2]["stmt_list"]
 	pass
 
 def p_constructor_head1(p):
@@ -3098,13 +3221,21 @@ def p_function_try_block(p):
 	"function_try_block : TRY function_block handler_seq"
 	create_child("None",p[1])
 	add_children(len(list(filter(None, p[1:]))),"function_try_block")
-	p[0] = (p[2] if isinstance(p[2], list) else [p[2]]) + (p[3] if isinstance(p[3], list) else [p[3]])
+	p[0] = p[2] if p[2] else {}
+	if p[1]:
+		p[0]["stmt_list"] += p[3]["stmt_list"] 
+	else:
+		p[0]["stmt_list"] = p[3]["stmt_list"]
 	pass
 
 def p_function_block(p):
 	"function_block : ctor_initializer_opt function_body"
 	add_children(len(list(filter(None, p[1:]))),"function_block")
-	p[0] = (p[1] if isinstance(p[1], list) else [p[1]]) + (p[2] if isinstance(p[2], list) else [p[2]])
+	p[0] = p[1] if p[1] else {}
+	if p[1]:
+		p[0]["stmt_list"] += p[2]["stmt_list"] 
+	else:
+		p[0]["stmt_list"] = p[2]["stmt_list"]
 	pass
 
 def p_function_body(p):
@@ -3371,10 +3502,11 @@ def p_member_specification_opt1(p):
 def p_member_specification_opt2(p):
 	"member_specification_opt : member_specification_opt util looping_member_declaration"
 	add_children(len(list(filter(None, p[1:]))),"member_specification_opt")
+	p[0] = p[1] if p[1] else {}
 	if p[1]:
-		p[0] = (p[1] if isinstance(p[1], list) else [p[1]]) + (p[3] if isinstance(p[3], list) else [p[3]])
+		p[0]["stmt_list"] += p[3]["stmt_list"] 
 	else:
-		p[0] = [] + (p[2] if isinstance(p[2], list) else [p[2]])
+		p[0]["stmt_list"] = p[3]["stmt_list"]
 	pass
 
 def p_member_specification_opt3(p):
@@ -3707,7 +3839,7 @@ def p_mem_initializer_list_head2(p):
 	pass
 
 def p_mem_initializer(p):
-	"mem_initializer : mem_initializer_id '(' expression_list_opt ')'"
+	"mem_initializer : mem_initializer_id '(' expression_list_opt ')' "
 	create_child("None",p[2])
 	create_child("None",p[4])
 	add_children(len(list(filter(None, p[1:]))),"mem_initializer")
@@ -3804,7 +3936,7 @@ def p_handler_seq2(p):
 	pass
 
 def p_handler(p):
-	"handler : CATCH '(' exception_declaration ')' compound_statement"
+	"handler : CATCH '('  exception_declaration ')' marker_M compound_statement"
 	add_children(len(list(filter(None, p[1:]))),"Catch - exception")
 	pass
 
@@ -3825,12 +3957,12 @@ def p_throw_expression2(p):
 	pass
 
 def p_exception_specification1(p):
-	"exception_specification : THROW '(' ')'"
+	"exception_specification : THROW '('  ')'  "
 	create_child("None",p[1])
 	pass
 
 def p_exception_specification2(p):
-	"exception_specification : THROW '(' type_id_list ')'"
+	"exception_specification : THROW '(' type_id_list ')' "
 	add_children(len(list(filter(None, p[1:]))) - 3,"THROW")
 	pass
 
@@ -3878,6 +4010,21 @@ def p_util(p):
 def p_empty(p):
 	'empty : '
 	pass
+def p_marker_N(p):
+	"marker_N : empty"
+	p[0] = dict()
+	p[0]["nextlist"] = [st.ScopeList[st.currentScope]["tac"].getnext()]
+	st.ScopeList[st.currentScope]["tab"].emit(["goto",""])
+	pass
+	
+
+def p_marker_M(p):
+	'marker_M : empty'
+	p[0] = dict()
+	p[0]["quad"] = st.ScopeList[st.currentScope]["tac"].getnext()
+	pass
+
+
 
 # Error rule for syntax errors
 def p_error(p):
@@ -3903,27 +4050,17 @@ if __name__ == "__main__":
 	#if(len(sys.argv) == 2):
 	#	filename = sys.argv[1]
 	#else:
-	#filename = "../tests/small_test.cpp"
-	#a = open(filename)
-	#data = a.read()
-	data = '''	
-	int main()
-	{
-	int x,y;
-	int a[2] = {1,2};
-	float z;
-	 x = 3 + 2*x;
-	 x = a[1];
-	 x = z--;
-	 y = (z*x) + 3*(x-5);
-	 }
-	'''
+	filename = "sample_test.c"
+	a = open(filename)
+	data = a.read()
+	#data = '''	
 	yacc.parse(data, lexer=lex.cpp_scanner.lexer, tracking=True)
 	graph.write_jpeg('parse_tree.jpeg')
 	graph.write_dot('parse_tree.dot')
 	f = open("parse_tree.dat","w")
 	f.write(graph.to_string())
 	print("================================================================================================\n\n")
-	st.print_table()
+	#st.print_table()
+	st.print_tac()
 	print("================================================================================================\n\n")
 	pass

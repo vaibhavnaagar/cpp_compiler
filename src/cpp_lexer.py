@@ -116,6 +116,7 @@ class MyLexer(object):
 	t_LE = r'<='
 	t_GE = r'>='
 	t_LOG_OR = r'\|\|'
+	t_LOG_AND = r'&&'
 	t_INC = r'\+\+'
 	t_DEC = r'--'
 	t_ARROW_STAR = r'->\*'
