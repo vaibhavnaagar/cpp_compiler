@@ -32,10 +32,10 @@ class TAC:
 
 	def print_code(self):
 		for i,c in enumerate(self.code):
-			if c[0] == "if" or c[0] == "goto":
+			if c[0] in ["if","goto", "begin", "end" , "param", "call", "ret"]:
 				print(str(i) + ":  " + " ".join(c))
 			else:
-				print(str(i) + ":  " + str(c[0]) + " " + " := " + " ".join(c[1:]) )
+				print(str(i) , ":  " + str(c[0]) + " " + " := " + " ".join(c[1:]) )
 
 	def expression_emit(self,d,e1,op,e2,etype=''):
 		if op in ['+','-','*','/']:

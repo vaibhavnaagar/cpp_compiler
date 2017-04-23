@@ -1,40 +1,38 @@
+ int test(int x, int y);
+
+struct test
+{
+	int m;
+};
+
+
 int main()
 {
-	int x,y;
+
+	int a=0;
+ 	return 1;
+ }
+
+ int test(int x, int y)
+ {
+ 	x =6;
+ 	y = x*x*test(x,3);
+ 	return test(x,y) + y;
+ }
+
+
+ /*
+
+ int x,y;
 	x = 3 + 2*x;
 	x++;
 	x = y++;
 	//if((x == 1) && (y==2))
 	if(x==0)
 	{
-		int m;
-		m = 23;
-		if (m>9)
-		{
-			m--;	
-		}
-		else 
-			{
-			y++;	
-			}
-	}
-	else 
-	{
-		do{
 		
-		x = 77;
-		x /= 6;
 
-		}
-		while(x<3);
-	}
-
- 	y--;
- 	return 1;
- }
-
-
- /*m++;
+		m++;
 			if(x<4)
 			{
 				m =0;
