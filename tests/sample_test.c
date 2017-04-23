@@ -1,23 +1,22 @@
- int test(int x, int y);
+ int test(int , int );
 
-struct test
-{
-	int m;
-};
 
 
 int main()
 {
 
-	int a=0;
+	int a= 'e';
+	if (a==1){
+		int m;
+		char* c;
+	}
  	return 1;
  }
 
  int test(int x, int y)
- {
+ {int p,q;
  	x =6;
- 	y = x*x*test(x,3);
- 	return test(x,y) + y;
+ 	return 1;
  }
 
 
@@ -30,7 +29,7 @@ int main()
 	//if((x == 1) && (y==2))
 	if(x==0)
 	{
-		
+
 
 		m++;
 			if(x<4)

@@ -1,6 +1,10 @@
-name,type,star,id_type,specifier,value,is_defined,order,num,parameters,access,myscope,inc,dec,tac_name,size
-main,['int'],0,function,[],,True,[],1,[],public,global,False,False,main_global,
-x,['int'],0,variable,[],,False,[],1,[],public,main,False,False,x_main,4
-y,['int'],0,variable,[],,False,[],1,[],public,main,False,False,y_main,4
-m,['int'],0,variable,[],,False,[],1,[],public,1,False,False,m_1,4
-l,['int'],0,variable,[],,False,[],1,[],public,3,False,False,l_3,4
+name,type,star,id_type,specifier,value,is_defined,order,num,parameters,access,myscope,inc,dec,tac_name,offset,size
+y,['int'],0,variable,[],,False,[],1,[],public,test,False,False,y_test,-8,4
+x,['int'],0,variable,[],,False,[],1,[],public,test,False,False,x_test,-4,4
+q,['int'],0,variable,[],,False,[],1,[],public,test,False,False,q_test,8,4
+p,['int'],0,variable,[],,False,[],1,[],public,test,False,False,p_test,4,4
+m,['int'],0,variable,[],,False,[],1,[],public,1,False,False,m_1,8,4
+c,['char'],1,variable,[],,False,[],1,[],public,1,False,False,c_1,16,8
+a,['int'],0,variable,[],e,False,[],1,[],public,main,False,False,a_main,4,4
+test,['int'],0,function,[],,True,[],1,"[{'name': 'int', 'specifier': [], 'type': ['int'], 'id_type': 'type_specifier'}, {'name': 'int', 'specifier': [], 'type': ['int'], 'id_type': 'type_specifier'}]",public,global,False,False,test_global,8,
+main,['int'],0,function,[],,True,[],1,[],public,global,False,False,main_global,20,
