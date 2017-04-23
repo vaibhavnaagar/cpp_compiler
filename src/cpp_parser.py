@@ -4180,7 +4180,7 @@ if __name__ == "__main__":
 	#if(len(sys.argv) == 2):
 	#	filename = sys.argv[1]
 	#else:
-	filename = "tests/sample_test.cpp"
+	filename = "../tests/sample_test.c"
 	a = open(filename)
 	data = a.read()
 	#data = '''
