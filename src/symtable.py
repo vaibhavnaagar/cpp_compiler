@@ -360,9 +360,6 @@ def expression_type(lineno, l1, s1, l2, s2, op=None):
             print_error(lineno, {}, 53)
             return None
     if s1 != s2:
-        print(s1,s2)
-        print(op)
-        print(l1,l2)
         print_error(lineno, {}, 53)
         return l1,s1
 

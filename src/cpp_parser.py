@@ -17,6 +17,7 @@ import pprint
 import tac
 from functools import reduce
 import operator
+import codegen as cg
 # Symbol table
 #SymbolTable = None
 
@@ -137,8 +138,8 @@ def expression_semantic(lineno, p0, p1, p2, p3):
 	return p0
 
 def array_assignment(p,inits,store_list):
-	pp = pprint.PrettyPrinter(indent=4)
-	pp.pprint( inits)
+	#pp = pprint.PrettyPrinter(indent=4)
+	#pp.pprint( inits)
 	if len(inits) == 0:
 			store_list = [0]*len(store_list)
 			return p;
@@ -147,7 +148,7 @@ def array_assignment(p,inits,store_list):
 			if inits[0]["id_type"] in ["literal", "variable"]:
 				if st.expression_type(p.lineno(1), p[1]["type"], p[1].get("star", 0) , inits[0]["type"], inits[0].get("star", 0), op=str(p[2])):
 					store_list = [inits[0]["value"]]*len(store_list)
-			return p;
+			return store_list;
 
 	elif len(inits) == len(store_list):
 		for i,exp in enumerate(inits):
@@ -158,7 +159,7 @@ def array_assignment(p,inits,store_list):
 				if exp["id_type"] in ["literal", "variable"]:
 					if st.expression_type(p.lineno(1), p[1]["type"], p[1].get("star", 0) , exp["type"], exp.get("star", 0), op=str(p[2])):
 						store_list[i] = exp["value"]
-		return p;
+		return store_list;
 
 
 	elif len(inits) == p[0]["order"][0]:
@@ -168,8 +169,8 @@ def array_assignment(p,inits,store_list):
 				st.print_error(p.lineno(1), {}, 22, p[1]["type"])
 				return None
 			else :
-				p = array_assignment(p,exp,store_list[size*i,size*(i+1)])
-				if not p:
+				store_list = array_assignment(p,exp,store_list[size*i,size*(i+1)])
+				if not store_list:
 					st.print_error(p.lineno(1), {}, 22, p[1]["type"])
 					return None
 	else:
@@ -1484,8 +1485,6 @@ def p_assignment_expression1(p):
 def p_assignment_expression2(p):
 	"assignment_expression : logical_or_expression assignment_operator assignment_expression"
 	add_children(len(list(filter(None, p[1:]))) -1 ,p[2])
-	if p[1].get("real_id_type") in ["array"]:
-					print(p[1])
 	if p[1].get("type", 1) is None:
 		entry = SymbolTable.lookupComplete(p[1]["name"])
 		if entry is None:
@@ -1652,8 +1651,7 @@ def p_assignment_expression3(p):
 			st.print_error(p.lineno(1), {}, 22, p[1]["type"])
 		else:
 			p[0]["value"] = [0]*p[0]["num"]
-			p[0] = array_assignment(p,inits,p[0]["value"])[0]
-			print(p[0])
+			p[0]["value"] = array_assignment(p,inits,p[0]["value"])
 			size = st.simple_type_specifier[" ".join(p[0]["type"])]["size"]
 			for i in range(0,p[0]["num"]):
 				st.ScopeList[st.currentScope]["tac"].expression_emit("*(" +p[0]["name"] + "_" + str(p[0]["myscope"])+ "+" +str(i*size) + ")",'',p[2],str(p[0]["value"][i]))
@@ -4190,7 +4188,7 @@ if __name__ == "__main__":
 	f = open("parse_tree.dat","w")
 	f.write(graph.to_string())
 	print("================================================================================================\n\n")
-	st.print_table()
+	cg.gen_data()
 	st.print_tac()
 	print("================================================================================================\n\n")
 	pass

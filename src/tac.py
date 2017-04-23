@@ -1,5 +1,4 @@
 import symtable as st
-#global currline = 1
 class TAC:
 	def __init__(self,scopename,start):
 		self.code = []
@@ -16,13 +15,10 @@ class TAC:
 		return self.nextquad
 
 	def backpatch(self,list,targetlabel):
-		#print(targetlabel)
 		if list:
 			for l in list:
-				#print(l,self.startquad,len(self.code))
 				self.code[l-self.startquad][-1] = str(targetlabel)
-				#print(self.code[l-self.startquad])
-
+	
 	def mergelist(l1,l2):
 		return list(set(l1 + l2))
 

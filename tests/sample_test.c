@@ -1,7 +1,13 @@
-<<<<<<< HEAD:src/sample_test.c
+int p = 9;
+char letter = 'a';
+char name[2] = "C";
+float* f;
+double d = 2.457;
+
+
 int test(int x, int y)
  {
- 	int z[2] = {1};
+ 	int z[2] = {1,9};
  	z[1] = 7;
  	return z[1];
  }
@@ -14,8 +20,7 @@ int main()
  	return 1;
  }
 
-=======
- int test(int , int );
+/* int test(int , int );
 
 
 
@@ -36,8 +41,6 @@ int main()
  	return 1;
  }
 
-
->>>>>>> 8c74036ebc1ee9a7c4a3a763633ac85b305ffe74:tests/sample_test.c
  /*
 
  
