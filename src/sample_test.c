@@ -1,29 +1,23 @@
- int test(int x, int y);
-
-struct test
-{
-	int m;
-};
-
-
+int test(int x, int y)
+ {
+ 	int z[2] = {1};
+ 	z[1] = 7;
+ 	return z[1];
+ }
 int main()
 {
 
-	int a=0;
+ 	int z[2] = {1};
+	int a[2][2]={0};
+	a[1][1] = test(1,2) + a[1][0];
  	return 1;
  }
 
- int test(int x, int y)
- {
- 	x =6;
- 	y = x*x*test(x,3);
- 	return test(x,y) + y;
- }
-
-
  /*
 
- int x,y;
+ 
+
+  int x,y;
 	x = 3 + 2*x;
 	x++;
 	x = y++;

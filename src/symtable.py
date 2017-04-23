@@ -582,11 +582,8 @@ def print_table():
             print("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~")
 
 def print_tac():
-    for scope in ScopeList.keys():
-        if scope != "NULL":
-            print("Scope Name:", scope, ", ", "Scope Type:", ScopeList[scope]["scope_type"])
-            ScopeList[scope]["tac"].print_code()
-            print("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~")
+    ScopeList["global"]["tac"].print_code()
+    print("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~")
 
 
 if __name__ == '__main__':

@@ -15,6 +15,8 @@ import pydot
 import symtable as st
 import pprint
 import tac
+from functools import reduce
+import operator
 # Symbol table
 #SymbolTable = None
 
@@ -769,8 +771,12 @@ def p_postfix_expression6(p):
 		elif not set(p[3]["type"]).issubset(st.integral_types):
 			st.print_error(p.lineno(1), p[1], 8, p[3]["type"])
 		else:
-			p[0]["order"] = p[0]["order"][:-1]
+			p[0]["order"] = p[0]["order"][1:]
+			product = reduce((lambda x, y: x * y), p[0]["order"],1)
+			p[0]["index"] = p[0].get("index",0) + product*p[3]["value"]
 			if len(p[0]["order"]) == 0:
+				size = st.simple_type_specifier[" ".join(p[0]["type"])]["size"]
+				p[0]["tac_name"] =  "*(" + p[0]["tac_name"] + "+" + str(p[0]["index"]*size) + ")"
 				p[0]["real_id_type"] = p[0]["id_type"]
 				p[0]["id_type"] = "variable"		# Array is completely dereferenced to a single memory location
 	pass
@@ -1481,6 +1487,8 @@ def p_assignment_expression1(p):
 def p_assignment_expression2(p):
 	"assignment_expression : logical_or_expression assignment_operator assignment_expression"
 	add_children(len(list(filter(None, p[1:]))) -1 ,p[2])
+	if p[1].get("real_id_type") in ["array"]:
+					print(p[1])
 	if p[1].get("type", 1) is None:
 		entry = SymbolTable.lookupComplete(p[1]["name"])
 		if entry is None:
@@ -1513,6 +1521,7 @@ def p_assignment_expression2(p):
 				else:
 					st.ScopeList[st.currentScope]["tac"].expression_emit(p[0]["tac_name"],'',p[2],p[3]["tac_name"])
 					p[0]["tac_name"] = p[3]["tac_name"]
+				
 				if p[3].get("inc",False):
 					st.ScopeList[st.currentScope]["tac"].expression_emit(p[3]["tac_name"],'',"++", '')
 				if p[3].get("dec",False):
@@ -1633,7 +1642,12 @@ def p_assignment_expression3(p):
 			st.print_error(p.lineno(1), {}, 22, p[1]["type"])
 		else:
 			p[0]["value"] = [0]*p[0]["num"]
-			array_assignment(p,inits,p[0]["value"])
+			p[0] = array_assignment(p,inits,p[0]["value"])[0]
+			print(p[0])
+			size = st.simple_type_specifier[" ".join(p[0]["type"])]["size"]
+			for i in range(0,p[0]["num"]):
+				st.ScopeList[st.currentScope]["tac"].expression_emit("*(" +p[0]["name"] + "_" + str(p[0]["myscope"])+ "+" +str(i*size) + ")",'',p[2],str(p[0]["value"][i]))
+
 	else:
 		st.print_error(p.lineno(1), p[1], 24)
 	pass
