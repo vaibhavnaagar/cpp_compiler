@@ -106,7 +106,7 @@ def expression_semantic(lineno, p0, p1, p2, p3):
 		p0 = p3
 	else:
 		p0 = p1
-	
+
 
 	temp = st.ScopeList[st.currentScope]["tac"].getnewtemp()
 	if p1.get("real_id_type") in ["function", "class"] and p1["tac_name"] == p1["name"] + "_" + p1["myscope"]:
@@ -121,8 +121,8 @@ def expression_semantic(lineno, p0, p1, p2, p3):
 
 	p0["name"] = ' '.join([p1["name"], p2, p3["name"]])
 	p0["type"],p0["star"] = st.expression_type(lineno, p1["type"], p1.get("star", 0) , p3["type"], p3.get("star", 0), op=str(p2))
-	
-	
+
+
 	st.ScopeList[st.currentScope]["tac"].expression_emit(temp,s1,p2,s2,p0["type"])
 	p0["tac_name"] = temp
 	if p1.get("inc",False):
@@ -208,7 +208,7 @@ def p_identifier(p):
 			"order"	: [],
 			"parameters" : None,
 			"is_defined" : False,	# Used For functions only
-			"myscope" : str(st.currentScope), 
+			"myscope" : str(st.currentScope),
 		}
 	pass
 
@@ -443,12 +443,11 @@ def p_literal2(p):
 	"literal : CHARACTER"
 	create_child("literal - char",p[1])
 	p[0] = {
-		"name"	: str(p[1]),
+		"name"	: str(p[1][1:-1]),
 		"type"  : ["literal_char"],
 		"id_type" : "literal",
-		"value" : None,
+		"value" : str(p[1][1:-1]),
 		"tac_name" : str(p[1])
-
 	}
 	pass
 
@@ -461,7 +460,6 @@ def p_literal3(p):
 		"id_type" : "literal",
 		"value" : float(p[1]),
 		"tac_name" : str(p[1])
-
 	}
 	pass
 
@@ -469,10 +467,11 @@ def p_literal4(p):
 	"literal : string"
 	add_children(len(list(filter(None, p[1:]))),"literal")
 	p[0] = {
-		"name"	: str(p[1]),
+		"name"	: str(p[1][1:-1]),
 		"type"  : ["literal_string"],
 		"id_type" : "literal",
-		"value" : None,
+		"value" : str(p[1][1:-1]),
+		"tac_name" : str(p[1])
 	}
 	pass
 
@@ -491,7 +490,6 @@ def p_boolean_literal1(p):
 		"id_type" : "literal",
 		"value" : 0,
 		"tac_name" : str(p[1])
-
 	}
 	pass
 
@@ -504,7 +502,6 @@ def p_boolean_literal2(p):
 		"id_type" : "literal",
 		"value" : 1,
 		"tac_name" : str(p[1])
-
 	}
 	pass
 
@@ -880,7 +877,7 @@ def p_postfix_expression11(p):
 	if (not set(p[0]["type"]).issubset(st.number_types)) or (p[0].get("id_type") not in ["variable", "array"]):		# Incomplete list
 		st.print_error(p.lineno(1), p[0], 13)
 		return
-	
+
 	p[0]["inc"] = True
 	pass
 
@@ -989,7 +986,7 @@ def p_unary_expression2(p):
 	create_child("None",p[1])
 	add_children(len(list(filter(None, p[1:]))),"unary_expression")
 	p[0] = p[2]
-	
+
 	if p[0].get("is_decl", False) is False:
 		entry = SymbolTable.lookupComplete(p[0]["name"])
 		if entry is None:
@@ -1498,8 +1495,6 @@ def p_assignment_expression2(p):
 			p[1] = dict(entry)
 			p[1]["is_decl"] = True
 	p[0] = p[1]
-
-
 	if (p[1].get("id_type") not in ["variable", "array"]) or (p[1].get("real_id_type") in ["function", "class"]):
 		st.print_error(p.lineno(1), p[1], 17)
 		return
@@ -1530,8 +1525,23 @@ def p_assignment_expression2(p):
 			st.print_error(p.lineno(1), {}, 15, ' '.join([p[1]["name"], p[2], p[3]["name"]]))
 			return
 		if p[1]["id_type"] != p[3]["id_type"]:
-			if (p[1]["id_type"] == "variable") and (p[3]["id_type"] == "literal"):
+			if (p[1]["id_type"] in ["array"]) and (set(p[1]["type"]).issubset(st.char_types)) and (' '.join(p[3]["type"]) in ["literal_string"]):
+				if len(p[1]["order"]) > 1:
+					st.print_error(p.lineno(1), {}, 60)
+					return
+				elif p[1]["num"] <= len(p[3]["value"]):
+					st.print_error(p.lineno(1), {}, 61)
+					return
+				else:
+					p[0]["value"] = p[3]["value"] + "\0"
+			elif (p[1]["id_type"] == "variable") and (p[3]["id_type"] == "literal"):
 				if p[1]["type"]:
+					if (' '.join(p[3]["type"]) in ["literal_char"]) and ((len(p[3]["value"]) > 1) or (len(p[3]["value"]) == 0)):
+						st.print_error(p.lineno(1), {}, 62)
+						return
+					elif ' '.join(p[3]["type"]) in ["literal_string"]:
+						st.print_error(p.lineno(1), {}, 63, ' '.join(p[1]["type"]))
+						return
 					if st.expression_type(p.lineno(1), p[1]["type"], p[1].get("star", 0) , p[3]["type"], p[3].get("star", 0), op=str(p[2])):
 						p[0]["value"] = p[3]["value"]
 						if p[3].get("real_id_type") in ["function", "class"] and p[3]["tac_name"] == p[3]["name"] + "_" + p[3]["myscope"]:
@@ -1839,9 +1849,11 @@ def p_labeled_statement3(p):
 def p_compound_statement1(p):
 	"compound_statement : '{' m_new_scope statement_seq_opt '}'"
 	add_children(len(list(filter(None, p[1:])))- 2,"compound_statement")
+	stack_space = st.ScopeList[st.currentScope]["offset"]
 	SymbolTable.endScope()
 	try:
 		print("[PARSER] popped function : %s" % st.function_list[0]["name"])
+		SymbolTable.updateIDAttr(st.function_list[-1]["name"], "offset", stack_space)
 		st.function_list.pop()
 	except:
 		pass
@@ -1867,11 +1879,15 @@ def p_m_new_scope(p):
 		else:
 			SymbolTable.updateIDAttr(f["name"], "is_defined", f["is_defined"])
 		SymbolTable.addScope(f["name"], "function_scope")
+		st.is_parameter = True
+		st.parameter_offset = 0
 		for param in f["parameters"]:		# Insert parameters in new scope created for this function
 			param["myscope"] = f["name"]
 			SymbolTable.insertID(p.lineno(0), param["name"], param["id_type"], types=param["type"], specifiers=param["specifier"],
 								num=param["num"], value=param["value"], stars=param["star"], order=param["order"],
 								parameters=param["parameters"], defined=param["is_defined"], scope=param["myscope"])
+		st.is_parameter = False
+		st.parameter_offset = 0
 	elif len(st.namespace_list) > 0 and len(st.function_list) == 0:
 		if st.namespace_list[-1]["name"] in st.ScopeList.keys():
 			st.previous_scope = st.currentScope
@@ -1972,13 +1988,13 @@ def p_selection_statement2(p):
 	st.ScopeList[st.currentScope]["tac"].backpatch(p[3]["falselist"], p[9]["quad"]  )
 	st.ScopeList[st.currentScope]["tac"].backpatch(p[8]["nextlist"], st.ScopeList[st.currentScope]["tac"].nextquad  )
 
-	
+
 	p[0]["breaklist"] = list(set(p[6]["breaklist"] + p[10]["breaklist"]))
 	p[0]["contlist"] = list(set(p[6]["contlist"] + p[10]["contlist"]))
 
 	#temp_list = list(set(p[3]["falselist"] + p[6]["breaklist"]))
 	#st.ScopeList[st.currentScope]["tac"].backpatch(temp_list, st.ScopeList[st.currentScope]["tac"].nextquad  )
-	
+
 	pass
 
 def p_selection_statement3(p):
@@ -2103,7 +2119,7 @@ def p_jump_statement2(p):
 	p[0] = dict()
 	p[0]["contlist"] = [st.ScopeList[st.currentScope]["tac"].getnext()]
 	st.ScopeList[st.currentScope]["tac"].emit(["goto",""])
-	p[0]["breaklist"] = []	
+	p[0]["breaklist"] = []
 	pass
 
 def p_jump_statement3(p):
@@ -2186,7 +2202,7 @@ def p_declaration_seq_opt2(p):
 	add_children(len(list(filter(None, p[1:]))),"declaration_seq_opt")
 	p[0] = p[1] if p[1] else {}
 	if p[1]:
-		p[0]["stmt_list"] += p[3]["stmt_list"] 
+		p[0]["stmt_list"] += p[3]["stmt_list"]
 	else:
 		p[0]["stmt_list"] = p[3]["stmt_list"]
 	pass
@@ -3275,7 +3291,7 @@ def p_func_definition1(p):
 def p_func_definition2(p):
 	"func_definition : assignment_expression marker_F function_body"
 	add_children(len(list(filter(None, p[1:]))),"func_definition")
-	
+
 	p[0] = p[1] if p[1] else {}
 	p[0]["stmt_list"] = p[0].get("stmt_list",[]) + p[3]["stmt_list"]
 	st.ScopeList[st.currentScope]["tac"].emit(["end", p[0]["name"]])
@@ -3293,7 +3309,7 @@ def p_ctor_definition1(p):
 	add_children(len(list(filter(None, p[1:]))),"ctor_definition")
 	p[0] = p[1] if p[1] else {}
 	if p[1]:
-		p[0]["stmt_list"] += p[2]["stmt_list"] 
+		p[0]["stmt_list"] += p[2]["stmt_list"]
 	else:
 		p[0]["stmt_list"] = p[2]["stmt_list"]
 	pass
@@ -3303,7 +3319,7 @@ def p_ctor_definition2(p):
 	add_children(len(list(filter(None, p[1:]))),"ctor_definition")
 	p[0] = p[1] if p[1] else {}
 	if p[1]:
-		p[0]["stmt_list"] += p[2]["stmt_list"] 
+		p[0]["stmt_list"] += p[2]["stmt_list"]
 	else:
 		p[0]["stmt_list"] = p[2]["stmt_list"]
 	pass
@@ -3313,7 +3329,7 @@ def p_ctor_definition3(p):
 	add_children(len(list(filter(None, p[1:]))),"ctor_definition")
 	p[0] = p[1] if p[1] else {}
 	if p[1]:
-		p[0]["stmt_list"] += p[2]["stmt_list"] 
+		p[0]["stmt_list"] += p[2]["stmt_list"]
 	else:
 		p[0]["stmt_list"] = p[2]["stmt_list"]
 	pass
@@ -3335,7 +3351,7 @@ def p_function_try_block(p):
 	add_children(len(list(filter(None, p[1:]))),"function_try_block")
 	p[0] = p[2] if p[2] else {}
 	if p[1]:
-		p[0]["stmt_list"] += p[3]["stmt_list"] 
+		p[0]["stmt_list"] += p[3]["stmt_list"]
 	else:
 		p[0]["stmt_list"] = p[3]["stmt_list"]
 	pass
@@ -3345,7 +3361,7 @@ def p_function_block(p):
 	add_children(len(list(filter(None, p[1:]))),"function_block")
 	p[0] = p[1] if p[1] else {}
 	if p[1]:
-		p[0]["stmt_list"] += p[2]["stmt_list"] 
+		p[0]["stmt_list"] += p[2]["stmt_list"]
 	else:
 		p[0]["stmt_list"] = p[2]["stmt_list"]
 	pass
@@ -3615,7 +3631,7 @@ def p_member_specification_opt2(p):
 	"member_specification_opt : member_specification_opt util looping_member_declaration"
 	add_children(len(list(filter(None, p[1:]))),"member_specification_opt")
 	p[0] = p[1] if p[1] else {}
-	p[0]["stmt_list"] = p[0].get("stmt_list",[]) + p[3]["stmt_list"] 
+	p[0]["stmt_list"] = p[0].get("stmt_list",[]) + p[3]["stmt_list"]
 	pass
 
 def p_member_specification_opt3(p):
@@ -4125,7 +4141,7 @@ def p_marker_N(p):
 	p[0]["nextlist"] = [st.ScopeList[st.currentScope]["tac"].getnext()]
 	st.ScopeList[st.currentScope]["tac"].emit(["goto",""])
 	pass
-	
+
 
 def p_marker_M(p):
 	'marker_M : empty'
@@ -4164,17 +4180,17 @@ if __name__ == "__main__":
 	#if(len(sys.argv) == 2):
 	#	filename = sys.argv[1]
 	#else:
-	filename = "sample_test.c"
+	filename = "tests/sample_test.cpp"
 	a = open(filename)
 	data = a.read()
-	#data = '''	
+	#data = '''
 	yacc.parse(data, lexer=lex.cpp_scanner.lexer, tracking=True)
 	graph.write_jpeg('parse_tree.jpeg')
 	graph.write_dot('parse_tree.dot')
 	f = open("parse_tree.dat","w")
 	f.write(graph.to_string())
 	print("================================================================================================\n\n")
-	#st.print_table()
+	st.print_table()
 	st.print_tac()
 	print("================================================================================================\n\n")
 	pass

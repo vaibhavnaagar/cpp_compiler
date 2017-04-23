@@ -5,9 +5,9 @@ import tac
 ### Scopes ###
 
 global ScopeList, currentScope, AttrList
-ScopeList = { "NULL" : None, "global" : {"name":"global", "parent" : "NULL", "scope_type" : "global", "tac" : tac.TAC("global",0) }, }
+ScopeList = { "NULL" : None, "global" : {"name":"global", "parent" : "NULL", "scope_type" : "global", "tac" : tac.TAC("global",0), "offset" : 0 }, }
 currentScope = "global"
-AttrList = ['name','type', 'star', 'id_type', 'specifier', 'value', 'is_defined', 'order',  'num', 'parameters', 'access', 'myscope', 'inc', 'dec', "tac_name" ]
+AttrList = ['name','type', 'star', 'id_type', 'specifier', 'value', 'is_defined', 'order',  'num', 'parameters', 'access', 'myscope', 'inc', 'dec', "tac_name" , "offset"]
 scope_ctr = 1
 previous_scope = ""
 scope_transitions = []
@@ -20,6 +20,8 @@ function_list = []
 is_func_decl = False
 parameter_specifiers = ["register", "auto", "const", "volatile"]
 parenthesis_ctr = 0
+is_parameter = False    # %EBP
+parameter_offset = 0
 
 ### Namespaces ###
 namespace_list = []
@@ -40,6 +42,7 @@ simple_type_specifier = {
 "literal_bool":{"size" : 1 , "equiv_type" : "bool"},
 "bool": {"size" : 1 , "equiv_type" : "bool"},
 
+"literal_string": {"size" : 1 , "equiv_type" : "string"  },
 "literal_char": {"size" : 1 , "equiv_type" : "char"  },
 "char": {"size" : 1 , "equiv_type" : "char"  },
 "signed char": {"size" : 1 , "equiv_type" : "char" },
@@ -178,6 +181,7 @@ class SymTab:
                 "inc"       : False,
                 "dec"       : False,
                 "tac_name"  : str(name) + "_" + str(scope if scope != ""  else str(currentScope)) ,
+                "offset"    : 0
         #        "size"      : size
             }
             warning = ''
@@ -219,7 +223,8 @@ class SymTab:
                 "parent"     : ScopeList[currentScope]["name"],
                 "table"      : dict(),
                 "scope_type" : str(scope_type),
-                "tac"        : tac.TAC(str(name),ScopeList[currentScope]["tac"].nextquad)
+                "tac"        : tac.TAC(str(name),ScopeList[currentScope]["tac"].nextquad),
+                "offset"     : ScopeList[currentScope]["offset"],
                 }
         ScopeList[str(name)] =  new_scope
         #new_scope["tac"].startquad = ScopeList[currentScope]["tac"].nextquad
@@ -243,6 +248,8 @@ class SymTab:
         ScopeList[ScopeList[currentScope]["parent"]]["tac"].code += ScopeList[currentScope]["tac"].code
         ScopeList[ScopeList[currentScope]["parent"]]["tac"].nextquad = ScopeList[currentScope]["tac"].nextquad
         ScopeList[ScopeList[currentScope]["parent"]]["tac"].temp_count = 0
+        if ScopeList[currentScope]["parent"] not in ["global", "namespace", "class"]:
+            ScopeList[ScopeList[currentScope]["parent"]]["offset"]  += ScopeList[currentScope]["offset"]
         currentScope = ScopeList[currentScope]["parent"]
         #print("The scope",currentScope,"nextquad is ", ScopeList[currentScope]["tac"].nextquad )
 
@@ -264,6 +271,7 @@ def check_datatype(lineno, types, name, id_type):
     """
     types: List of data types
     """
+    global parameter_offset
     input_type = ' '.join(types)
     currtable = ScopeList[currentScope]["table"]
     if input_type in simple_type_specifier:
@@ -273,6 +281,12 @@ def check_datatype(lineno, types, name, id_type):
             if currtable.symtab[str(name)]["star"] > 0:
                 size = 8
             SymTab.addIDAttr(name,"size", size * currtable.symtab[str(name)]["num"])
+            if is_parameter:
+                parameter_offset -= size
+                SymTab.updateIDAttr(name, "offset", parameter_offset)
+            else:
+                ScopeList[currentScope]["offset"] += size
+                SymTab.updateIDAttr(name, "offset", ScopeList[currentScope]["offset"])
         return True
     else :
         print_error(lineno, {}, 46)
@@ -464,7 +478,7 @@ def print_error(lineno, id1, errno, *args):
     elif errno == 10:
         print(color.cline, lineno, color.cerror + " invalid conversion of \'%s\' from \'%s\' to array" % (id1["name"], args[0]))
     elif errno == 11:
-        print(color.cline, lineno, color.cerror + " storage size of \'%s\' isn’t known" % id1["name"])
+        print(color.cline, lineno, color.cerror + " storage size of \'%s\' isn't known" % id1["name"])
     elif errno == 12:
         print(color.cline, lineno, color.cerror + " expected  \'%s\' before \'%s\'" % (args[1], args[0]))
     elif errno == 13:
@@ -561,6 +575,14 @@ def print_error(lineno, id1, errno, *args):
         print(color.cline, lineno, color.cerror + " request for member \'%s\' in \'%s\', which is of non-class or non-struct type " % (args[0], args[1]))
     elif errno == 59:
         print(color.cline, lineno, color.cerror + " \'%s\' is \'%s\', not accessible in this scope" % (args[0], args[1]))
+    elif errno == 60:
+        print(color.cline, lineno, color.cerror + " array must be initialized with a brace-enclosed initializer")
+    elif errno == 61:
+        print(color.cline, lineno, color.cerror + " initializer-string for array of chars is too long")
+    elif errno == 62:
+        print(color.cline, lineno, color.cerror + "  multi-character character constant is not allowed here")
+    elif errno == 63:
+        print(color.cline, lineno, color.cerror + " invalid conversion from \'const char*\' to \'%s\'" % args[0])
     pass
 
 def print_table():

@@ -1,3 +1,0 @@
-name,type,star,id_type,specifier,value,is_defined,order,num,parameters,access,myscope,inc,dec,tac_name,size
-main,['int'],0,function,[],,True,[],1,[],public,global,False,False,main_global,
-a,['int'],0,array,[],"[0, 0, 0, 0, 0, 0]",False,"[2, 3]",6,[],public,main,False,False,a_main,24

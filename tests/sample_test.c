@@ -1,3 +1,4 @@
+<<<<<<< HEAD:src/sample_test.c
 int test(int x, int y)
  {
  	int z[2] = {1};
@@ -13,6 +14,30 @@ int main()
  	return 1;
  }
 
+=======
+ int test(int , int );
+
+
+
+int main()
+{
+
+	int a= 'e';
+	if (a==1){
+		int m;
+		char* c;
+	}
+ 	return 1;
+ }
+
+ int test(int x, int y)
+ {int p,q;
+ 	x =6;
+ 	return 1;
+ }
+
+
+>>>>>>> 8c74036ebc1ee9a7c4a3a763633ac85b305ffe74:tests/sample_test.c
  /*
 
  
@@ -24,7 +49,7 @@ int main()
 	//if((x == 1) && (y==2))
 	if(x==0)
 	{
-		
+
 
 		m++;
 			if(x<4)
