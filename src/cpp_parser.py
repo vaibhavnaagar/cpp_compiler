@@ -108,8 +108,6 @@ def expression_semantic(lineno, p0, p1, p2, p3):
 	else:
 		p0 = p1
 
-
-	temp = st.ScopeList[st.currentScope]["tac"].getnewtemp()
 	if p1.get("real_id_type") in ["function", "class"] and p1["tac_name"] == p1["name"] + "_" + p1["myscope"]:
 		s1 = "pop"
 	else:
@@ -124,8 +122,12 @@ def expression_semantic(lineno, p0, p1, p2, p3):
 	p0["type"],p0["star"] = st.expression_type(lineno, p1["type"], p1.get("star", 0) , p3["type"], p3.get("star", 0), op=str(p2))
 
 
-	st.ScopeList[st.currentScope]["tac"].expression_emit(temp,s1,p2,s2,p0["type"])
-	p0["tac_name"] = temp
+	temp = st.ScopeList[st.currentScope]["tac"].getnewtemp()
+	p0["tac_name"] = temp + "_" + str(st.currentScope)
+	st.ScopeList[st.currentScope]["tac"].expression_emit(p0["tac_name"],s1,p2,s2,p0["type"])
+	# Insert temporary
+	SymbolTable.insertID(lineno, temp, "temporary", types=p0["type"])
+
 	if p1.get("inc",False):
 		st.ScopeList[st.currentScope]["tac"].expression_emit(p1["tac_name"],'',"++", '')
 	if p3.get("inc",False):
@@ -142,13 +144,13 @@ def array_assignment(p,inits,store_list):
 	#pp.pprint( inits)
 	if len(inits) == 0:
 			store_list = [0]*len(store_list)
-			return p;
+			return store_list
 
 	elif len(inits) == 1:
 			if inits[0]["id_type"] in ["literal", "variable"]:
 				if st.expression_type(p.lineno(1), p[1]["type"], p[1].get("star", 0) , inits[0]["type"], inits[0].get("star", 0), op=str(p[2])):
 					store_list = [inits[0]["value"]]*len(store_list)
-			return store_list;
+			return store_list
 
 	elif len(inits) == len(store_list):
 		for i,exp in enumerate(inits):
@@ -159,8 +161,7 @@ def array_assignment(p,inits,store_list):
 				if exp["id_type"] in ["literal", "variable"]:
 					if st.expression_type(p.lineno(1), p[1]["type"], p[1].get("star", 0) , exp["type"], exp.get("star", 0), op=str(p[2])):
 						store_list[i] = exp["value"]
-		return store_list;
-
+		return store_list
 
 	elif len(inits) == p[0]["order"][0]:
 		size = len(store_list)/len(inits)
@@ -195,7 +196,6 @@ def p_identifier(p):
 	if entry is not None:
 		p[0] = dict(entry)
 		p[0]["is_decl"] = True
-
 	else:
 		p[0] = {
 			"name" : str(p[1]),
@@ -1515,7 +1515,7 @@ def p_assignment_expression2(p):
 				else:
 					st.ScopeList[st.currentScope]["tac"].expression_emit(p[0]["tac_name"],'',p[2],p[3]["tac_name"])
 					p[0]["tac_name"] = p[3]["tac_name"]
-				
+
 				if p[3].get("inc",False):
 					st.ScopeList[st.currentScope]["tac"].expression_emit(p[3]["tac_name"],'',"++", '')
 				if p[3].get("dec",False):
@@ -4188,7 +4188,10 @@ if __name__ == "__main__":
 	f = open("parse_tree.dat","w")
 	f.write(graph.to_string())
 	print("================================================================================================\n\n")
-	cg.gen_data()
+	asm = cg.CodeGen(st.ScopeList["global"]["tac"])
+	asm.gen_data_section()
+	asm.print_sections()
+	asm.parse_tac()
 	st.print_tac()
 	print("================================================================================================\n\n")
 	pass

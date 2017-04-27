@@ -20,7 +20,7 @@ function_list = []
 is_func_decl = False
 parameter_specifiers = ["register", "auto", "const", "volatile"]
 parenthesis_ctr = 0
-is_parameter = False    # %EBP
+is_parameter = False
 parameter_offset = 0
 
 ### Namespaces ###
@@ -249,7 +249,7 @@ class SymTab:
         ScopeList[ScopeList[currentScope]["parent"]]["tac"].nextquad = ScopeList[currentScope]["tac"].nextquad
         ScopeList[ScopeList[currentScope]["parent"]]["tac"].temp_count = 0
         if ScopeList[currentScope]["parent"] not in ["global", "namespace", "class"]:
-            ScopeList[ScopeList[currentScope]["parent"]]["offset"]  += ScopeList[currentScope]["offset"]
+            ScopeList[ScopeList[currentScope]["parent"]]["offset"]  = ScopeList[currentScope]["offset"]
         currentScope = ScopeList[currentScope]["parent"]
         #print("The scope",currentScope,"nextquad is ", ScopeList[currentScope]["tac"].nextquad )
 
@@ -282,10 +282,10 @@ def check_datatype(lineno, types, name, id_type):
                 size = 8
             SymTab.addIDAttr(name,"size", size * currtable.symtab[str(name)]["num"])
             if is_parameter:
-                parameter_offset -= size
+                parameter_offset -= (size * currtable.symtab[str(name)]["num"])
                 SymTab.updateIDAttr(name, "offset", parameter_offset)
             else:
-                ScopeList[currentScope]["offset"] += size
+                ScopeList[currentScope]["offset"] += (size * currtable.symtab[str(name)]["num"])
                 SymTab.updateIDAttr(name, "offset", ScopeList[currentScope]["offset"])
         return True
     else :

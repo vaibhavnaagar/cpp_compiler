@@ -18,13 +18,13 @@ class TAC:
 		if list:
 			for l in list:
 				self.code[l-self.startquad][-1] = str(targetlabel)
-	
+
 	def mergelist(l1,l2):
 		return list(set(l1 + l2))
 
 	def getnewtemp(self):
 		self.temp_count +=1
-		return "t" + str(self.temp_count)
+		return "0_t" + str(self.temp_count)
 
 	def print_code(self):
 		for i,c in enumerate(self.code):
@@ -37,7 +37,7 @@ class TAC:
 		if op in ['+','-','*','/']:
 			self.emit([d,e1, str(etype[0]) + op,e2])
 			return
-		
+
 		if op in ["^", "|" , "&", "%"]:
 			self.emit([d,e1,op,e2])
 			return
@@ -45,26 +45,26 @@ class TAC:
 		if op in ['++', '--']:
 			self.emit([d,e1,op,e2])
 			return
-		
+
 		if op in ["<", '>', '<=', '>=', '==', '!=']:
 			#self.emit([d,e1,op,e2])
 			self.emit(['if',e1,op,e2,'goto',''])
 			self.emit(['goto',""])
 			return
-		
+
 		if op in ["&&","||", "!",]:
 			return
-		
+
 		if op in ['=']:
 			self.emit([d,e2,'',e1])
 			d = e2
 			return
 
-		
+
 		if op in ["%=","<<=",">>=","&=", "+=", "-=", "/=", "*=", "^=", "|=" , "&=",]:
 			self.expression_emit(d,d,op[:-1],e2,etype)
 			return
-		
+
 		if op in [ "+++" , "---", "~"]:
 			self.emit([d,e1,op,e2])
 			return

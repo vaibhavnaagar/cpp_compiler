@@ -13,9 +13,11 @@ int test(int x, int y)
  }
 int main()
 {
-
+  int m,n;
+  char c[3] = "ab";
  	int z[2] = {1};
 	int a[2][2]={0};
+  m = n + 4 +6;
 	a[1][1] = test(1,2) + a[1][0];
  	return 1;
  }
@@ -43,7 +45,7 @@ int main()
 
  /*
 
- 
+
 
   int x,y;
 	x = 3 + 2*x;
