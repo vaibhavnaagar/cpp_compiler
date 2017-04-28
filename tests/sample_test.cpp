@@ -1,4 +1,19 @@
-int p = 9;
+int main()
+{
+  int y;
+  float z;
+  char c;
+  int *pt;
+  int x = 4;
+  x = y;
+  y = 3;
+  z = 2.3;
+  c = 'm';
+  pt = &y;
+  y = *pt;
+}
+
+/*int p = 9;
 char letter = 'a';
 char name[2] = "C";
 float* f;
@@ -17,11 +32,15 @@ int main()
   char c[3] = "ab";
  	int z[2] = {1};
 	int a[2][2]={0};
-  m = n + 4 +6;
+  m = n + 4 +p;
 	a[1][1] = test(1,2) + a[1][0];
+  if(m == n){
+    float p = *f;
+    d = 1+ d*2 + p;
+  }
  	return 1;
  }
-
+*/
 /* int test(int , int );
 
 

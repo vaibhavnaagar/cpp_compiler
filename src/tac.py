@@ -28,7 +28,7 @@ class TAC:
 
 	def print_code(self):
 		for i,c in enumerate(self.code):
-			if c[0] in ["if","goto", "begin", "end" , "param", "call", "ret"]:
+			if c[0] in ["if","goto", "function", "end" , "param", "call", "ret"]:
 				print(str(i) + ":  " + " ".join(c))
 			else:
 				print(str(i) , ":  " + str(c[0]) + " " + " := " + " ".join(c[1:]) )

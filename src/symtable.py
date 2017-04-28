@@ -185,13 +185,44 @@ class SymTab:
         #        "size"      : size
             }
             warning = ''
-            if id_type not in ["namespace", "class", "struct", "union", "object"]:
+            if id_type not in ["namespace", "class", "struct", "union", "object", "temporary"]:
                 check_datatype(lineno, currtable.symtab[str(name)]["type"], name, id_type)
                 check_specifier(lineno, currtable.symtab[str(name)]["specifier"], name)
                 if types is None:
                     warning = "(warning: Type is None)"
             print("[Symbol Table] ", warning, " Inserting new identifier: ", name, " type: ", types, "specifier: ", specifiers)
             #ScopeList[-1]["table"].numVar += 1
+
+    def insertTemp(self, name, id_type, scope_name, types):
+        currtable = ScopeList[scope_name]["table"]
+        if currtable.lookup(str(name)):         # No need to check again
+            print("[Symbol Table] Entry already exists")
+        else:
+            size = 8
+            ScopeList[scope_name]["offset"] += size
+            offset = ScopeList[scope_name]["offset"]
+            if (types is None) or (len(types) == 0):
+                print("Something is Wrong!!")
+            currtable.symtab[str(name)] = {
+                "name"      : str(name),
+                "id_type"   : str(id_type),
+                "type"      : list([] if types is None else types),        # List of data_types
+                "specifier" : [],    # List of type specifiers
+                "num"       : 1,            # Number of such id
+                "value"     : None,           # Mostly required for const type variable
+                "star"      : 0,
+                "order"     : [],          # order of array in case of array
+                "parameters": [],   # Used for functions only
+                "is_defined": False,
+                "access"    : "public",
+                "myscope"   : scope_name,
+                "inc"       : False,
+                "dec"       : False,
+                "tac_name"  : str(name),
+                "offset"    : 0,
+                "size"      : size,
+                "offset"    : offset
+            }
 
     @staticmethod
     def addIDAttr(name, attribute, value):

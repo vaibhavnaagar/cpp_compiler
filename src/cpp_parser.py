@@ -123,10 +123,17 @@ def expression_semantic(lineno, p0, p1, p2, p3):
 
 
 	temp = st.ScopeList[st.currentScope]["tac"].getnewtemp()
-	p0["tac_name"] = temp + "_" + str(st.currentScope)
+	_scope = st.currentScope
+	if len(st.function_list) > 0:
+		_scope = st.function_list[-1]["name"]
+	elif len(st.namespace_list) > 0:
+		_scope = st.namespace_list[-1]["name"]
+
+	p0["tac_name"] = temp + "_" + str(_scope)
 	st.ScopeList[st.currentScope]["tac"].expression_emit(p0["tac_name"],s1,p2,s2,p0["type"])
+
 	# Insert temporary
-	SymbolTable.insertID(lineno, temp, "temporary", types=p0["type"])
+	SymbolTable.insertTemp(p0["tac_name"], "temporary", _scope, p0["type"])
 
 	if p1.get("inc",False):
 		st.ScopeList[st.currentScope]["tac"].expression_emit(p1["tac_name"],'',"++", '')
@@ -1029,12 +1036,12 @@ def p_unary_expression4(p):
 	p[0] = p[2]
 	if ("is_decl" not in p[0].keys()) or ("id_type" not in p[0].keys()):
 		st.print_error(p.lineno(1), p[2], 14, p[1])
-	elif p[0]["is_decl"] is False:
-		if p[1] == '&':
-			st.print_error(p.lineno(1), p[2], 14, p[1])
-		else:
-			p[0]["star"] += 1
-	elif p[0]["is_decl"] is True:
+	if (p[0].get("type") is None) and (p[0].get("is_decl") is False):
+		entry = SymbolTable.lookupComplete(p[0]["name"])
+		if entry:
+			p[0] = dict(entry)
+			p[0]["is_decl"] = True
+	if p[0]["is_decl"] is True:
 		if p[0]["id_type"] not in ["variable", "array", "function", "object"]:	# Then it is not pointer type
 			st.print_error(p.lineno(1), p[2], 14, p[1])
 		else:
@@ -1043,8 +1050,15 @@ def p_unary_expression4(p):
 					st.print_error(p.lineno(1), p[2], 14, p[1])
 				else:
 					p[0]["star"] -= 1
+					p[0]["tac_name"] = "*" + p[0]["tac_name"]
 			elif p[1] == '&':
 				p[0]["star"] += 1
+				p[0]["tac_name"] = "&" + p[0]["tac_name"]
+	elif p[0]["is_decl"] is False:
+		if p[1] == '&':
+			st.print_error(p.lineno(1), p[2], 14, p[1])
+		else:
+			p[0]["star"] += 1
 	else:
 		st.print_error(p.lineno(1), p[2], 14, p[1])
 	pass
@@ -1262,12 +1276,7 @@ def p_multiplicative_expression2(p):
 			key = "____" + str(p[1]["name"]) + "____"
 			if key in st.ScopeList.keys():
 				entry = SymbolTable.lookupComplete(key)
-				if entry is None:
-					if p[1]["is_decl"]:
-						st.print_error(p.lineno(1), {}, 12, ";", p[1]["name"])
-					else:
-						st.print_error(p.lineno(1), p[1], 1)
-				else:
+				if entry:
 					if p[0]["is_decl"]:
 						st.print_error(p.lineno(1), p[2], 4, p[1]["type"])	# error: conflicting declaration 'p[1] p[2]["name"]' / error:  redeclaration of 'p[2]["name"]'
 					else:
@@ -1276,13 +1285,8 @@ def p_multiplicative_expression2(p):
 						p[0]["type"] = p[1]["type"]
 						p[0]["specifier"] = p[1]["specifier"]
 						p[0]["myscope"] = key
-			else:
-				if p[1]["is_decl"]:
-					st.print_error(p.lineno(1), {}, 12, ";", p[1]["name"])
-				else:
-					st.print_error(p.lineno(1), p[1], 1)
-		else:
-			p[0] = expression_semantic(p.lineno(1), p[0], p[1], p[2], p[3])
+					return
+		p[0] = expression_semantic(p.lineno(1), p[0], p[1], p[2], p[3])
 	pass
 
 def p_multiplicative_expression3(p):
@@ -4150,7 +4154,7 @@ def p_marker_M(p):
 def p_marker_F(p):
 	"marker_F : empty"
 	func = st.function_list[-1]
-	st.ScopeList[st.currentScope]["tac"].emit(["begin", func["name"], ":" ] )
+	st.ScopeList[st.currentScope]["tac"].emit(["function", func["name"], ":" ] )
 	for param in func["parameters"]:
 		st.ScopeList[st.currentScope]["tac"].emit(["param",str(param["name"]) + "_" + str(func["name"])])
 
@@ -4178,7 +4182,7 @@ if __name__ == "__main__":
 	#if(len(sys.argv) == 2):
 	#	filename = sys.argv[1]
 	#else:
-	filename = "../tests/sample_test.c"
+	filename = "../tests/sample_test.cpp"
 	a = open(filename)
 	data = a.read()
 	#data = '''
@@ -4190,8 +4194,9 @@ if __name__ == "__main__":
 	print("================================================================================================\n\n")
 	asm = cg.CodeGen(st.ScopeList["global"]["tac"])
 	asm.gen_data_section()
-	asm.print_sections()
 	asm.parse_tac()
+	asm.print_sections()
 	st.print_tac()
+	#st.print_table()
 	print("================================================================================================\n\n")
 	pass
