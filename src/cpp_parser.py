@@ -1414,9 +1414,9 @@ def p_relational_expression6(p):
 	for ids in p[0]["cout_list"]:
 		if ids["id_type"] in ["literal"]:
 			j = st.ScopeList[st.currentScope]["tac"].getnext()
-			st.ScopeList[st.currentScope]["tac"].emit(["cout", "string", "$cout_" + str(j)])
+			st.ScopeList[st.currentScope]["tac"].emit(["cout", "string", "cout_" + str(j)])
 			print(ids)
-			cg.literal_decl.append(["$cout_" + str(j),ids["name"]])
+			cg.literal_decl.append(["cout_" + str(j),ids["name"]])
 		else:
 			st.ScopeList[st.currentScope]["tac"].emit(["cout", st.simple_type_specifier[" ".join(ids["type"])]["equiv_type"], ids["tac_name"]])
 	pass
@@ -4240,7 +4240,7 @@ if __name__ == "__main__":
 	print("================================================================================================\n\n")
 	asm = cg.CodeGen(st.ScopeList["global"]["tac"])
 	asm.gen_data_section()
-	#asm.parse_tac()
+	asm.parse_tac()
 	asm.print_sections()
 	st.print_tac()
 	#st.print_table()
