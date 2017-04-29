@@ -32,6 +32,7 @@ class TAC:
 
 	def print_code(self):
 		for i,c in enumerate(self.code):
+			print(c)
 			if c[0] in ["if","goto", "function", "end" , "param", "call", "ret"]:
 				print(str(i) + ":  " + " ".join(c))
 			else:

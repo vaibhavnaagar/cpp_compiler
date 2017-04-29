@@ -60,6 +60,8 @@ class CodeGen:
 
         self.pointer_regs = { "$gp" : None, "$sp" : None, "$fp" : None, "ra" : None }
 
+        self.general_regs = {**self.temp_regs, **self.saved_regs}
+
         # Floating point registers
         self.float_regs = dict()
         for i in range(32):  self.float_regs.update({ '$f' + str(i) : None })
@@ -86,7 +88,7 @@ class CodeGen:
                         scope_q.append(str(s))
         pass
 
-    def get_register(self, name, ltype):
+    def get_register(self, name, ltype, code_list):
         # TODO: Just Do it !!
         return "$"
 
@@ -126,6 +128,8 @@ class CodeGen:
                         code_list.append(["jr", "$ra"])
                 elif quad[0] in ["param", "call", "ret"]:
                     pass
+                elif quad[0] == "cout":
+                    self.print_stdout(quad[1], quad[2], code_list)
                 elif quad[0] == "if":
                     self.op_codes(self.label + str(quad[5]), None, quad[1], quad[2], quad[3], code_list)
                 elif quad[0] == "goto":
@@ -142,8 +146,8 @@ class CodeGen:
         ltype = self.local_ids[quad[0]]["type"] if quad[0] in self.local_ids else self.global_ids[quad[0]]["type"]
         lvalue = self.check_in_register(quad[0])
         if lvalue is None:
-            lvalue = self.get_register(quad[0], ltype)
-            self.load_variable(ltype, ltype, lvalue, quad[0], code_list)
+            lvalue = self.get_register(quad[0], ltype, code_list)
+            #self.load_variable(ltype, ltype, lvalue, quad[0], code_list)
 
         if quad[2] == '':   # simple assignment if quad is like ['var', '7', '', '']
             rvalue, var, reg = self.eval_operand(quad[1], code_list)
@@ -167,11 +171,11 @@ class CodeGen:
             rtype1 = self.local_ids[e_op1]["type"] if e_op1 in self.local_ids else self.global_ids[e_op1]["type"]
             rtype2 = self.local_ids[e_op2]["type"] if e_op2 in self.local_ids else self.global_ids[e_op2]["type"]
             if reg1 is None:
-                reg1 = self.get_register(e_op1, rtype1)
-                self.load_variable(rtype1, rtype1, reg1, e_op1, code_list)
+                reg1 = self.get_register(e_op1, rtype1, code_list)
+                #self.load_variable(rtype1, rtype1, reg1, e_op1, code_list)
             if reg2 is None:
-                reg2 = self.get_register(e_op2, rtype2)
-                self.load_variable(rtype2, rtype2, reg2, e_op2, code_list)
+                reg2 = self.get_register(e_op2, rtype2, code_list)
+                #self.load_variable(rtype2, rtype2, reg2, e_op2, code_list)
 
             if op == "int+":
                 self.add_int(ltype, lvalue, rtype1, reg1, rtype2, reg2, code_list)
@@ -215,16 +219,16 @@ class CodeGen:
                 rtype2 = self.map_type[type(e_op2)]
                 rtype1 = self.local_ids[e_op1]["type"] if e_op1 in self.local_ids else self.global_ids[e_op1]["type"]
                 if reg1 is None:
-                    reg1 = self.get_register(e_op1, rtype1)
-                    self.load_variable(rtype1, rtype1, reg1, e_op1, code_list)
+                    reg1 = self.get_register(e_op1, rtype1, code_list)
+                    #self.load_variable(rtype1, rtype1, reg1, e_op1, code_list)
             else:
                 imm = "get_r1"
                 reg1 = e_op1
                 rtype1 = self.map_type[type(e_op1)]
                 rtype2 = self.local_ids[e_op2]["type"] if e_op2 in self.local_ids else self.global_ids[e_op2]["type"]
                 if reg2 is None:
-                    reg2 = self.get_register(e_op2, rtype2)
-                    self.load_variable(rtype2, rtype2, reg2, e_op2, code_list)
+                    reg2 = self.get_register(e_op2, rtype2, code_list)
+                    #self.load_variable(rtype2, rtype2, reg2, e_op2, code_list)
         if op == "int+":
             # addi lvalue, reg1, op2
             self.add_int(ltype, lvalue, rtype1, reg1, rtype2, op2, code_list, imm=imm)
@@ -258,19 +262,19 @@ class CodeGen:
         reg2 = op2
         if imm in ["get_r1", "get_r1r2"]: # rvalue1 not in register
             optype1 = "float"
-            reg1 = self.get_register("NULL", "float")
+            reg1 = self.get_register("NULL", "float", code_list)
             self.load_immediate("float", optype1, reg1, op1, code_list)
         if imm in ["get_r2", "get_r1r2"]: # rvalue2 not in register
             optype2 = "float"
-            reg2 = self.get_register("NULL", "float")
+            reg2 = self.get_register("NULL", "float", code_list)
             self.load_immediate("float", optype2, reg2, op2, code_list)
 
         if optype1 not in ["float", "double"]:
-            reg1 = self.get_register("NULL", "float")
+            reg1 = self.get_register("NULL", "float", code_list)
             self.move_variable("float", optype1, reg1, op1)
 
         if optype2 not in ["float", "double"]:
-            reg2 = self.get_register("NULL", "float")
+            reg2 = self.get_register("NULL", "float", code_list)
             self.move_variable("float", optype2, reg2, op2)
 
         opcode1 = self.relops[relop][1]
@@ -286,7 +290,7 @@ class CodeGen:
         reg2 = op2
         opcode = self.relops[relop][0]
         if imm == "get_r1r2":
-            reg1 = self.get_register("NULL", "int")
+            reg1 = self.get_register("NULL", "int", code_list)
             self.load_immediate("int", optype1, reg1, op1, code_list)
         elif imm == "get_r1":
             # swap
@@ -300,14 +304,14 @@ class CodeGen:
         reg1 = rvalue1
         reg2 = rvalue2
         if imm in ["get_r1", "get_r1r2"]: # rvalue1 not in register
-            reg1 = self.get_register("NULL", "int")
+            reg1 = self.get_register("NULL", "int", code_list)
             self.load_immediate("int", rtype1, reg1, rvalue1, code_list)
         if imm in ["get_r2", "get_r1r2"]: # rvalue2 not in register
-            reg2 = self.get_register("NULL", "int")
+            reg2 = self.get_register("NULL", "int", code_list)
             self.load_immediate("int", rtype2, reg2, rvalue2, code_list)
 
         if ltype in ["float", "double"]:    # lvalue must be $f type register
-            reg = self.get_register("NULL", "int")
+            reg = self.get_register("NULL", "int", code_list)
             code_list.append([opcode, reg + ",", reg1 + ",", reg2])
             code_list.append(["mtc1", reg + ",", lvalue])
             code_list.append(["cvt.s.w", lvalue + ",", lvalue])
@@ -319,7 +323,7 @@ class CodeGen:
         reg1 = rvalue1
         reg2 = rvalue2
         if imm == "get_r1r2":
-            reg1 = self.get_register("NULL", "int")
+            reg1 = self.get_register("NULL", "int", code_list)
             self.load_immediate("int", rtype1, reg1, rvalue1, code_list)
         elif imm == "get_r1":
             # swap
@@ -327,7 +331,7 @@ class CodeGen:
 
         opcode = "add" if imm == ""  else "addi"
         if ltype in ["float", "double"]:    # lvalue must be $f type register
-            reg = self.get_register("NULL", "int")
+            reg = self.get_register("NULL", "int", code_list)
             code_list.append([opcode, reg + ",", reg1 + ",", reg2])
             code_list.append(["mtc1", reg + ",", lvalue])
             code_list.append(["cvt.s.w", lvalue + ",", lvalue])
@@ -341,25 +345,25 @@ class CodeGen:
 
         if imm in ["get_r1", "get_r1r2"]: # rvalue1 not in register
             rtype1 = "float"
-            reg1 = self.get_register("NULL", "float")
+            reg1 = self.get_register("NULL", "float", code_list)
             self.load_immediate("float", rtype1, reg1, rvalue1, code_list)
         if imm in ["get_r2", "get_r1r2"]: # rvalue2 not in register
             rtype2 = "float"
-            reg2 = self.get_register("NULL", "float")
+            reg2 = self.get_register("NULL", "float", code_list)
             self.load_immediate("float", rtype2, reg2, rvalue2, code_list)
 
         if rtype1 not in ["float", "double"]:
-            reg1 = self.get_register("NULL", "float")
+            reg1 = self.get_register("NULL", "float", code_list)
             self.move_variable("float", rtype1, reg1, rvalue1)
 
         if rtype2 not in ["float", "double"]:
-            reg2 = self.get_register("NULL", "float")
+            reg2 = self.get_register("NULL", "float", code_list)
             self.move_variable("float", rtype2, reg2, rvalue2)
 
         if ltype in ["float", "double"]:    # lvalue must be $f type register
             code_list.append([opcode, lvalue + ",", reg1 + ",", reg2])
         else:                               # lvalue must be $s or $t type register
-            reg = self.get_register("NULL", "float")
+            reg = self.get_register("NULL", "float", code_list)
             code_list.append([opcode, reg + ",", reg1 + ",", reg2])
             code_list.append(["cvt.w.s", reg + ",", reg])
             code_list.append(["mfc1", lvalue + ",", reg])
@@ -406,25 +410,25 @@ class CodeGen:
         pass
 
     def load_address(self, op, code_list):
-        reg = self.get_register("NULL", None)
+        reg = self.get_register("NULL", "int", code_list)
         code_list.append(["la", reg + ",", op])
         return reg
 
     def deref_variable(self, op, code_list, ptr):
         optype = self.local_ids[op]["type"] if op in self.local_ids else self.global_ids[op]["type"]
-        reg = self.get_register(op, "pointer")
-        self.load_variable("pointer", "pointer", reg, op, code_list)
+        reg = self.get_register(op, "int", code_list)
+        #self.load_variable("pointer", "pointer", reg, op, code_list)
         for p in range(ptr-1):
             self.load_variable("pointer", "pointer", reg, "(" + reg + ")", code_list)
         reg2 = reg
         if optype in ["float", "double"]:
-            reg2 = get_register(op, optype)
+            reg2 = get_register(op, optype, code_list)
         self.load_variable(optype, optype, reg2, "(" + reg + ")", code_list)
         return reg2
 
     def load_variable(self, ltype, rtype, op1, op2, code_list):
         if (ltype != rtype) and not (ltype in ["pointer"]):
-            reg = get_register(op2, rtype)
+            reg = get_register(op2, rtype, code_list)
             self.load_variable(rtype, rtype, reg, op2, code_list)
             self.move_variable(ltype, rtype, op1, reg, code_list)
         else:
@@ -456,15 +460,22 @@ class CodeGen:
         pass
 
     def print_stdout(self, ptype, op, code_list):
-        code_list.append(["li", "$v0" + ",", self.syscall["print" + ptype]])
+        code_list.append(["li", "$v0" + ",", self.syscall["print_" + ptype]])
         if ptype in ["int"]:
-            code_list.append(["move", "$a0" + ",", op])
+            op = self.check_in_register(op)
+            if op:
+                code_list.append(["move", "$a0" + ",", op])
+            else:
+                code_list.append(["lw", "$a0" + ",", op])
         elif ptype in ["float"]:
+            op = self.get_register(op, ptype, code_list)
             code_list.append(["mov.s", "$f12" + ",", op])
         elif ptype in ["double"]:
+            op = self.get_register(op, ptype, code_list)
             code_list.append(["mov.d", "$f12" + ",", op])       # Not sure
         elif ptype in ["char", "string"]:
             code_list.append(["la", "$a0" + ",", op])           # op should be memory address
+        code_list.append(["syscall"])
         pass
 
     def gen_data_section(self):
