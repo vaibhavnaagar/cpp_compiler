@@ -14,6 +14,19 @@ class CodeGen:
         self.bss = []               # BSS section
         self.global_ids = dict()
         self.local_ids = dict()
+        self.map_type = {str : "char", float : "float", int : "int"}
+        self.syscall = {
+                    "print_int"     : "1",
+                    "print_float"   : "2",
+                    "print_double"  : "3",
+                    "print_string"  : "4",
+                    "read_int"      : "5",
+                    "read_float"    : "6",
+                    "read_double"   : "7",
+                    "read_string"   : "8",
+                    "sbrk"          : "9",  # Heap allocation
+                    "exit"          : "10",
+        }
         self.reg_dict()
         self.get_global_ids("global")
 
@@ -60,11 +73,11 @@ class CodeGen:
         pass
 
     def get_register(self, name, ltype):
-        # TODO: Do it !!
+        # TODO: Just Do it !!
         return "$"
 
     def check_in_register(self, name):
-        # TODO: Do it !!
+        # TODO: Just Do it !!
         return None
 
     def parse_tac(self):
@@ -88,10 +101,12 @@ class CodeGen:
                     inside_func = False
                     if is_main:
                         is_main = False
+                        self.main.append(["li", "$v0" + ",", self.syscall["exit"]])
+                        self.main.append(["syscall"])
                         # TODO:  exit syscall code ...............................................
                         pass
                     else:
-                        self.functions.append(["jr", "\t$ra"])
+                        self.functions.append(["jr", "$ra"])
                 elif quad[0] in ["if","goto", "function", "param", "call", "ret"]:
                     pass
                 else:   # Assignment
@@ -110,30 +125,98 @@ class CodeGen:
         lvalue = self.get_register(quad[0], ltype)
 
         if quad[2] == '':   # simple assignment if quad is like ['var', '7', '', '']
-            try:
-                rvalue = eval(quad[1])
-                var = False
-            except:
-                rvalue = quad[1]
-                var = True
+            rvalue, var, reg = self.eval_operand(quad[1], code_list)
             if var:
-                ptr = rvalue.rfind("*") + 1
-                addr = rvalue.rfind("&") + 1
-                reg = None
-                if ptr > 0:
-                    reg = self.deref_variable(rvalue[ptr:], code_list, ptr)
-                elif addr > 0:
-                    reg = self.load_address(rvalue[addr:], code_list)
-                else:
-                    reg = self.check_in_register(rvalue)
+                rtype = self.local_ids[rvalue]["type"] if rvalue in self.local_ids else self.global_ids[rvalue]["type"]
                 if reg:
-                    code_list.append(["move", lvalue + ",", reg])
+                    self.move_variable(ltype, rtype, lvalue, reg, code_list)
                 else:
-                    self.load_variable(ltype, lvalue, rvalue, code_list)
+                    self.load_variable(ltype, rtype, lvalue, rvalue, code_list)
             else:
-                self.load_immediate(type(rvalue), lvalue, quad[1], code_list, ltype=ltype)
+                self.load_immediate(ltype, type(rvalue), lvalue, quad[1], code_list)
         else:
+            rtype, rvalue = self.op_codes(lvalue, ltype, quad[1], quad[2], quad[3], code_list)
+            self.move_variable(ltype, rtype, lvalue, rvalue, code_list)
+        pass
+
+    def op_codes(self, lvalue, ltype, op1, op, op2, code_list):
+        e_op1, var1, reg1 = self.eval_operand(op1, code_list)
+        e_op2, var2, reg2 = self.eval_operand(op2, code_list)
+        if var1 and var2:   # Both operands are variables
+            if reg1 is None:
+                rtype1 = self.local_ids[e_op1]["type"] if e_op1 in self.local_ids else self.global_ids[e_op1]["type"]
+                reg1 = self.get_register(e_op1, rtype1)
+                self.load_variable(rtype1, rtype1, reg1, e_op1, code_list)
+            if reg2 is None:
+                rtype2 = self.local_ids[e_op2]["type"] if e_op2 in self.local_ids else self.global_ids[e_op2]["type"]
+                reg2 = self.get_register(e_op2, rtype2)
+                self.load_variable(rtype2, rtype2, reg2, e_op2, code_list)
+
+            if op == "int+":
+                self.code_list.append(["add", lvalue + ",", reg1 + ",", reg2])
+            elif op == "":
+                self.code_list.append(["add", lvalue + ",", reg1 + ",", reg2])
+            # TODO: More op codes
+            else:
+                print("Something is Wrong", frameinfo.filename, frameinfo.lineno)
+            return
+        if (var1 is False) and (var2 is False):
+            reg1 = self.get_register("NULL", self.map_type[type(e_op1)])
+            self.load_immediate(self.map_type[type(e_op1)], type(e_op1), reg1, op1, code_list)
+        else:
+            if var1 is False:   # Then swap and make op1 variable
+                op1, e_op1, var1, reg1, op2, e_op2, var2, reg2 = op2, e_op2, var2, reg2, op1, e_op1, var1, reg1
+            rtype2 = self.map_type[type(e_op2)]
+            if reg1 is None:
+                rtype1 = self.local_ids[e_op1]["type"] if e_op1 in self.local_ids else self.global_ids[e_op1]["type"]
+                reg1 = self.get_register(e_op1, rtype1)
+                self.load_variable(rtype1, rtype1, reg1, e_op1, code_list)
+        if op == "int+":
+            self.code_list.append(["addi", lvalue + ",", reg1 + ",", reg2])
+        elif op == "":
             pass
+        else:
+            print("Something is Wrong", frameinfo.filename, frameinfo.lineno)
+        pass
+
+    def eval_operand(self, op, code_list):
+        reg = None
+        try:
+            op = eval(op)
+            var = False
+        except:
+            op = op
+            var = True
+            ptr = op.rfind("*") + 1
+            addr = op.rfind("&") + 1
+            if ptr > 0:
+                op = op[ptr:]
+                reg = self.deref_variable(op, code_list, ptr)
+            elif addr > 0:
+                op = op[addr:]
+                reg = self.load_address(op, code_list)
+            else:
+                reg = self.check_in_register(op)
+        return op, var, reg
+
+    def move_variable(self, ltype, rtype, reg1, reg2, code_list):
+        if ltype != rtype:
+            # REVIEW: double type not handled
+            if ltype in ["float"]:                          # $f type regiser
+                code_list.append(["mtc1", reg2 + ",", reg1])
+                code_list.append(["cvt.s.w", reg1 + ",", reg1])
+            elif rtype in ["float"]:
+                code_list.append(["cvt.w.s", reg2 + ",", reg2])
+                code_list.append(["mfc1", reg1 + ",", reg2])
+            else:
+                code_list.append(["move", reg1 + ",", reg2])
+        else:
+            if ltype in ["float"]:
+                code_list.append(["mov.s", reg1 + ",", reg2])
+            elif ltype in ["double"]:
+                code_list.append(["mov.d", reg1 + ",", reg2])
+            else:
+                code_list.append(["move", reg1 + ",", reg2])
         pass
 
     def load_address(self, op, code_list):
@@ -143,39 +226,60 @@ class CodeGen:
 
     def deref_variable(self, op, code_list, ptr):
         optype = self.local_ids[op]["type"] if op in self.local_ids else self.global_ids[op]["type"]
-        reg = self.get_register(op, optype)
+        reg = self.get_register(op, "pointer")
         #self.load_variable("pointer", reg, op, code_list)
         for p in range(ptr-1):
-            self.load_variable("pointer", reg, "(" + reg + ")", code_list)
-        self.load_variable(optype, reg, "(" + reg + ")", code_list)
-        return reg
+            self.load_variable("pointer", "pointer", reg, "(" + reg + ")", code_list)
+        reg2 = reg
+        if optype in ["float", "double"]:
+            reg2 = get_register(op, optype)
+        self.load_variable(optype, optype, reg2, "(" + reg + ")", code_list)
+        return reg2
 
-    def load_variable(self, ltype, op1, op2, code_list):
-        # REVIEW: Assuming rtype has same type as of ltype
-
-        if ltype in ["double"]:
-            code_list.append(["l.d", op1 + ",", op2])
-        elif ltype in ["float"]:
-            code_list.append(["l.s", op1 + ",", op2])
-        elif ltype in ["char"]:
-            code_list.append(["lb", op1 + ",", rvalue])
+    def load_variable(self, ltype, rtype, op1, op2, code_list):
+        if (ltype != rtype) and not (ltype in ["pointer"]):
+            reg = get_register(op2, rtype)
+            self.load_variable(rtype, rtype, reg, op2, code_list)
+            self.move_variable(ltype, rtype, op1, reg, code_list)
         else:
-            code_list.append(["lw", op1 + ",", op2])
+            if ltype in ["double"]:
+                code_list.append(["l.d", op1 + ",", op2])
+            elif ltype in ["float"]:                        # $f type regiser
+                code_list.append(["l.s", op1 + ",", op2])
+            elif ltype in ["char"]:
+                code_list.append(["lb", op1 + ",", rvalue])
+            else:
+                code_list.append(["lw", op1 + ",", op2])
         pass
 
 
-    def load_immediate(self, rtype, op1, op2, code_list, ltype=None):
-        if rtype in [int, str]:
-            code_list.append(["li", op1 + ",", op2])
-        elif rtype is float:
+    def load_immediate(self, ltype, rtype, op1, op2, code_list):
+        if ltype in ["float", "double"]:    # $f type regiser
+            if rtype is int:
+                op2 = float(op2)
+            elif rtype is str:
+                op2 = float(ord(op2))
             if ltype is "double":
                 code_list.append(["li.d", op1 + ",", op2])
             else:
                 code_list.append(["li.s", op1 + ",", op2])
-        else:
-            print("Something is Wrong", frameinfo.filename, frameinfo.lineno)
+        else:                               # $s,$t type register
+            op2 = int(op2) if rtype is float else op2
+            if rtype in [int, str]:
+                code_list.append(["li", op1 + ",", op2])
         pass
 
+    def print_stdout(self, ptype, op, code_list):
+        code_list.append(["li", "$v0" + ",", self.syscall["print" + ptype]])
+        if ptype in ["int"]:
+            code_list.append(["move", "$a0" + ",", op])
+        elif ptype in ["float"]:
+            code_list.append(["mov.s", "$f12" + ",", op])
+        elif ptype in ["double"]:
+            code_list.append(["mov.d", "$f12" + ",", op])       # Not sure
+        elif ptype in ["char", "string"]:
+            code_list.append(["la", "$a0" + ",", op])           # op should be memory address
+        pass
 
     def gen_data_section(self):
         #print(".data ")
