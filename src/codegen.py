@@ -8,6 +8,7 @@ class CodeGen:
     def __init__ (self, TAC):
         self.TAC = TAC
         self.label = 'L_'
+        self.labels = list(set(tac.labels))
         self.main = []              # Main section
         self.functions = []         # Fucntion definitions
         self.data = []              # Data section
@@ -26,6 +27,14 @@ class CodeGen:
                     "read_string"   : "8",
                     "sbrk"          : "9",  # Heap allocation
                     "exit"          : "10",
+        }
+        self.relops = {
+                    "=="    : ["beq", "c.eq.s", "bc1t", "=="],
+                    "<"     : ["blt", "c.lt.s", "bc1t", ">"],
+                    "<="    : ["ble", "c.le.s", "bc1t", ">="],
+                    ">"     : ["bgt", "c.le.s", "bc1f", "<"],
+                    ">="    : ["bge", "c.lt.s", "bc1f", "<="],
+                    "!="    : ["bne", "c.eq.s", "bc1f", "!="],
         }
         self.reg_dict()
         self.get_global_ids("global")
@@ -49,6 +58,10 @@ class CodeGen:
         for i in range(8):  self.temp_regs.update({ '$s' + str(i) : None })
 
         self.pointer_regs = { "$gp" : None, "$sp" : None, "$fp" : None, "ra" : None }
+
+        # Floating point registers
+        self.float_regs = dict()
+        for i in range(32):  self.float_regs.update({ '$f' + str(i) : None })
         pass
 
     def get_global_ids(self, scope_name):
@@ -83,46 +96,53 @@ class CodeGen:
     def parse_tac(self):
         inside_func = False
         is_main = False
-        for quad in self.TAC.code:
+        for i, quad in enumerate(self.TAC.code):
             print(quad)
             if quad[0] in ["function"]:
                 inside_func = True
                 if quad[1] == "main":
+                    code_list = self.main       # reference main code list
                     is_main = True
                 else:
+                    code_list = self.functions  # reference functions code list
                     is_main = False
                     # TODO:  Code for stack space ..............................................
-                    self.functions.append([quad[1] + ":"])
+                    code_list.append([quad[1] + ":"])
                 self.get_local_ids(quad[1])
             else:
                 if not inside_func:     # TAC of Global scope
                     continue
+                if str(i) in self.labels:
+                    self.labels.remove(str(i))
+                    code_list.append([self.label + str(i) + ":"])
                 if quad[0] in ["end"]:
                     inside_func = False
                     if is_main:
                         is_main = False
-                        self.main.append(["li", "$v0" + ",", self.syscall["exit"]])
-                        self.main.append(["syscall"])
-                        # TODO:  exit syscall code ...............................................
-                        pass
+                        code_list.append(["li", "$v0" + ",", self.syscall["exit"]])
+                        code_list.append(["syscall"])
                     else:
-                        self.functions.append(["jr", "$ra"])
-                elif quad[0] in ["if","goto", "function", "param", "call", "ret"]:
+                        code_list.append(["jr", "$ra"])
+                elif quad[0] in ["param", "call", "ret"]:
                     pass
+                elif quad[0] == "if":
+                    self.op_codes(self.label + str(quad[5]), None, quad[1], quad[2], quad[3], code_list)
+                elif quad[0] == "goto":
+                    label = self.label + str(quad[1])
+                    code_list.append(["b", label])
                 else:   # Assignment
-                    self.handle_assignment(quad, is_main)
+                    self.handle_assignment(quad, code_list)
                     pass
         pass
 
-    def handle_assignment(self, quad, is_main):
-        if is_main:
-            code_list = self.main       # reference main code list
-        else:
-            code_list = self.functions  # reference functions code list
+    def handle_assignment(self, quad, code_list):
 
-        # TODO: ADD code for pointers in the lvalue
+        # TODO: ADD code for pointers in the lvalue (Use sw in this case)
         ltype = self.local_ids[quad[0]]["type"] if quad[0] in self.local_ids else self.global_ids[quad[0]]["type"]
-        lvalue = self.get_register(quad[0], ltype)
+        lvalue = self.check_in_register(quad[0])
+        if lvalue is None:
+            lvalue = self.get_register(quad[0], ltype)
+            self.load_variable(ltype, ltype, lvalue, quad[0], code_list)
 
         if quad[2] == '':   # simple assignment if quad is like ['var', '7', '', '']
             rvalue, var, reg = self.eval_operand(quad[1], code_list)
@@ -135,48 +155,213 @@ class CodeGen:
             else:
                 self.load_immediate(ltype, type(rvalue), lvalue, quad[1], code_list)
         else:
-            rtype, rvalue = self.op_codes(lvalue, ltype, quad[1], quad[2], quad[3], code_list)
-            self.move_variable(ltype, rtype, lvalue, rvalue, code_list)
+            self.op_codes(lvalue, ltype, quad[1], quad[2], quad[3], code_list)
+            #self.move_variable(ltype, rtype, lvalue, rvalue, code_list)
         pass
 
     def op_codes(self, lvalue, ltype, op1, op, op2, code_list):
         e_op1, var1, reg1 = self.eval_operand(op1, code_list)
         e_op2, var2, reg2 = self.eval_operand(op2, code_list)
         if var1 and var2:   # Both operands are variables
+            rtype1 = self.local_ids[e_op1]["type"] if e_op1 in self.local_ids else self.global_ids[e_op1]["type"]
+            rtype2 = self.local_ids[e_op2]["type"] if e_op2 in self.local_ids else self.global_ids[e_op2]["type"]
             if reg1 is None:
-                rtype1 = self.local_ids[e_op1]["type"] if e_op1 in self.local_ids else self.global_ids[e_op1]["type"]
                 reg1 = self.get_register(e_op1, rtype1)
                 self.load_variable(rtype1, rtype1, reg1, e_op1, code_list)
             if reg2 is None:
-                rtype2 = self.local_ids[e_op2]["type"] if e_op2 in self.local_ids else self.global_ids[e_op2]["type"]
                 reg2 = self.get_register(e_op2, rtype2)
                 self.load_variable(rtype2, rtype2, reg2, e_op2, code_list)
 
             if op == "int+":
-                self.code_list.append(["add", lvalue + ",", reg1 + ",", reg2])
-            elif op == "":
-                self.code_list.append(["add", lvalue + ",", reg1 + ",", reg2])
+                self.add_int(ltype, lvalue, rtype1, reg1, rtype2, reg2, code_list)
+            elif op == "float+":
+                self.float_arithmetic("add.s", ltype, lvalue, rtype1, reg1, rtype2, reg2, code_list)
+            elif op == "int*":
+                self.int_arithmetic("mul", ltype, lvalue, rtype1, reg1, rtype2, reg2, code_list)
+            elif op == "float*":
+                self.float_arithmetic("mul.s", ltype, lvalue, rtype1, reg1, rtype2, reg2, code_list)
+            elif op == "int/":
+                self.int_arithmetic("div", ltype, lvalue, rtype1, reg1, rtype2, reg2, code_list)
+            elif op == "float/":
+                self.float_arithmetic("div.s", ltype, lvalue, rtype1, reg1, rtype2, reg2, code_list)
+            elif op == "int-":
+                self.int_arithmetic("sub", ltype, lvalue, rtype1, reg1, rtype2, reg2, code_list)
+            elif op == "float-":
+                self.float_arithmetic("sub.s", ltype, lvalue, rtype1, reg1, rtype2, reg2, code_list)
+            elif op in ["<", ">", "<=", ">=", "==", "!=" ]:
+                if rtype1 in ["float", "double"] or rtype2 in ["float", "double"]:
+                    self.float_branch_instr(rtype1, reg1, op, rtype2, reg2, lvalue, code_list)
+                else:
+                    self.int_branch_instr(rtype1, reg1, op, rtype2, reg2, lvalue, code_list)
             # TODO: More op codes
             else:
                 print("Something is Wrong", frameinfo.filename, frameinfo.lineno)
             return
         if (var1 is False) and (var2 is False):
-            reg1 = self.get_register("NULL", self.map_type[type(e_op1)])
-            self.load_immediate(self.map_type[type(e_op1)], type(e_op1), reg1, op1, code_list)
-        else:
-            if var1 is False:   # Then swap and make op1 variable
-                op1, e_op1, var1, reg1, op2, e_op2, var2, reg2 = op2, e_op2, var2, reg2, op1, e_op1, var1, reg1
+            imm = "get_r1r2"
+            rtype1 = self.map_type[type(e_op1)]
             rtype2 = self.map_type[type(e_op2)]
-            if reg1 is None:
+            #if rtype2 in ["float", "double"]:   # swap and make op1 float
+            #    op1, e_op1, var1, rtype1, op2, e_op2, var2, rtype2 = op2, e_op2, var2, rtype2, op1, e_op1, var1, rtype1
+            #reg1 = self.get_register("NULL", rtype1)    # temporary register
+            #self.load_immediate(rtype1, type(e_op1), reg1, op1, code_list)
+        else:
+            #if var1 is False:   # Then swap and make op1 variable
+            #    op1, e_op1, var1, reg1, op2, e_op2, var2, reg2 = op2, e_op2, var2, reg2, op1, e_op1, var1, reg1
+            if var1:
+                imm = "get_r2"
+                reg2 = e_op2
+                rtype2 = self.map_type[type(e_op2)]
                 rtype1 = self.local_ids[e_op1]["type"] if e_op1 in self.local_ids else self.global_ids[e_op1]["type"]
-                reg1 = self.get_register(e_op1, rtype1)
-                self.load_variable(rtype1, rtype1, reg1, e_op1, code_list)
+                if reg1 is None:
+                    reg1 = self.get_register(e_op1, rtype1)
+                    self.load_variable(rtype1, rtype1, reg1, e_op1, code_list)
+            else:
+                imm = "get_r1"
+                reg1 = e_op1
+                rtype1 = self.map_type[type(e_op1)]
+                rtype2 = self.local_ids[e_op2]["type"] if e_op2 in self.local_ids else self.global_ids[e_op2]["type"]
+                if reg2 is None:
+                    reg2 = self.get_register(e_op2, rtype2)
+                    self.load_variable(rtype2, rtype2, reg2, e_op2, code_list)
         if op == "int+":
-            self.code_list.append(["addi", lvalue + ",", reg1 + ",", reg2])
-        elif op == "":
-            pass
+            # addi lvalue, reg1, op2
+            self.add_int(ltype, lvalue, rtype1, reg1, rtype2, op2, code_list, imm=imm)
+        elif op == "float+":
+            self.float_arithmetic("add.s", ltype, lvalue, rtype1, reg1, rtype2, reg2, code_list, imm=imm)
+        elif op == "int*":
+            self.int_arithmetic("mul", ltype, lvalue, rtype1, reg1, rtype2, reg2, code_list, imm=imm)
+        elif op == "float*":
+            self.float_arithmetic("mul.s", ltype, lvalue, rtype1, reg1, rtype2, reg2, code_list, imm=imm)
+        elif op == "int/":
+            self.int_arithmetic("div", ltype, lvalue, rtype1, reg1, rtype2, reg2, code_list, imm=imm)
+        elif op == "float/":
+            self.float_arithmetic("div.s", ltype, lvalue, rtype1, reg1, rtype2, reg2, code_list, imm=imm)
+        elif op == "int-":
+            self.int_arithmetic("sub", ltype, lvalue, rtype1, reg1, rtype2, reg2, code_list, imm=imm)
+        elif op == "float-":
+            self.float_arithmetic("sub.s", ltype, lvalue, rtype1, reg1, rtype2, reg2, code_list, imm=imm)
+        elif op in ["<", ">", "<=", ">=", "==", "!=" ]:
+            if rtype1 in ["float", "double"] or rtype2 in ["float", "double"]:
+                self.float_branch_instr(rtype1, reg1, op, rtype2, reg2, lvalue, code_list, imm=imm)
+            else:
+                self.int_branch_instr(rtype1, reg1, op, rtype2, reg2, lvalue, code_list, imm=imm)
         else:
             print("Something is Wrong", frameinfo.filename, frameinfo.lineno)
+        pass
+
+    def float_branch_instr(self, optype1, op1, relop, optype2, op2, label, code_list, imm=""):
+        if relop == '':
+            print("Something is Wrong", frameinfo.filename, frameinfo.lineno)
+        reg1 = op1
+        reg2 = op2
+        if imm in ["get_r1", "get_r1r2"]: # rvalue1 not in register
+            optype1 = "float"
+            reg1 = self.get_register("NULL", "float")
+            self.load_immediate("float", optype1, reg1, op1, code_list)
+        if imm in ["get_r2", "get_r1r2"]: # rvalue2 not in register
+            optype2 = "float"
+            reg2 = self.get_register("NULL", "float")
+            self.load_immediate("float", optype2, reg2, op2, code_list)
+
+        if optype1 not in ["float", "double"]:
+            reg1 = self.get_register("NULL", "float")
+            self.move_variable("float", optype1, reg1, op1)
+
+        if optype2 not in ["float", "double"]:
+            reg2 = self.get_register("NULL", "float")
+            self.move_variable("float", optype2, reg2, op2)
+
+        opcode1 = self.relops[relop][1]
+        opcode2 = self.relops[relop][2]
+        code_list.append([opcode1, reg1 + ",", reg2])
+        code_list.append([opcode2, label])
+        pass
+
+    def int_branch_instr(self, optype1, op1, relop, optype2, op2, label, code_list, imm=""):
+        if relop == '':
+            print("Something is Wrong", frameinfo.filename, frameinfo.lineno)
+        reg1 = op1
+        reg2 = op2
+        opcode = self.relops[relop][0]
+        if imm == "get_r1r2":
+            reg1 = self.get_register("NULL", "int")
+            self.load_immediate("int", optype1, reg1, op1, code_list)
+        elif imm == "get_r1":
+            # swap
+            reg1, reg2 = reg2, reg1
+            opcode = self.relops[self.relops[relop][3]][0]  # Anti-opcode
+
+        code_list.append([opcode, str(reg1) + ",", str(reg2) + ",", label])
+        pass
+
+    def int_arithmetic(self, opcode, ltype, lvalue, rtype1, rvalue1, rtype2, rvalue2, code_list, imm=""):
+        reg1 = rvalue1
+        reg2 = rvalue2
+        if imm in ["get_r1", "get_r1r2"]: # rvalue1 not in register
+            reg1 = self.get_register("NULL", "int")
+            self.load_immediate("int", rtype1, reg1, rvalue1, code_list)
+        if imm in ["get_r2", "get_r1r2"]: # rvalue2 not in register
+            reg2 = self.get_register("NULL", "int")
+            self.load_immediate("int", rtype2, reg2, rvalue2, code_list)
+
+        if ltype in ["float", "double"]:    # lvalue must be $f type register
+            reg = self.get_register("NULL", "int")
+            code_list.append([opcode, reg + ",", reg1 + ",", reg2])
+            code_list.append(["mtc1", reg + ",", lvalue])
+            code_list.append(["cvt.s.w", lvalue + ",", lvalue])
+        else:                               # lvalue must be $s or $t type register
+            code_list.append([opcode, lvalue + ",", reg1 + ",", reg2])
+        pass
+
+    def add_int(self, ltype, lvalue, rtype1, rvalue1, rtype2, rvalue2, code_list, imm=""):
+        reg1 = rvalue1
+        reg2 = rvalue2
+        if imm == "get_r1r2":
+            reg1 = self.get_register("NULL", "int")
+            self.load_immediate("int", rtype1, reg1, rvalue1, code_list)
+        elif imm == "get_r1":
+            # swap
+            reg1, reg2 = reg2, reg1
+
+        opcode = "add" if imm == ""  else "addi"
+        if ltype in ["float", "double"]:    # lvalue must be $f type register
+            reg = self.get_register("NULL", "int")
+            code_list.append([opcode, reg + ",", reg1 + ",", reg2])
+            code_list.append(["mtc1", reg + ",", lvalue])
+            code_list.append(["cvt.s.w", lvalue + ",", lvalue])
+        else:                               # lvalue must be $s or $t type register
+            code_list.append([opcode, lvalue + ",", str(reg1) + ",", str(reg2)])
+        pass
+
+    def float_arithmetic(self, opcode, ltype, lvalue, rtype1, rvalue1, rtype2, rvalue2, code_list, imm=""):
+        reg1 = rvalue1
+        reg2 = rvalue2
+
+        if imm in ["get_r1", "get_r1r2"]: # rvalue1 not in register
+            rtype1 = "float"
+            reg1 = self.get_register("NULL", "float")
+            self.load_immediate("float", rtype1, reg1, rvalue1, code_list)
+        if imm in ["get_r2", "get_r1r2"]: # rvalue2 not in register
+            rtype2 = "float"
+            reg2 = self.get_register("NULL", "float")
+            self.load_immediate("float", rtype2, reg2, rvalue2, code_list)
+
+        if rtype1 not in ["float", "double"]:
+            reg1 = self.get_register("NULL", "float")
+            self.move_variable("float", rtype1, reg1, rvalue1)
+
+        if rtype2 not in ["float", "double"]:
+            reg2 = self.get_register("NULL", "float")
+            self.move_variable("float", rtype2, reg2, rvalue2)
+
+        if ltype in ["float", "double"]:    # lvalue must be $f type register
+            code_list.append([opcode, lvalue + ",", reg1 + ",", reg2])
+        else:                               # lvalue must be $s or $t type register
+            reg = self.get_register("NULL", "float")
+            code_list.append([opcode, reg + ",", reg1 + ",", reg2])
+            code_list.append(["cvt.w.s", reg + ",", reg])
+            code_list.append(["mfc1", lvalue + ",", reg])
         pass
 
     def eval_operand(self, op, code_list):
@@ -227,7 +412,7 @@ class CodeGen:
     def deref_variable(self, op, code_list, ptr):
         optype = self.local_ids[op]["type"] if op in self.local_ids else self.global_ids[op]["type"]
         reg = self.get_register(op, "pointer")
-        #self.load_variable("pointer", reg, op, code_list)
+        self.load_variable("pointer", "pointer", reg, op, code_list)
         for p in range(ptr-1):
             self.load_variable("pointer", "pointer", reg, "(" + reg + ")", code_list)
         reg2 = reg
@@ -259,14 +444,14 @@ class CodeGen:
                 op2 = float(op2)
             elif rtype is str:
                 op2 = float(ord(op2))
-            if ltype is "double":
-                code_list.append(["li.d", op1 + ",", op2])
+            if ltype == "double":
+                code_list.append(["li.d", op1 + ",", str(op2)])
             else:
-                code_list.append(["li.s", op1 + ",", op2])
+                code_list.append(["li.s", op1 + ",", str(op2)])
         else:                               # $s,$t type register
             op2 = int(op2) if rtype is float else op2
             if rtype in [int, str]:
-                code_list.append(["li", op1 + ",", op2])
+                code_list.append(["li", op1 + ",", str(op2)])
         pass
 
     def print_stdout(self, ptype, op, code_list):
@@ -373,19 +558,22 @@ class CodeGen:
         pass
 
     def print_sections(self):
-        print(".data")
+        print("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n\n")
+        print(".data\n")
         for line in self.data:
             print(" ".join(str(e) for e in line))
         print("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n\n")
-        print(".bss")
+        print(".bss\n")
         for line in self.bss:
             print(" ".join(str(e) for e in line))
         print("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n\n")
-        print(".main")
+        print(".main\n")
         for line in self.main:
             print(" ".join(str(e) for e in line))
         print("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n\n")
-        print(".functions")
+        print(".functions\n")
         for line in self.functions:
             print(" ".join(str(e) for e in line))
+        print("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n\n")
+
         pass

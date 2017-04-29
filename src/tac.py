@@ -1,4 +1,5 @@
 import symtable as st
+labels = []
 class TAC:
 	def __init__(self,scopename,start):
 		self.code = []
@@ -6,6 +7,7 @@ class TAC:
 		self.nextquad = self.startquad
 		self.temp_count = 0
 		self.scope = scopename
+		self.labels = []
 
 	def emit(self,elist):
 		self.code.append(elist)
@@ -15,6 +17,8 @@ class TAC:
 		return self.nextquad
 
 	def backpatch(self,list,targetlabel):
+		global labels
+		labels.append(str(targetlabel))
 		if list:
 			for l in list:
 				self.code[l-self.startquad][-1] = str(targetlabel)

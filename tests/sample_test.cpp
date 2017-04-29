@@ -1,4 +1,4 @@
-int main()
+/*int main()
 {
   int y;
   float z;
@@ -6,14 +6,15 @@ int main()
   int *pt;
   int x = 4;
   x = y;
-  y = 3;
+  y = 3 + x;
   z = 2.3;
   c = 'm';
   pt = &y;
   y = *pt;
 }
-
-/*int p = 9;
+*/
+/*
+int p = 9;
 char letter = 'a';
 char name[2] = "C";
 float* f;
@@ -34,6 +35,7 @@ int main()
 	int a[2][2]={0};
   m = n + 4 +p;
 	a[1][1] = test(1,2) + a[1][0];
+  //cout << "cjejc" << m << eoe;
   if(m == n){
     float p = *f;
     d = 1+ d*2 + p;
@@ -43,19 +45,18 @@ int main()
 */
 /* int test(int , int );
 
-
+*/
 
 int main()
 {
-
+  //char c[5] = "hell";
 	int a= 'e';
-	if (a==1){
+	if (a==1 && a > 0){
 		int m;
-		char* c;
 	}
  	return 1;
- }
-
+}
+/*
  int test(int x, int y)
  {int p,q;
  	x =6;
