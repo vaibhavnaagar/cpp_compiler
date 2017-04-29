@@ -7,7 +7,7 @@ from ply.lex import TOKEN
 reserved = {
 	'asm': 'ASM', 'auto': 'AUTO', 'bool': 'BOOL', 'break': 'BREAK', 'case': 'CASE', 'catch': 'CATCH',
 	'char': 'CHAR', 'class': 'CLASS', 'const': 'CONST', 'const_cast': 'CONST_CAST', 'continue': 'CONTINUE',
-	'default': 'DEFAULT', 'delete': 'DELETE', 'do': 'DO', 'double': 'DOUBLE', 'dynamic_cast': 'DYNAMIC_CAST',
+	'cout':'COUT','default': 'DEFAULT', 'delete': 'DELETE', 'do': 'DO', 'double': 'DOUBLE', 'dynamic_cast': 'DYNAMIC_CAST',
 	'else': 'ELSE', 'enum': 'ENUM', 'explicit': 'EXPLICIT', 'extern': 'EXTERN', 'false': 'FALSE',
 	'float': 'FLOAT', 'for': 'FOR', 'friend': 'FRIEND', 'goto': 'GOTO', 'if': 'IF', 'inline': 'INLINE', 'int': 'INT',
 	'long': 'LONG', 'mutable': 'MUTABLE', 'namespace': 'NAMESPACE', 'new': 'NEW', 'operator': 'OPERATOR', 'private': 'PRIVATE',

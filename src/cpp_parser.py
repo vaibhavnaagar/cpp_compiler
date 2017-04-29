@@ -1319,6 +1319,20 @@ def p_additive_expression3(p):
 	p[0] = expression_semantic(p.lineno(1), p[0], p[1], p[2], p[3])
 	pass
 
+def p_cout_expression1(p):
+	"cout_expression : COUT SHL primary_expression"
+	add_children(len(list(filter(None, p[1:]))),"shift_expression")
+	p[0] = dict(p[3])
+	p[0]["cout_list"] = [p[3]]
+	pass
+
+def p_cout_expression2(p):
+	"cout_expression : cout_expression SHL primary_expression"
+	add_children(len(list(filter(None, p[1:]))),"shift_expression")
+	p[0] = p[1]
+	p[0]["cout_list"] += [p[3]]
+	pass
+
 def p_shift_expression1(p):
 	"shift_expression : additive_expression"
 	add_children(len(list(filter(None, p[1:]))),"shift_expression")
@@ -1373,6 +1387,21 @@ def p_relational_expression5(p):
 	p[0] = expression_semantic(p.lineno(1), p[0], p[1], p[2], p[3])
 	p[0]["truelist"] = [st.ScopeList[st.currentScope]["tac"].getnext() - 2 ]
 	p[0]["falselist"] = [st.ScopeList[st.currentScope]["tac"].getnext() - 1]
+	pass
+
+def p_relational_expression6(p):
+	"relational_expression : cout_expression"
+	add_children(len(list(filter(None, p[1:]))),"relational_expression")
+	p[0] = p[1]
+	i = 0
+	for ids in p[0]["cout_list"]:
+		if ids["id_type"] in ["literal"]:
+			j = st.ScopeList[st.currentScope]["tac"].getnext()
+			st.ScopeList[st.currentScope]["tac"].emit(["cout","$cout_" + str(j)])
+			print(ids)
+			cg.literal_decl.append(["$cout_" + str(j),ids["name"]])
+		else:
+			st.ScopeList[st.currentScope]["tac"].emit(["cout", " ".join(ids["type"]), ids["tac_name"]])
 	pass
 
 def p_equality_expression1(p):

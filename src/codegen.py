@@ -3,6 +3,7 @@ import tac
 from inspect import currentframe, getframeinfo
 
 frameinfo = getframeinfo(currentframe())
+literal_decl = []
 
 class CodeGen:
     def __init__ (self, TAC):
@@ -562,6 +563,8 @@ class CodeGen:
         print(".data\n")
         for line in self.data:
             print(" ".join(str(e) for e in line))
+        for lit in literal_decl:
+            print(lit[0][1:] + ":", ".ascii", '"' + lit[1] + '"')
         print("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n\n")
         print(".bss\n")
         for line in self.bss:
