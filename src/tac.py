@@ -28,7 +28,7 @@ class TAC:
 
 	def getnewtemp(self):
 		self.temp_count +=1
-		return "0_t" + str(self.temp_count)
+		return "_t" + str(self.temp_count)
 
 	def print_code(self):
 		for i,c in enumerate(self.code):

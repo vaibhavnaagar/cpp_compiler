@@ -65,6 +65,14 @@ class CodeGen:
         # Floating point registers
         self.float_regs = dict()
         for i in range(32):  self.float_regs.update({ '$f' + str(i) : None })
+
+        # Used-Unused Regs
+        self.unused_gen_regs = list(self.general_regs.keys()) 
+        self.used_gen_regs = []
+
+        self.unused_float_regs = list(self.float_regs.keys())
+        self.unused_float_regs = []
+
         pass
 
     def get_global_ids(self, scope_name):
@@ -89,13 +97,93 @@ class CodeGen:
                         scope_q.append(str(s))
         pass
 
-    def get_register(self, name, ltype, code_list):
-        # TODO: Just Do it !!
-        return "$"
-
     def check_in_register(self, name):
-        # TODO: Just Do it !!
+        if self.local_ids.get(name,None):
+            return self.local_ids[name].get("register",None)
+        
+        if self.global_ids.get(name,None):
+            return self.global_ids[name].get("register",None)
         return None
+
+    def get_register(self, name, ltype, code_list, forbid_list=[]):
+
+        if self.check_in_register(name) :          
+            reg = self.check_in_register(self, name)
+            self.spill_register(reg,code_list,[name])
+            return reg
+        
+        else :
+            if ltype in ["double", "float"]:
+                if len(self.unused_float_regs) > 0:
+                    reg = self.unused_float_regs[0]
+                    self.unused_float_regs = self.unused_float_regs[1:]
+                    self.used_float_regs.append(reg)
+
+                else:
+                    for l in self.used_float_regs:
+                        if l not in forbid_list:
+                            reg = l 
+                            self.unused_float_regs.remove(l)
+                            self.used_flo1at_regs.append(reg)
+                            self.spill_reg1ister(reg,code_list)
+                            break
+                self.float_regs[reg] = [name]
+            else:
+                if len(self.unused_gen_regs) > 0:
+                    reg = self.unused_gen_regs[0]
+                    self.unused_gen_regs = self.unused_gen_regs[1:]
+                    self.used_gen_regs.append(reg) 
+                else:
+                    for l in self.used_gen_regs:
+                        if l not in forbid_list:
+                            reg = l 
+                            self.unused_gen_regs.remove(l)
+                            self.used_gen_regs.append(reg)
+                            self.spill_register(reg,code_list)
+                            break
+                self.general_regs[reg] = [name]
+        
+        if name != "NULL":
+            if self.local_ids.get(name,None):
+                self.local_ids[name]["register"] = reg
+                loc = self.local_ids[name]["location"]
+            
+            else :
+                self.global_ids[name]["register"] = reg
+                loc = self.global_ids[name]["location"]
+            
+            self.load_variable(ltype,ltype,reg,loc,code_list)
+            
+        return reg
+
+
+    def spill_register(self, reg, code_list, skip=[]):
+        
+        if self.general_regs.get(reg,None):
+            for var in self.general_regs[reg]:
+                if var not in skip:
+                    if self.local_ids.get(var,None):
+                        loc = self.local_ids[var]["location"]
+            
+                    if self.global_ids.get(var,None):
+                        loc = self.global_ids[var]["location"]
+                    code_list.append(["sw", reg + ",", loc])
+            
+
+        elif self.float_regs.get(reg,None):
+            for var in self.float_regs[reg]:
+                if var not in skip:
+                    if self.local_ids.get(var,None):
+                        loc = self.local_ids[var]["location"]
+            
+                    if self.global_ids.get(var,None):
+                        loc = self.global_ids[var]["location"]
+                    code_list.append(["s.s", reg + ",", loc])
+        
+        else:
+            print("Wrong Register Name")
+
+        return
 
     def parse_tac(self):
         inside_func = False
