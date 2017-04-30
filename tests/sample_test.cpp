@@ -1,18 +1,36 @@
-/*int main()
+/*
+int main()
 {
   int y;
   float z;
   char c;
   int *pt;
   int x = 4;
-  x = y;
-  y = 3 + x;
+  //x = y;
+  y = x + x;
   z = 2.3;
   c = 'm';
-  pt = &y;
-  y = *pt;
+	for(;x >0; x=x-1){
+	cout << "hello" << y ;
+	cout << c;
+	cout << "\n";
+	}
+}*/
+
+int main(){
+	int a = 0;
+	int b = 1;
+	int c, i;
+	int n = 1;
+  for (i = 2; i <= n; i++)
+  {
+     c = a + b;
+     a = b;
+     b = c;
+  }
+  cout << c;
 }
-*/
+
 /*
 int p = 9;
 char letter = 'a';
@@ -46,7 +64,7 @@ int main()
 /* int test(int , int );
 
 */
-
+/*
 int main()
 {
   //char c[5] = "hell";
@@ -54,8 +72,11 @@ int main()
 	if (a==1 && a > 0){
 		int m;
 	}
+  char c;
+  float f;
+  cout << "hello" << a << c << f << 12.4 ;
  	return 1;
-}
+}*/
 /*
  int test(int x, int y)
  {int p,q;

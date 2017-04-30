@@ -781,7 +781,7 @@ def p_postfix_expression6(p):
 			p[0]["index"] = p[0].get("index",0) + product*p[3]["value"]
 			if len(p[0]["order"]) == 0:
 				size = st.simple_type_specifier[" ".join(p[0]["type"])]["size"]
-				p[0]["tac_name"] =  "*(" + p[0]["tac_name"] + "+" + str(p[0]["index"]*size) + ")"
+				p[0]["tac_name"] =  "$" + p[0]["tac_name"] + "+" + str(p[0]["index"]*size)
 				p[0]["real_id_type"] = p[0]["id_type"]
 				p[0]["id_type"] = "variable"		# Array is completely dereferenced to a single memory location
 	pass
@@ -1322,6 +1322,7 @@ def p_additive_expression3(p):
 def p_cout_expression1(p):
 	"cout_expression : COUT SHL primary_expression"
 	add_children(len(list(filter(None, p[1:]))),"shift_expression")
+	print("-----------------------------------------------------",p[3])
 	if p[3].get("is_decl", True) is False:
 		entry = SymbolTable.lookupComplete(p[3]["name"])
 		if entry is None:
@@ -1348,6 +1349,8 @@ def p_cout_expression2(p):
 			p[3] = dict(entry)
 			p[3]["is_decl"] = True
 	p[0]["cout_list"] += [p[3]]
+	print("--------------------------weeeeeeeeeeeeeeeeeeee---------------------------",p[0]["cout_list"])
+
 	pass
 
 def p_shift_expression1(p):
@@ -1704,7 +1707,7 @@ def p_assignment_expression3(p):
 			p[0]["value"] = array_assignment(p,inits,p[0]["value"])
 			size = st.simple_type_specifier[" ".join(p[0]["type"])]["size"]
 			for i in range(0,p[0]["num"]):
-				st.ScopeList[st.currentScope]["tac"].expression_emit("*(" +p[0]["name"] + "_" + str(p[0]["myscope"])+ "+" +str(i*size) + ")",'',p[2],str(p[0]["value"][i]))
+				st.ScopeList[st.currentScope]["tac"].expression_emit("$" +p[0]["name"] + "_" + str(p[0]["myscope"])+ "+" +str(i*size),'',p[2],str(p[0]["value"][i]))
 
 	else:
 		st.print_error(p.lineno(1), p[1], 24)
@@ -2104,6 +2107,7 @@ def p_iteration_statement1(p):
 	st.ScopeList[st.currentScope]["tac"].backpatch(p[7]["contlist"], p[3]["quad"]  )
 	st.ScopeList[st.currentScope]["tac"].backpatch(p[4]["truelist"], p[6]["quad"]  )
 	st.ScopeList[st.currentScope]["tac"].emit(["goto",str(p[3]["quad"])])
+	tac.labels.append(str(p[3]["quad"]))
 	temp_list = p[4]["falselist"] + p[7]["breaklist"]
 	st.ScopeList[st.currentScope]["tac"].backpatch(temp_list, st.ScopeList[st.currentScope]["tac"].nextquad  )
 	p[0]["breaklist"] = []
@@ -2137,8 +2141,20 @@ def p_iteration_statement3(p):
 	p[0]["update_expr"] = p[8]
 	p[0]["loop_statement"] = p[12]
 	st.ScopeList[st.currentScope]["tac"].emit(["goto",str(p[7]["quad"])])
+	tac.labels.append(str(p[7]["quad"]))
 	st.ScopeList[st.currentScope]["tac"].backpatch(p[12]["contlist"], p[7]["quad"]  )
-	st.ScopeList[st.currentScope]["tac"].backpatch(p[9]["nextlist"], p[4]["quad"]  )
+	if p[8].get("inc",False)  :
+		st.ScopeList[st.currentScope]["tac"].backpatch(p[9]["nextlist"], st.ScopeList[st.currentScope]["tac"].nextquad  )
+		st.ScopeList[st.currentScope]["tac"].expression_emit(p[8]["tac_name"],'',"++", '')
+		st.ScopeList[st.currentScope]["tac"].emit(["goto",str(p[4]["quad"])])
+		tac.labels.append(str(p[4]["quad"]))
+	elif p[8].get("dec",False) :
+		st.ScopeList[st.currentScope]["tac"].backpatch(p[9]["nextlist"], st.ScopeList[st.currentScope]["tac"].nextquad  )
+		st.ScopeList[st.currentScope]["tac"].expression_emit(p[8]["tac_name"],'',"--", '')
+		st.ScopeList[st.currentScope]["tac"].emit(["goto",str(p[4]["quad"])])
+		tac.labels.append(str(p[4]["quad"]))
+	else:
+		st.ScopeList[st.currentScope]["tac"].backpatch(p[9]["nextlist"], p[4]["quad"]  )
 	st.ScopeList[st.currentScope]["tac"].backpatch(p[5]["truelist"], p[11]["quad"]  )
 	temp_list = p[5]["falselist"] + p[12]["breaklist"]
 	st.ScopeList[st.currentScope]["tac"].backpatch(temp_list, st.ScopeList[st.currentScope]["tac"].nextquad  )
@@ -4233,8 +4249,8 @@ if __name__ == "__main__":
 	data = a.read()
 	#data = '''
 	yacc.parse(data, lexer=lex.cpp_scanner.lexer, tracking=True)
-	graph.write_jpeg('parse_tree.jpeg')
-	graph.write_dot('parse_tree.dot')
+	#graph.write_jpeg('parse_tree.jpeg')
+	#graph.write_dot('parse_tree.dot')
 	f = open("parse_tree.dat","w")
 	f.write(graph.to_string())
 	print("================================================================================================\n\n")

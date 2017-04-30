@@ -10,3 +10,4 @@ __pycache__
 *.dot
 *.dat
 *.csv
+*.asm
