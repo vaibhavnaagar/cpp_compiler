@@ -4,7 +4,8 @@ import tac
 
 ### Scopes ###
 
-global ScopeList, currentScope, AttrList
+global ScopeList, currentScope, AttrList,Error
+Error = False
 ScopeList = { "NULL" : None, "global" : {"name":"global", "parent" : "NULL", "scope_type" : "global", "tac" : tac.TAC("global",0), "offset" : 0 }, }
 currentScope = "global"
 AttrList = ['name','type', 'star', 'id_type', 'specifier', 'value', 'is_defined', 'order',  'num', 'parameters', 'access', 'myscope', 'inc', 'dec', "tac_name" , "offset"]
@@ -482,6 +483,7 @@ def augment_scope(lineno, scope1, scope2):
 
 
 def print_error(lineno, id1, errno, *args):
+    Error = True
     if errno == 1:
         print(color.cline, lineno, color.cerror + " \'%s\' was not declared in this scope" % id1.get("name"))
     elif errno == 2:

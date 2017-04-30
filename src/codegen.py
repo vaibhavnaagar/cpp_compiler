@@ -10,7 +10,7 @@ class CodeGen:
         self.TAC = TAC
         self.label = 'L_'
         self.labels = list(set(tac.labels))
-        print("tttttttttttttttttttttt", self.labels)
+       # print("tttttttttttttttttttttt", self.labels)
         self.main = []              # Main section
         self.functions = []         # Fucntion definitions
         self.data = []              # Data section
@@ -79,8 +79,10 @@ class CodeGen:
     def get_global_ids(self, scope_name):
         table = st.ScopeList[scope_name]["table"].symtab
         for k in table:
-            if table[k]["id_type"] not in ["function", "namespace", "class", "struct", "union",]:
+            if table[k]["id_type"] not in [ "function","namespace", "class", "struct", "union",]:
                 self.global_ids.update({ table[k]["tac_name"] : dict(register=None, location=table[k]["tac_name"], offset=0, type=st.simple_type_specifier[" ".join(table[k]["type"])]["equiv_type"]) })
+            if table[k]["id_type"]  in [ "function"]:
+                self.global_ids.update({ table[k]["name"] : dict(register=None, location=table[k]["tac_name"], offset=table[k]["offset"], type=st.simple_type_specifier[" ".join(table[k]["type"])]["equiv_type"]) })
 
     def get_local_ids(self, scope_name):
         self.local_ids.clear()
@@ -91,7 +93,7 @@ class CodeGen:
             for k in table:
                 if table[k]["id_type"] not in ["function", "namespace", "class", "struct", "union",]:
                     loc = table[k]["tac_name"] if scope_name == "main" else "$sp"
-                    self.local_ids.update({ table[k]["tac_name"] : dict(register=None, location=loc, offset=table[k]["offset"], type=st.simple_type_specifier[" ".join(table[k]["type"])]["equiv_type"]) })
+                    self.local_ids.update({ table[k]["tac_name"] : dict(register=None, location=loc, offset=(table[k]["offset"] - table[k]["size"])  if table[k]["offset"] > 0 else table[k]["offset"], size=table[k]["size"], type=st.simple_type_specifier[" ".join(table[k]["type"])]["equiv_type"]) })
             for s in st.ScopeList:
                 if s != "NULL":
                     if st.ScopeList[s].get("parent") == _scope:
@@ -108,37 +110,44 @@ class CodeGen:
 
     def get_register(self, name, ltype, code_list, forbid_list=[]):
 
+
         if self.check_in_register(name) :
             reg = self.check_in_register(name)
             self.spill_register(reg,code_list,[name])
+        
             return reg
+
 
         else :
             if ltype in ["double", "float"]:
                 if len(self.unused_float_regs) > 0:
                     reg = self.unused_float_regs[0]
-                    self.unused_float_regs = self.unused_float_regs[1:]
+                    self.unused_float_regs.remove(reg)
                     self.used_float_regs.append(reg)
 
                 else:
                     for l in self.used_float_regs:
                         if l not in forbid_list:
                             reg = l
-                            self.unused_float_regs.remove(l)
-                            self.used_flo1at_regs.append(reg)
-                            self.spill_reg1ister(reg,code_list)
+                            if l in self.unused_float_regs:
+                                self.unused_float_regs.remove(l)
+                            self.used_float_regs.remove(reg)
+                            self.used_float_regs.append(reg)
+                            self.spill_register(reg,code_list)
                             break
                 self.float_regs[reg] = [name]
             else:
                 if len(self.unused_gen_regs) > 0:
                     reg = self.unused_gen_regs[0]
-                    self.unused_gen_regs = self.unused_gen_regs[1:]
+                    self.unused_gen_regs.remove(reg)
                     self.used_gen_regs.append(reg)
                 else:
                     for l in self.used_gen_regs:
                         if l not in forbid_list:
                             reg = l
-                            self.unused_gen_regs.remove(l)
+                            if l in self.unused_gen_regs:
+                                self.unused_gen_regs.remove(l)
+                            self.used_gen_regs.remove(reg)
                             self.used_gen_regs.append(reg)
                             self.spill_register(reg,code_list)
                             break
@@ -153,6 +162,7 @@ class CodeGen:
                 self.global_ids[name]["register"] = reg
                 loc = self.global_ids[name]["location"]
 
+
             self.load_variable(ltype,ltype,reg,loc,code_list)
 
         return reg
@@ -161,11 +171,10 @@ class CodeGen:
     def spill_register(self, reg, code_list, skip=[]):
         if self.general_regs.get(reg,None):
             for var in self.general_regs[reg]:
-                if var not in skip:
+                if var not in skip and var != "NULL":
                     if self.local_ids.get(var,None):
                         loc = self.local_ids[var]["location"]
-
-                    if self.global_ids.get(var,None):
+                    else:
                         loc = self.global_ids[var]["location"]
                     code_list.append(["sw", reg + ",", loc])
 
@@ -175,8 +184,7 @@ class CodeGen:
                 if var not in skip:
                     if self.local_ids.get(var,None):
                         loc = self.local_ids[var]["location"]
-
-                    if self.global_ids.get(var,None):
+                    else:
                         loc = self.global_ids[var]["location"]
                     code_list.append(["s.s", reg + ",", loc])
 
@@ -185,11 +193,26 @@ class CodeGen:
 
         return
 
+    def callee_seq(self,size,code_list):
+        code_list.append(["addi", "$sp", "$sp", str(size)])            #Store return address
+        code_list.append(["sw", "$ra", "0($sp)"])
+        code_list.append(["sw", "$fp", "4($sp)"])
+        code_list.append(["add", "$fp", "0","$sp"])
+        return
+
+    def caller_seq(self,name,code_list):
+
+        return
+
+    def push_params(self,name,code_list):
+
+        return
+
     def parse_tac(self):
         inside_func = False
         is_main = False
         for i, quad in enumerate(self.TAC.code):
-            print(quad)
+            #print(quad)
             if quad[0] in ["function"]:
                 inside_func = True
                 if quad[1] == "main":
@@ -198,11 +221,21 @@ class CodeGen:
                 else:
                     code_list = self.functions  # reference functions code list
                     is_main = False
+                    self.callee_seq(quad[1],code_list)
+                    print(self.global_ids)
+                    self.get_local_ids(quad[1])
+                    print(self.local_ids)
+
+
                     # TODO:  Code for stack space ..............................................
                     code_list.append([quad[1] + ":"])
+
                 self.get_local_ids(quad[1])
+                #print(quad[1],self.local_ids)
             else:
                 if not inside_func:     # TAC of Global scope
+                    continue
+                if not is_main: # REMEMBER TO REMOVE IT========================================================================>>>>>>>>>>>>>>>>>>>>>>>>>
                     continue
                 if str(i) in self.labels:
                     self.labels.remove(str(i))
@@ -239,7 +272,10 @@ class CodeGen:
         if quad[2] == '':   # simple assignment if quad is like ['var', '7', '', '']
             rvalue, var, reg = self.eval_operand(quad[1], code_list)
             if var:
-                rtype = self.local_ids[rvalue]["type"] if rvalue in self.local_ids else self.global_ids[rvalue]["type"]
+                if quad[1] == "^retval":
+                    rtype = ltype
+                else:
+                    rtype = self.local_ids[rvalue]["type"] if rvalue in self.local_ids else self.global_ids[rvalue]["type"]
                 if reg:
                     if optype == "write_back":
                         self.write_back(ltype, lvalue, rtype, reg, code_list)
@@ -298,8 +334,11 @@ class CodeGen:
             op = op[arr:]
             op, offset = op.split("+")
             reg = self.load_address(op, code_list)
-            oreg = self.get_register(offset, "int", code_list)
-            code_list.append(["addu", reg + ",", reg + ",", oreg])
+            if offset in self.local_ids or  offset in self.global_ids:
+                oreg = self.get_register(offset, "int", code_list)
+                code_list.append(["addu", reg + ",", reg + ",", oreg])
+            else:
+                code_list.append(["addi", reg + ",", reg + ",", offset])
             reg = "(" + reg + ")"
         else:
             otype = ""
@@ -416,7 +455,7 @@ class CodeGen:
     def int_arithmetic(self, opcode, ltype, lvalue, rtype1, rvalue1, rtype2, rvalue2, code_list, imm=""):
         reg1 = rvalue1
         reg2 = rvalue2
-        print(imm, lvalue, reg1, reg2, type(rtype2))
+        #print(imm, lvalue, reg1, reg2, type(rtype2))
         if imm in ["get_r1", "get_r1r2"]: # rvalue1 not in register
             reg1 = self.get_register("NULL", "int", code_list)
             self.load_immediate("int", rtype1, reg1, rvalue1, code_list)
@@ -485,6 +524,9 @@ class CodeGen:
 
     def eval_operand(self, op, code_list):
         reg = None
+        if op == '^retval':
+            return op,True,"$v1"
+
         try:
             op = eval(op)
             var = False
@@ -640,7 +682,7 @@ class CodeGen:
 
         		if (table[k]["id_type"] not in ["function", "class", "struct", "namespace"]) and (table[k].get("value",None) != None):
 
-        			print(table[k])
+        			#print(table[k])
         			if table[k]["id_type"] == "array":
         				if st.simple_type_specifier[" ".join(table[k]["type"])]["equiv_type"] == "char":
         					self.data.append([table[k]["tac_name"] + ":", ".ascii", '"' + table[k]["value"] + '"'])

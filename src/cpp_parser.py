@@ -108,41 +108,44 @@ def expression_semantic(lineno, p0, p1, p2, p3):
 	else:
 		p0 = p1
 
-	if p1.get("real_id_type") in ["function", "class"] and p1["tac_name"] == p1["name"] + "_" + p1["myscope"]:
-		s1 = "pop"
-	else:
-		s1 =  p1["tac_name"]
-
-	if p3.get("real_id_type") in ["function", "class"] and p3["tac_name"] == p3["name"] + "_" + p3["myscope"]:
-		s2 = "pop"
-	else:
-		s2 =  p3["tac_name"]
+	
 
 	p0["name"] = ' '.join([p1["name"], p2, p3["name"]])
 	p0["type"],p0["star"] = st.expression_type(lineno, p1["type"], p1.get("star", 0) , p3["type"], p3.get("star", 0), op=str(p2))
 
 
-	temp = st.ScopeList[st.currentScope]["tac"].getnewtemp()
-	_scope = st.currentScope
-	if len(st.function_list) > 0:
-		_scope = st.function_list[-1]["name"]
-	elif len(st.namespace_list) > 0:
-		_scope = st.namespace_list[-1]["name"]
+	if not st.Error :
+		if p1.get("real_id_type") in ["function", "class"] and p1["tac_name"] == p1["name"] + "_" + p1["myscope"]:
+			s1 = "pop"
+		else:
+			s1 =  p1["tac_name"]
 
-	p0["tac_name"] = temp + "_" + str(_scope)
-	st.ScopeList[st.currentScope]["tac"].expression_emit(p0["tac_name"],s1,p2,s2,p0["type"])
+		if p3.get("real_id_type") in ["function", "class"] and p3["tac_name"] == p3["name"] + "_" + p3["myscope"]:
+			s2 = "pop"
+		else:
+			s2 =  p3["tac_name"]
 
-	# Insert temporary
-	SymbolTable.insertTemp(p0["tac_name"], "temporary", _scope, p0["type"])
+		temp = st.ScopeList[st.currentScope]["tac"].getnewtemp()
+		_scope = st.currentScope
+		if len(st.function_list) > 0:
+			_scope = st.function_list[-1]["name"]
+		elif len(st.namespace_list) > 0:
+			_scope = st.namespace_list[-1]["name"]
 
-	if p1.get("inc",False):
-		st.ScopeList[st.currentScope]["tac"].expression_emit(p1["tac_name"],'',"++", '')
-	if p3.get("inc",False):
-		st.ScopeList[st.currentScope]["tac"].expression_emit(p3["tac_name"],'',"++", '')
-	if p1.get("dec",False):
-		st.ScopeList[st.currentScope]["tac"].expression_emit(p1["tac_name"],'',"--", '')
-	if p3.get("dec",False):
-		st.ScopeList[st.currentScope]["tac"].expression_emit(p3["tac_name"],'',"--", '')
+		p0["tac_name"] = temp + "_" + str(_scope)
+		st.ScopeList[st.currentScope]["tac"].expression_emit(p0["tac_name"],s1,p2,s2,p0["type"])
+
+		# Insert temporary
+		SymbolTable.insertTemp(p0["tac_name"], "temporary", _scope, p0["type"])
+
+		if p1.get("inc",False):
+			st.ScopeList[st.currentScope]["tac"].expression_emit(p1["tac_name"],'',"++", '')
+		if p3.get("inc",False):
+			st.ScopeList[st.currentScope]["tac"].expression_emit(p3["tac_name"],'',"++", '')
+		if p1.get("dec",False):
+			st.ScopeList[st.currentScope]["tac"].expression_emit(p1["tac_name"],'',"--", '')
+		if p3.get("dec",False):
+			st.ScopeList[st.currentScope]["tac"].expression_emit(p3["tac_name"],'',"--", '')
 
 	return p0
 
@@ -621,12 +624,25 @@ def p_postfix_expression2(p):
 						p[2][idx] = dict(entry)
 						p[2][idx]["is_decl"] = True
 			if st.check_func_params(p.lineno(1), p[0], p[2], ["variable", "literal", "array"], decl=True):
-				for param in p[2]:
-					if param.get("real_id_type") in ["function", "class"] and param["tac_name"] == param["name"] + "_" + param["myscope"]:
-						st.ScopeList[st.currentScope]["tac"].emit(["param","pop"])
-					else:
-						st.ScopeList[st.currentScope]["tac"].emit(["param",str(param["tac_name"])])
-				st.ScopeList[st.currentScope]["tac"].emit(["call",p[1]["name"],",",str(len(p[2]))])
+				if not st.Error :
+					for param in p[2]:
+						st.ScopeList[st.currentScope]["tac"].emit(["param",str(param["type"]) ,str(param["tac_name"])])
+
+						#if param.get("real_id_type") in ["function", "class"] and param["tac_name"] == param["name"] + "_" + param["myscope"]:
+						#	st.ScopeList[st.currentScope]["tac"].emit(["param", "pop"])
+						#else:
+					st.ScopeList[st.currentScope]["tac"].emit(["call",p[1]["name"],",",str(len(p[2]))])
+					temp = st.ScopeList[st.currentScope]["tac"].getnewtemp()
+					_scope = st.currentScope
+					if len(st.function_list) > 0:
+						_scope = st.function_list[-1]["name"]
+					elif len(st.namespace_list) > 0:
+						_scope = st.namespace_list[-1]["name"]
+					p[0]["tac_name"] = temp + "_" + str(_scope)
+					SymbolTable.insertTemp(p[0]["tac_name"], "temporary", _scope, p[0]["type"])
+					st.ScopeList[st.currentScope]["tac"].expression_emit(p[0]["tac_name"],"","=","^retval",)
+
+
 
 			p[0]["real_id_type"] = p[0]["id_type"]
 			p[0]["id_type"] = "variable"
@@ -661,12 +677,23 @@ def p_postfix_expression2(p):
 								p[2][idx] = dict(entry)
 								p[2][idx]["is_decl"] = True
 					if st.check_func_params(p.lineno(1), p[0], p[2], ["variable", "array", "literal"], decl=True):
-						for param in p[2]:
-							if param.get("real_id_type") in ["function", "class"] and param["tac_name"] == param["name"] + "_" + param["myscope"]:
-								st.ScopeList[st.currentScope]["tac"].emit(["param","pop"])
-							else:
-								st.ScopeList[st.currentScope]["tac"].emit(["param",str(param["tac_name"])])
-						st.ScopeList[st.currentScope]["tac"].emit(["call",p[1]["name"],",",str(len(p[2]))])
+						if not st.Error :
+							for param in p[2]:
+								st.ScopeList[st.currentScope]["tac"].emit(["param",str(" ".join(param["type"])),str(param["tac_name"])])
+
+								#if param.get("real_id_type") in ["function", "class"] and param["tac_name"] == param["name"] + "_" + param["myscope"]:
+								#	st.ScopeList[st.currentScope]["tac"].emit(["param","pop"])
+								#else:
+							st.ScopeList[st.currentScope]["tac"].emit(["call",p[1]["name"],",",str(len(p[2]))])
+							temp = st.ScopeList[st.currentScope]["tac"].getnewtemp()
+							_scope = st.currentScope
+							if len(st.function_list) > 0:
+								_scope = st.function_list[-1]["name"]
+							elif len(st.namespace_list) > 0:
+								_scope = st.namespace_list[-1]["name"]
+							p[0]["tac_name"] = temp + "_" + str(_scope)
+							SymbolTable.insertTemp(p[0]["tac_name"], "temporary", _scope, p[0]["type"])
+							st.ScopeList[st.currentScope]["tac"].expression_emit(p[0]["tac_name"],"","=","^retval",p[0]["type"])
 
 					for param in p[0]["parameters"]:
 						param["id_type"] = "variable" if param["id_type"] == "parameter" else param["id_type"]
@@ -776,12 +803,44 @@ def p_postfix_expression6(p):
 		elif not set(p[3]["type"]).issubset(st.integral_types):
 			st.print_error(p.lineno(1), p[1], 8, p[3]["type"])
 		else:
+
 			p[0]["order"] = p[0]["order"][1:]
 			product = reduce((lambda x, y: x * y), p[0]["order"],1)
-			p[0]["index"] = p[0].get("index",0) + product*p[3]["value"]
+			if not st.Error :
+				if "index" not in p[0]:
+					_scope = st.currentScope
+					if len(st.function_list) > 0:
+						_scope = st.function_list[-1]["name"]
+					elif len(st.namespace_list) > 0:
+						_scope = st.namespace_list[-1]["name"]
+					p[0]["index"] = st.ScopeList[st.currentScope]["tac"].getnewtemp() + "_" + str(_scope)
+					SymbolTable.insertTemp(p[0]["index"], "temporary", _scope, ['int'])
+
+					st.ScopeList[st.currentScope]["tac"].expression_emit(p[0]["index"],"","=","0",["int"])
+
+
+				if p[3]["id_type"] in ["literal"]:
+					st.ScopeList[st.currentScope]["tac"].expression_emit(p[0]["index"],p[0]["index"],"+",str(product*p[3]["value"]),["int"])
+
+	 
+				else:
+					_scope = st.currentScope
+					if len(st.function_list) > 0:
+						_scope = st.function_list[-1]["name"]
+					elif len(st.namespace_list) > 0:
+						_scope = st.namespace_list[-1]["name"]
+					t = st.ScopeList[st.currentScope]["tac"].getnewtemp() + "_" +str(_scope)
+					SymbolTable.insertTemp(t, "temporary", _scope, ['int'])
+
+					st.ScopeList[st.currentScope]["tac"].expression_emit(t,p[3]["tac_name"],"*",str(product),["int"])
+					st.ScopeList[st.currentScope]["tac"].expression_emit(p[0]["index"],p[0]["index"],"+",t,["int"])
+
 			if len(p[0]["order"]) == 0:
-				size = st.simple_type_specifier[" ".join(p[0]["type"])]["size"]
-				p[0]["tac_name"] =  "$" + p[0]["tac_name"] + "+" + str(p[0]["index"]*size)
+				if not st.Error :
+					size = st.simple_type_specifier[" ".join(p[0]["type"])]["size"]
+					st.ScopeList[st.currentScope]["tac"].expression_emit(p[0]["index"],p[0]["index"],"*",str(size),["int"])
+					p[0]["tac_name"] =  "$" + p[0]["tac_name"] + "+" + p[0]["index"] 
+				
 				p[0]["real_id_type"] = p[0]["id_type"]
 				p[0]["id_type"] = "variable"		# Array is completely dereferenced to a single memory location
 	pass
@@ -1008,7 +1067,8 @@ def p_unary_expression2(p):
 		st.print_error(p.lineno(1), p[0], 13)
 		return
 
-	st.ScopeList[st.currentScope]["tac"].expression_emit(p[0]["tac_name"],'',p[1], '')
+	if not st.Error :
+		st.ScopeList[st.currentScope]["tac"].expression_emit(p[0]["tac_name"],'',p[1], '')
 	pass
 
 def p_unary_expression3(p):
@@ -1026,8 +1086,9 @@ def p_unary_expression3(p):
 
 	if (not set(p[0]["type"]).issubset(st.number_types)) or (p[0].get("id_type") not in ["variable", "array"]):		# Incomplete list
 		st.print_error(p.lineno(1), p[0], 13)
-		return
-	st.ScopeList[st.currentScope]["tac"].expression_emit(p[0]["tac_name"],'',p[1], '')
+	
+	if not st.Error :
+		st.ScopeList[st.currentScope]["tac"].expression_emit(p[0]["tac_name"],'',p[1], '')
 	pass
 
 def p_unary_expression4(p):
@@ -1050,10 +1111,12 @@ def p_unary_expression4(p):
 					st.print_error(p.lineno(1), p[2], 14, p[1])
 				else:
 					p[0]["star"] -= 1
-					p[0]["tac_name"] = "*" + p[0]["tac_name"]
+					if not st.Error :
+						p[0]["tac_name"] = "*" + p[0]["tac_name"] 
 			elif p[1] == '&':
 				p[0]["star"] += 1
-				p[0]["tac_name"] = "&" + p[0]["tac_name"]
+				if not st.Error :
+					p[0]["tac_name"] = "&" + p[0]["tac_name"]
 	elif p[0]["is_decl"] is False:
 		if p[1] == '&':
 			st.print_error(p.lineno(1), p[2], 14, p[1])
@@ -1074,9 +1137,15 @@ def p_unary_expression6(p):
 	add_children(len(list(filter(None, p[1:]))),"unary_expression")
 	p[0] = p[2]
 	if (not set(p[0].get("type")).issubset(st.number_literals)) and ((p[0].get("id_type") != "variable") or ( not set(p[0].get("type")).issubset(st.number_types))):
-		st.print_error(p.lineno(1), {}, 14, '-')
-	st.ScopeList[st.currentScope]["tac"].expression_emit(p[2]["tac_name"],'',p[1]*3, '')
-	p[0]["tac_name"] = p[2]["tac_name"]
+		st.print_error(p.lineno(1), {}, 14, '+')
+	elif set(p[0].get("type")).issubset(st.number_literals):
+		p[0]["value"] = -p[0]["value"]
+		if not st.Error :
+			p[0]["tac_name"] = "-" + p[0]["tac_name"]
+
+	#st.ScopeList[st.currentScope]["tac"].expression_emit(p[2]["tac_name"],'',"*=", '')
+	if not st.Error :
+		p[0]["tac_name"] = p[2]["tac_name"]
 	pass
 
 def p_unary_expression7(p):
@@ -1086,10 +1155,16 @@ def p_unary_expression7(p):
 	p[0] = p[2]
 	if (not set(p[0].get("type")).issubset(st.number_literals)) and ((p[0].get("id_type") != "variable") or ( not set(p[0].get("type")).issubset(st.number_types))):
 		st.print_error(p.lineno(1), {}, 14, '-')
+	elif set(p[0].get("type")).issubset(st.number_literals):
+		p[0]["value"] = -p[0]["value"]
+		if not st.Error :
+			p[0]["tac_name"] = "-" + p[0]["tac_name"]
+
 	elif p[0].get("value"):
 		p[0]["value"] = -p[0]["value"]
-		st.ScopeList[st.currentScope]["tac"].expression_emit(p[2]["tac_name"],'',p[1]*3, '')
-		p[0]["tac_name"] = p[2]["tac_name"]
+		if not st.Error :
+			st.ScopeList[st.currentScope]["tac"].expression_emit(p[2]["tac_name"],'',"*=", '-1')
+			p[0]["tac_name"] = p[2]["tac_name"]
 	pass
 
 def p_unary_expression8(p):
@@ -1097,9 +1172,10 @@ def p_unary_expression8(p):
 	create_child("None",p[1])
 	add_children(len(list(filter(None, p[1:]))),"unary_expression")
 	p[0] = p[2]
-	st.ScopeList[st.currentScope]["tac"].expression_emit(p[2]["tac_name"],'',p[1], '')
-	p[0]["truelist"] = p[2]["falselist"]
-	p[0]["falselist"] = p[2]["truelist"]
+	if not st.Error :
+		st.ScopeList[st.currentScope]["tac"].expression_emit(p[2]["tac_name"],'',p[1], '')
+		p[0]["truelist"] = p[2]["falselist"]
+		p[0]["falselist"] = p[2]["truelist"]
 	pass
 
 def p_unary_expression9(p):
@@ -1107,7 +1183,8 @@ def p_unary_expression9(p):
 	create_child("None",p[1])
 	add_children(len(list(filter(None, p[1:]))),"unary_expression")
 	p[0] = p[2]
-	st.ScopeList[st.currentScope]["tac"].expression_emit(p[2]["tac_name"],'',p[1], '')
+	if not st.Error :
+		st.ScopeList[st.currentScope]["tac"].expression_emit(p[2]["tac_name"],'',p[1], '')
 	pass
 
 def p_unary_expression10(p):
@@ -1322,34 +1399,34 @@ def p_additive_expression3(p):
 def p_cout_expression1(p):
 	"cout_expression : COUT SHL primary_expression"
 	add_children(len(list(filter(None, p[1:]))),"shift_expression")
-	print("-----------------------------------------------------",p[3])
-	if p[3].get("is_decl", True) is False:
-		entry = SymbolTable.lookupComplete(p[3]["name"])
-		if entry is None:
-			st.print_error(p.lineno(1), p[3], 1)
-			p[0] = dict(cout_list=[])
-			return
-		else:
-			p[3] = dict(entry)
-			p[3]["is_decl"] = True
-	p[0] = dict(p[3])
-	p[0]["cout_list"] = [p[3]]
+	if not st.Error :
+		if p[3].get("is_decl", True) is False:
+			entry = SymbolTable.lookupComplete(p[3]["name"])
+			if entry is None:
+				st.print_error(p.lineno(1), p[3], 1)
+				p[0] = dict(cout_list=[])
+				return
+			else:
+				p[3] = dict(entry)
+				p[3]["is_decl"] = True
+		p[0] = dict(p[3])
+		p[0]["cout_list"] = [p[3]]
 	pass
 
 def p_cout_expression2(p):
 	"cout_expression : cout_expression SHL primary_expression"
 	add_children(len(list(filter(None, p[1:]))),"shift_expression")
 	p[0] = p[1]
-	if p[3].get("is_decl", True) is False:
-		entry = SymbolTable.lookupComplete(p[3]["name"])
-		if entry is None:
-			st.print_error(p.lineno(1), p[3], 1)
-			return
-		else:
-			p[3] = dict(entry)
-			p[3]["is_decl"] = True
-	p[0]["cout_list"] += [p[3]]
-	print("--------------------------weeeeeeeeeeeeeeeeeeee---------------------------",p[0]["cout_list"])
+	if not st.Error :
+		if p[3].get("is_decl", True) is False:
+			entry = SymbolTable.lookupComplete(p[3]["name"])
+			if entry is None:
+				st.print_error(p.lineno(1), p[3], 1)
+				return
+			else:
+				p[3] = dict(entry)
+				p[3]["is_decl"] = True
+		p[0]["cout_list"] += [p[3]]
 
 	pass
 
@@ -1381,47 +1458,50 @@ def p_relational_expression2(p):
 	"relational_expression : relational_expression '<' shift_expression"
 	add_children(len(list(filter(None, p[1:]))) - 1 ,p[2])
 	p[0] = expression_semantic(p.lineno(1), p[0], p[1], p[2], p[3])
-	p[0]["truelist"] = [st.ScopeList[st.currentScope]["tac"].getnext() -2 ]
-	p[0]["falselist"] = [st.ScopeList[st.currentScope]["tac"].getnext() - 1]
+	if not st.Error :
+		p[0]["truelist"] = [st.ScopeList[st.currentScope]["tac"].getnext() -2 ]
+		p[0]["falselist"] = [st.ScopeList[st.currentScope]["tac"].getnext() - 1]
 	pass
 
 def p_relational_expression3(p):
 	"relational_expression : relational_expression '>' shift_expression"
 	add_children(len(list(filter(None, p[1:]))) - 1 ,p[2])
 	p[0] = expression_semantic(p.lineno(1), p[0], p[1], p[2], p[3])
-	p[0]["truelist"] = [st.ScopeList[st.currentScope]["tac"].getnext() -2]
-	p[0]["falselist"] = [st.ScopeList[st.currentScope]["tac"].getnext()-1]
+	if not st.Error :
+		p[0]["truelist"] = [st.ScopeList[st.currentScope]["tac"].getnext() -2]
+		p[0]["falselist"] = [st.ScopeList[st.currentScope]["tac"].getnext()-1]
 	pass
 
 def p_relational_expression4(p):
 	"relational_expression : relational_expression LE shift_expression"
 	add_children(len(list(filter(None, p[1:]))) - 1,p[2])
 	p[0] = expression_semantic(p.lineno(1), p[0], p[1], p[2], p[3])
-	p[0]["truelist"] = [st.ScopeList[st.currentScope]["tac"].getnext() - 2]
-	p[0]["falselist"] = [st.ScopeList[st.currentScope]["tac"].getnext() - 1]
+	if not st.Error :
+		p[0]["truelist"] = [st.ScopeList[st.currentScope]["tac"].getnext() - 2]
+		p[0]["falselist"] = [st.ScopeList[st.currentScope]["tac"].getnext() - 1]
 	pass
 
 def p_relational_expression5(p):
 	"relational_expression : relational_expression GE shift_expression"
 	add_children(len(list(filter(None, p[1:]))) - 1,p[2])
 	p[0] = expression_semantic(p.lineno(1), p[0], p[1], p[2], p[3])
-	p[0]["truelist"] = [st.ScopeList[st.currentScope]["tac"].getnext() - 2 ]
-	p[0]["falselist"] = [st.ScopeList[st.currentScope]["tac"].getnext() - 1]
+	if not st.Error :
+		p[0]["truelist"] = [st.ScopeList[st.currentScope]["tac"].getnext() - 2 ]
+		p[0]["falselist"] = [st.ScopeList[st.currentScope]["tac"].getnext() - 1]
 	pass
 
 def p_relational_expression6(p):
 	"relational_expression : cout_expression"
 	add_children(len(list(filter(None, p[1:]))),"relational_expression")
 	p[0] = p[1]
-	i = 0
-	for ids in p[0]["cout_list"]:
-		if ids["id_type"] in ["literal"]:
-			j = st.ScopeList[st.currentScope]["tac"].getnext()
-			st.ScopeList[st.currentScope]["tac"].emit(["cout", "string", "cout_" + str(j)])
-			print(ids)
-			cg.literal_decl.append(["cout_" + str(j),ids["name"]])
-		else:
-			st.ScopeList[st.currentScope]["tac"].emit(["cout", st.simple_type_specifier[" ".join(ids["type"])]["equiv_type"], ids["tac_name"]])
+	if not st.Error :
+		for ids in p[0]["cout_list"]:
+			if ids["id_type"] in ["literal"]:
+				j = st.ScopeList[st.currentScope]["tac"].getnext()
+				st.ScopeList[st.currentScope]["tac"].emit(["cout", "string", "cout_" + str(j)])
+				cg.literal_decl.append(["cout_" + str(j),ids["name"]])
+			else:
+				st.ScopeList[st.currentScope]["tac"].emit(["cout", st.simple_type_specifier[" ".join(ids["type"])]["equiv_type"], ids["tac_name"]])
 	pass
 
 def p_equality_expression1(p):
@@ -1434,16 +1514,18 @@ def p_equality_expression2(p):
 	"equality_expression : equality_expression EQ relational_expression"
 	add_children(len(list(filter(None, p[1:]))) - 1,p[2])
 	p[0] = expression_semantic(p.lineno(1), p[0], p[1], p[2], p[3])
-	p[0]["truelist"] = [st.ScopeList[st.currentScope]["tac"].getnext() - 2]
-	p[0]["falselist"] = [st.ScopeList[st.currentScope]["tac"].getnext() - 1]
+	if not st.Error :
+		p[0]["truelist"] = [st.ScopeList[st.currentScope]["tac"].getnext() - 2]
+		p[0]["falselist"] = [st.ScopeList[st.currentScope]["tac"].getnext() - 1]
 	pass
 
 def p_equality_expression3(p):
 	"equality_expression : equality_expression NE relational_expression"
 	add_children(len(list(filter(None, p[1:]))) - 1 , p[2])
 	p[0] = expression_semantic(p.lineno(1), p[0], p[1], p[2], p[3])
-	p[0]["truelist"] = [st.ScopeList[st.currentScope]["tac"].getnext() - 2]
-	p[0]["falselist"] = [st.ScopeList[st.currentScope]["tac"].getnext() - 1]
+	if not st.Error :
+		p[0]["truelist"] = [st.ScopeList[st.currentScope]["tac"].getnext() - 2]
+		p[0]["falselist"] = [st.ScopeList[st.currentScope]["tac"].getnext() - 1]
 	pass
 
 def p_and_expression1(p):
@@ -1492,9 +1574,10 @@ def p_logical_and_expression2(p):
 	"logical_and_expression : logical_and_expression LOG_AND marker_M inclusive_or_expression"
 	add_children(len(list(filter(None, p[1:]))) - 1,p[2])
 	p[0] = expression_semantic(p.lineno(1), p[0], p[1], p[2], p[4])
-	st.ScopeList[st.currentScope]["tac"].backpatch(p[1]["truelist"], p[3]["quad"]  )
-	p[0]["falselist"] = list(set(p[1]["falselist"] + p[4]["falselist"]))
-	p[0]["truelist"] = p[4]["truelist"]
+	if not st.Error :
+		st.ScopeList[st.currentScope]["tac"].backpatch(p[1]["truelist"], p[3]["quad"]  )
+		p[0]["falselist"] = list(set(p[1]["falselist"] + p[4]["falselist"]))
+		p[0]["truelist"] = p[4]["truelist"]
 	pass
 
 def p_logical_or_expression1(p):
@@ -1507,9 +1590,10 @@ def p_logical_or_expression2(p):
 	"logical_or_expression : logical_or_expression LOG_OR marker_M logical_and_expression"
 	add_children(len(list(filter(None, p[1:]))) - 1,p[2])
 	p[0] = expression_semantic(p.lineno(1), p[0], p[1], p[2], p[4])
-	st.ScopeList[st.currentScope]["tac"].backpatch(p[1]["falselist"], p[3]["quad"] )
-	p[0]["truelist"] = list(set(p[1]["truelist"] + p[4]["truelist"]))
-	p[0]["falselist"] = p[4]["falselist"]
+	if not st.Error :
+		st.ScopeList[st.currentScope]["tac"].backpatch(p[1]["falselist"], p[3]["quad"] )
+		p[0]["truelist"] = list(set(p[1]["truelist"] + p[4]["truelist"]))
+		p[0]["falselist"] = p[4]["falselist"]
 	pass
 
 def p_conditional_expression1(p):
@@ -1552,7 +1636,8 @@ def p_assignment_expression2(p):
 		return
 
 	if p[0].get("is_decl", False) is False:
-		p[0]["tac_name"] = p[0]["name"] + "_" + str(st.currentScope)
+		if not st.Error :
+			p[0]["tac_name"] = p[0]["name"] + "_" + str(st.currentScope)
 
 	if p[2] == '=':			# simple assignment
 		if p[3].get("is_decl", True) is False:	# When only a variable is present in RHS
@@ -1563,16 +1648,17 @@ def p_assignment_expression2(p):
 			else:
 				p[3] = dict(entry)
 				p[3]["is_decl"] = True
-				if p[3].get("real_id_type") in ["function", "class"] and p[3]["tac_name"] == p[3]["name"] + "_" + p[3]["myscope"]:
-					st.ScopeList[st.currentScope]["tac"].expression_emit(p[0]["tac_name"],'',p[2],"pop")
-				else:
-					st.ScopeList[st.currentScope]["tac"].expression_emit(p[0]["tac_name"],'',p[2],p[3]["tac_name"])
-					p[0]["tac_name"] = p[3]["tac_name"]
+				if not st.Error :
+					if p[3].get("real_id_type") in ["function", "class"] and p[3]["tac_name"] == p[3]["name"] + "_" + p[3]["myscope"]:
+						st.ScopeList[st.currentScope]["tac"].expression_emit(p[0]["tac_name"],'',p[2],"pop")
+					else:
+						st.ScopeList[st.currentScope]["tac"].expression_emit(p[0]["tac_name"],'',p[2],p[3]["tac_name"])
+						p[0]["tac_name"] = p[3]["tac_name"]
 
-				if p[3].get("inc",False):
-					st.ScopeList[st.currentScope]["tac"].expression_emit(p[3]["tac_name"],'',"++", '')
-				if p[3].get("dec",False):
-					st.ScopeList[st.currentScope]["tac"].expression_emit(p[3]["tac_name"],'',"--", '')
+					if p[3].get("inc",False):
+						st.ScopeList[st.currentScope]["tac"].expression_emit(p[3]["tac_name"],'',"++", '')
+					if p[3].get("dec",False):
+						st.ScopeList[st.currentScope]["tac"].expression_emit(p[3]["tac_name"],'',"--", '')
 		if p[3].get("id_type") not in ["variable", "literal", "array"]:
 			st.print_error(p.lineno(1), {}, 15, ' '.join([p[1]["name"], p[2], p[3]["name"]]))
 			return
@@ -1596,6 +1682,23 @@ def p_assignment_expression2(p):
 						return
 					if st.expression_type(p.lineno(1), p[1]["type"], p[1].get("star", 0) , p[3]["type"], p[3].get("star", 0), op=str(p[2])):
 						p[0]["value"] = p[3]["value"]
+						if not st.Error :
+							if p[3].get("real_id_type") in ["function", "class"] and p[3]["tac_name"] == p[3]["name"] + "_" + p[3]["myscope"]:
+								st.ScopeList[st.currentScope]["tac"].expression_emit(p[0]["tac_name"],'',p[2],"pop")
+							else:
+								st.ScopeList[st.currentScope]["tac"].expression_emit(p[0]["tac_name"],'',p[2],p[3]["tac_name"])
+								p[0]["tac_name"] = p[3]["tac_name"]
+							if p[3].get("inc",False):
+								st.ScopeList[st.currentScope]["tac"].expression_emit(p[3]["tac_name"],'',"++", '')
+							if p[3].get("dec",False):
+								st.ScopeList[st.currentScope]["tac"].expression_emit(p[3]["tac_name"],'',"--", '')
+			else:
+				st.print_error(p.lineno(1), {}, 18, p[1]["id_type"], p[3]["id_type"])
+		elif p[1]["id_type"] == p[3]["id_type"]:
+			if p[1]["type"]:
+				if st.expression_type(p.lineno(1), p[1]["type"], p[1].get("star", 0) , p[3]["type"], p[3].get("star", 0), op=str(p[2])):
+					p[0]["value"] = p[3]["value"]
+					if not st.Error :
 						if p[3].get("real_id_type") in ["function", "class"] and p[3]["tac_name"] == p[3]["name"] + "_" + p[3]["myscope"]:
 							st.ScopeList[st.currentScope]["tac"].expression_emit(p[0]["tac_name"],'',p[2],"pop")
 						else:
@@ -1605,21 +1708,6 @@ def p_assignment_expression2(p):
 							st.ScopeList[st.currentScope]["tac"].expression_emit(p[3]["tac_name"],'',"++", '')
 						if p[3].get("dec",False):
 							st.ScopeList[st.currentScope]["tac"].expression_emit(p[3]["tac_name"],'',"--", '')
-			else:
-				st.print_error(p.lineno(1), {}, 18, p[1]["id_type"], p[3]["id_type"])
-		elif p[1]["id_type"] == p[3]["id_type"]:
-			if p[1]["type"]:
-				if st.expression_type(p.lineno(1), p[1]["type"], p[1].get("star", 0) , p[3]["type"], p[3].get("star", 0), op=str(p[2])):
-					p[0]["value"] = p[3]["value"]
-					if p[3].get("real_id_type") in ["function", "class"] and p[3]["tac_name"] == p[3]["name"] + "_" + p[3]["myscope"]:
-						st.ScopeList[st.currentScope]["tac"].expression_emit(p[0]["tac_name"],'',p[2],"pop")
-					else:
-						st.ScopeList[st.currentScope]["tac"].expression_emit(p[0]["tac_name"],'',p[2],p[3]["tac_name"])
-						p[0]["tac_name"] = p[3]["tac_name"]
-					if p[3].get("inc",False):
-						st.ScopeList[st.currentScope]["tac"].expression_emit(p[3]["tac_name"],'',"++", '')
-					if p[3].get("dec",False):
-						st.ScopeList[st.currentScope]["tac"].expression_emit(p[3]["tac_name"],'',"--", '')
 		else:
 			st.print_error(p.lineno(1), {}, 15, ' '.join([p[1]["name"], p[2], p[3]["name"]]))
 	else:
@@ -1631,15 +1719,16 @@ def p_assignment_expression2(p):
 			else:
 				p[3] = dict(entry)
 				p[3]["is_decl"] = True
-				if p[3].get("real_id_type") in ["function", "class"] and p[3]["tac_name"] == p[3]["name"] + "_" + p[3]["myscope"]:
-					st.ScopeList[st.currentScope]["tac"].expression_emit(p[0]["tac_name"],'',p[2],"pop")
-				else:
-					st.ScopeList[st.currentScope]["tac"].expression_emit(p[0]["tac_name"],'',p[2],p[3]["tac_name"])
-					p[0]["tac_name"] = p[3]["tac_name"]
-				if p[3].get("inc",False):
-					st.ScopeList[st.currentScope]["tac"].expression_emit(p[3]["tac_name"],'',"++", '')
-				if p[3].get("dec",False):
-					st.ScopeList[st.currentScope]["tac"].expression_emit(p[3]["tac_name"],'',"--", '')
+				if not st.Error :
+					if p[3].get("real_id_type") in ["function", "class"] and p[3]["tac_name"] == p[3]["name"] + "_" + p[3]["myscope"]:
+						st.ScopeList[st.currentScope]["tac"].expression_emit(p[0]["tac_name"],'',p[2],"pop")
+					else:
+						st.ScopeList[st.currentScope]["tac"].expression_emit(p[0]["tac_name"],'',p[2],p[3]["tac_name"])
+						p[0]["tac_name"] = p[3]["tac_name"]
+					if p[3].get("inc",False):
+						st.ScopeList[st.currentScope]["tac"].expression_emit(p[3]["tac_name"],'',"++", '')
+					if p[3].get("dec",False):
+						st.ScopeList[st.currentScope]["tac"].expression_emit(p[3]["tac_name"],'',"--", '')
 		if p[3].get("id_type") not in ["variable", "literal"]:
 			st.print_error(p.lineno(1), {}, 15, ' '.join([p[1]["name"], p[2], p[3]["name"]]))
 			return
@@ -1654,15 +1743,16 @@ def p_assignment_expression2(p):
 			else:
 				p[0] = dict(entry)
 				p[0]["is_decl"] = True
-				if p[3].get("real_id_type") in ["function", "class"] and p[3]["tac_name"] == p[3]["name"] + "_" + p[3]["myscope"]:
-					st.ScopeList[st.currentScope]["tac"].expression_emit(p[0]["tac_name"],'',p[2],"pop")
-				else:
-					st.ScopeList[st.currentScope]["tac"].expression_emit(p[0]["tac_name"],'',p[2],p[3]["tac_name"])
-					p[0]["tac_name"] = p[3]["tac_name"]
-				if p[3].get("inc",False):
-					st.ScopeList[st.currentScope]["tac"].expression_emit(p[3]["tac_name"],'',"++", '')
-				if p[3].get("dec",False):
-					st.ScopeList[st.currentScope]["tac"].expression_emit(p[3]["tac_name"],'',"--", '')
+				if not st.Error :
+					if p[3].get("real_id_type") in ["function", "class"] and p[3]["tac_name"] == p[3]["name"] + "_" + p[3]["myscope"]:
+						st.ScopeList[st.currentScope]["tac"].expression_emit(p[0]["tac_name"],'',p[2],"pop")
+					else:
+						st.ScopeList[st.currentScope]["tac"].expression_emit(p[0]["tac_name"],'',p[2],p[3]["tac_name"])
+						p[0]["tac_name"] = p[3]["tac_name"]
+					if p[3].get("inc",False):
+						st.ScopeList[st.currentScope]["tac"].expression_emit(p[3]["tac_name"],'',"++", '')
+					if p[3].get("dec",False):
+						st.ScopeList[st.currentScope]["tac"].expression_emit(p[3]["tac_name"],'',"--", '')
 		if (p[0].get("id_type") not in ["variable", "array"]) or (p[0].get("real_id_type") in ["function", "class"]):
 			st.print_error(p.lineno(1), p[0], 17)
 			return
@@ -1670,15 +1760,16 @@ def p_assignment_expression2(p):
 			if "const" in p[0]["specifier"]:
 				st.print_error(p.lineno(1), p[0], 19)
 			else:
-				if p[3].get("real_id_type") in ["function", "class"] and p[3]["tac_name"] == p[3]["name"] + "_" + p[3]["myscope"]:
-					st.ScopeList[st.currentScope]["tac"].expression_emit(p[0]["tac_name"],'',p[2],"pop")
-				else:
-					st.ScopeList[st.currentScope]["tac"].expression_emit(p[0]["tac_name"],'',p[2],p[3]["tac_name"])
-					p[0]["tac_name"] = p[3]["tac_name"]
-				if p[3].get("inc",False):
-					st.ScopeList[st.currentScope]["tac"].expression_emit(p[3]["tac_name"],'',"++", '')
-				if p[3].get("dec",False):
-					st.ScopeList[st.currentScope]["tac"].expression_emit(p[3]["tac_name"],'',"--", '')
+				if not st.Error :
+					if p[3].get("real_id_type") in ["function", "class"] and p[3]["tac_name"] == p[3]["name"] + "_" + p[3]["myscope"]:
+						st.ScopeList[st.currentScope]["tac"].expression_emit(p[0]["tac_name"],'',p[2],"pop")
+					else:
+						st.ScopeList[st.currentScope]["tac"].expression_emit(p[0]["tac_name"],'',p[2],p[3]["tac_name"])
+						p[0]["tac_name"] = p[3]["tac_name"]
+					if p[3].get("inc",False):
+						st.ScopeList[st.currentScope]["tac"].expression_emit(p[3]["tac_name"],'',"++", '')
+					if p[3].get("dec",False):
+						st.ScopeList[st.currentScope]["tac"].expression_emit(p[3]["tac_name"],'',"--", '')
 	pass
 
 def p_assignment_expression3(p):
@@ -1705,9 +1796,22 @@ def p_assignment_expression3(p):
 		else:
 			p[0]["value"] = [0]*p[0]["num"]
 			p[0]["value"] = array_assignment(p,inits,p[0]["value"])
-			size = st.simple_type_specifier[" ".join(p[0]["type"])]["size"]
-			for i in range(0,p[0]["num"]):
-				st.ScopeList[st.currentScope]["tac"].expression_emit("$" +p[0]["name"] + "_" + str(p[0]["myscope"])+ "+" +str(i*size),'',p[2],str(p[0]["value"][i]))
+			if not st.Error :
+				size = st.simple_type_specifier[" ".join(p[0]["type"])]["size"]
+				_scope = st.currentScope
+				if len(st.function_list) > 0:
+					_scope = st.function_list[-1]["name"]
+				elif len(st.namespace_list) > 0:
+					_scope = st.namespace_list[-1]["name"]
+				t = st.ScopeList[st.currentScope]["tac"].getnewtemp() + "_" + str(_scope)
+				SymbolTable.insertTemp(t, "temporary", _scope, ['int'])
+				st.ScopeList[st.currentScope]["tac"].expression_emit(t,"","=","0",["int"])
+				v = st.ScopeList[st.currentScope]["tac"].getnewtemp() + "_" + str(_scope)
+				SymbolTable.insertTemp(v, "temporary", _scope, ['int'])
+				for i in range(0,p[0]["num"]):
+					st.ScopeList[st.currentScope]["tac"].expression_emit(v,'','=',str(p[0]["value"][i]))
+					st.ScopeList[st.currentScope]["tac"].expression_emit("$" +p[0]["name"] + "_" + str(p[0]["myscope"])+ "+" + t,'',p[2],v)
+					st.ScopeList[st.currentScope]["tac"].expression_emit(t,t,'+',str(size))
 
 	else:
 		st.print_error(p.lineno(1), p[1], 24)
@@ -1746,7 +1850,6 @@ def p_expression_opt1(p):
 def p_expression_opt2(p):
 	"expression_opt : expression"
 	add_children(len(list(filter(None, p[1:]))),"expression_opt")
-	#print("E_opt",p[1])
 	p[0] = p[1]
 	pass
 
@@ -1932,7 +2035,7 @@ def p_m_new_scope(p):
 		SymbolTable.addScope(f["name"], "function_scope")
 		st.is_parameter = True
 		st.parameter_offset = 0
-		for param in f["parameters"]:		# Insert parameters in new scope created for this function
+		for param in reversed(f["parameters"]):		# Insert parameters in new scope created for this function
 			param["myscope"] = f["name"]
 			SymbolTable.insertID(p.lineno(0), param["name"], param["id_type"], types=param["type"], specifiers=param["specifier"],
 								num=param["num"], value=param["value"], stars=param["star"], order=param["order"],
@@ -1958,13 +2061,14 @@ def p_compound_statement2(p):
 	SymbolTable.endScope()
 	p[0] = p[3] if p[3] else {}
 	p[0]["stmt_list"] = p[0].get("stmt_list",[])
-	if p[5]:
-		if ("stmt_list" in p[5]) :
-			p[0]["stmt_list"] = p[5]["stmt_list"]
-		elif ("loop_statement" in p[5]) :
-			p[0]["stmt_list"] = p[5]["loop_statement"]["stmt_list"]
-		p[0]["contlist"] = p[0].get("contlist",[]) + p[5].get("contlist",[])
-		p[0]["breaklist"] = p[0].get("breaklist",[]) + p[5].get("breaklist",[])
+	if not st.Error :
+		if p[5]:
+			if ("stmt_list" in p[5]) :
+				p[0]["stmt_list"] = p[5]["stmt_list"]
+			elif ("loop_statement" in p[5]) :
+				p[0]["stmt_list"] = p[5]["loop_statement"]["stmt_list"]
+			p[0]["contlist"] = p[0].get("contlist",[]) + p[5].get("contlist",[])
+			p[0]["breaklist"] = p[0].get("breaklist",[]) + p[5].get("breaklist",[])
 
 	pass
 
@@ -1977,14 +2081,15 @@ def p_statement_seq_opt2(p):
 	add_children(len(list(filter(None, p[1:]))),"statement_seq_opt")
 	p[0] = p[1] if p[1] else {}
 	p[0]["stmt_list"] = p[0].get("stmt_list",[])
-	if p[3]:
-		if ("stmt_list" in p[3]) :
-			p[0]["stmt_list"] = p[3]["stmt_list"]
-		elif ("loop_statement" in p[3]) :
+	if not st.Error :
+		if p[3]:
 			if ("stmt_list" in p[3]) :
-				p[0]["stmt_list"] = p[3]["loop_statement"]["stmt_list"]
-		p[0]["contlist"] = p[0].get("contlist",[]) + p[3].get("contlist",[])
-		p[0]["breaklist"] = p[0].get("breaklist",[]) + p[3].get("breaklist",[])
+				p[0]["stmt_list"] = p[3]["stmt_list"]
+			elif ("loop_statement" in p[3]) :
+				if ("stmt_list" in p[3]) :
+					p[0]["stmt_list"] = p[3]["loop_statement"]["stmt_list"]
+			p[0]["contlist"] = p[0].get("contlist",[]) + p[3].get("contlist",[])
+			p[0]["breaklist"] = p[0].get("breaklist",[]) + p[3].get("breaklist",[])
 	pass
 
 def p_statement_seq_opt3(p):
@@ -1994,13 +2099,14 @@ def p_statement_seq_opt3(p):
 	add_children(len(list(filter(None, p[1:]))),"statement_seq_opt")
 	p[0] = p[1] if p[1] else {}
 	p[0]["stmt_list"] = p[0].get("stmt_list",[])
-	if p[3]:
-		if ("stmt_list" in p[3]) :
-			p[0]["stmt_list"] = p[3]["stmt_list"]
-		elif ("loop_statement" in p[3]) :
-			p[0]["stmt_list"] = p[3]["loop_statement"]["stmt_list"]
-		p[0]["contlist"] = p[0].get("contlist",[]) + p[3].get("contlist",[])
-		p[0]["breaklist"] = p[0].get("breaklist",[]) + p[3].get("breaklist",[])
+	if not st.Error :
+		if p[3]:
+			if ("stmt_list" in p[3]) :
+				p[0]["stmt_list"] = p[3]["stmt_list"]
+			elif ("loop_statement" in p[3]) :
+				p[0]["stmt_list"] = p[3]["loop_statement"]["stmt_list"]
+			p[0]["contlist"] = p[0].get("contlist",[]) + p[3].get("contlist",[])
+			p[0]["breaklist"] = p[0].get("breaklist",[]) + p[3].get("breaklist",[])
 	pass
 
 #/*
@@ -2015,12 +2121,13 @@ def p_selection_statement1(p):
 	p[0]["type"] = "if"
 	p[0]["condition"] = p[3]
 	p[0]["loop_statement"] = p[6]
-	st.ScopeList[st.currentScope]["tac"].backpatch(p[3]["truelist"], p[5]["quad"]  )
-	st.ScopeList[st.currentScope]["tac"].backpatch(p[3]["truelist"], p[5]["quad"]  )
-	temp_list = list(set(p[3]["falselist"] + p[6]["breaklist"]))
-	st.ScopeList[st.currentScope]["tac"].backpatch(temp_list, st.ScopeList[st.currentScope]["tac"].nextquad  )
-	p[0]["breaklist"] = p[6]["breaklist"]
-	p[0]["contlist"] = p[6]["contlist"]
+	if not st.Error :
+		st.ScopeList[st.currentScope]["tac"].backpatch(p[3]["truelist"], p[5]["quad"]  )
+		st.ScopeList[st.currentScope]["tac"].backpatch(p[3]["truelist"], p[5]["quad"]  )
+		temp_list = list(set(p[3]["falselist"] + p[6]["breaklist"]))
+		st.ScopeList[st.currentScope]["tac"].backpatch(temp_list, st.ScopeList[st.currentScope]["tac"].nextquad  )
+		p[0]["breaklist"] = p[6]["breaklist"]
+		p[0]["contlist"] = p[6]["contlist"]
 
 
 
@@ -2035,13 +2142,12 @@ def p_selection_statement2(p):
 	p[0]["condition"] = p[3]
 	p[0]["loop_statement"] = dict((k, [p[6][k], p[10].get(k)]) for k in p[6])
 	p[0]["loop_statement"].update((k, [None, p[10][k]]) for k in p[10] if k not in p[6])
-	st.ScopeList[st.currentScope]["tac"].backpatch(p[3]["truelist"], p[5]["quad"]  )
-	st.ScopeList[st.currentScope]["tac"].backpatch(p[3]["falselist"], p[9]["quad"]  )
-	st.ScopeList[st.currentScope]["tac"].backpatch(p[8]["nextlist"], st.ScopeList[st.currentScope]["tac"].nextquad  )
-
-
-	p[0]["breaklist"] = list(set(p[6]["breaklist"] + p[10]["breaklist"]))
-	p[0]["contlist"] = list(set(p[6]["contlist"] + p[10]["contlist"]))
+	if not st.Error :
+		st.ScopeList[st.currentScope]["tac"].backpatch(p[3]["truelist"], p[5]["quad"]  )
+		st.ScopeList[st.currentScope]["tac"].backpatch(p[3]["falselist"], p[9]["quad"]  )
+		st.ScopeList[st.currentScope]["tac"].backpatch(p[8]["nextlist"], st.ScopeList[st.currentScope]["tac"].nextquad  )
+		p[0]["breaklist"] = list(set(p[6]["breaklist"] + p[10]["breaklist"]))
+		p[0]["contlist"] = list(set(p[6]["contlist"] + p[10]["contlist"]))
 
 	#temp_list = list(set(p[3]["falselist"] + p[6]["breaklist"]))
 	#st.ScopeList[st.currentScope]["tac"].backpatch(temp_list, st.ScopeList[st.currentScope]["tac"].nextquad  )
@@ -2104,14 +2210,15 @@ def p_iteration_statement1(p):
 	p[0]["type"] = "while"
 	p[0]["condition"] = p[4]
 	p[0]["loop_statement"] = p[7]
-	st.ScopeList[st.currentScope]["tac"].backpatch(p[7]["contlist"], p[3]["quad"]  )
-	st.ScopeList[st.currentScope]["tac"].backpatch(p[4]["truelist"], p[6]["quad"]  )
-	st.ScopeList[st.currentScope]["tac"].emit(["goto",str(p[3]["quad"])])
-	tac.labels.append(str(p[3]["quad"]))
-	temp_list = p[4]["falselist"] + p[7]["breaklist"]
-	st.ScopeList[st.currentScope]["tac"].backpatch(temp_list, st.ScopeList[st.currentScope]["tac"].nextquad  )
-	p[0]["breaklist"] = []
-	p[0]["contlist"] = []
+	if not st.Error :
+		st.ScopeList[st.currentScope]["tac"].backpatch(p[7]["contlist"], p[3]["quad"]  )
+		st.ScopeList[st.currentScope]["tac"].backpatch(p[4]["truelist"], p[6]["quad"]  )
+		st.ScopeList[st.currentScope]["tac"].emit(["goto",str(p[3]["quad"])])
+		tac.labels.append(str(p[3]["quad"]))
+		temp_list = p[4]["falselist"] + p[7]["breaklist"]
+		st.ScopeList[st.currentScope]["tac"].backpatch(temp_list, st.ScopeList[st.currentScope]["tac"].nextquad  )
+		p[0]["breaklist"] = []
+		p[0]["contlist"] = []
 
 	pass
 
@@ -2122,13 +2229,14 @@ def p_iteration_statement2(p):
 	p[0]["type"] = "do_while"
 	p[0]["condition"] = p[8]
 	p[0]["loop_statement"] = p[3]
-	st.ScopeList[st.currentScope]["tac"].backpatch(p[4]["nextlist"], p[7]["quad"]  )
-	st.ScopeList[st.currentScope]["tac"].backpatch(p[3]["contlist"], p[7]["quad"]  )
-	st.ScopeList[st.currentScope]["tac"].backpatch(p[8]["truelist"], p[2]["quad"]  )
-	temp_list = p[8]["falselist"] + p[3]["breaklist"]
-	st.ScopeList[st.currentScope]["tac"].backpatch(temp_list, st.ScopeList[st.currentScope]["tac"].nextquad  )
-	p[0]["breaklist"] = []
-	p[0]["contlist"] = []
+	if not st.Error :
+		st.ScopeList[st.currentScope]["tac"].backpatch(p[4]["nextlist"], p[7]["quad"]  )
+		st.ScopeList[st.currentScope]["tac"].backpatch(p[3]["contlist"], p[7]["quad"]  )
+		st.ScopeList[st.currentScope]["tac"].backpatch(p[8]["truelist"], p[2]["quad"]  )
+		temp_list = p[8]["falselist"] + p[3]["breaklist"]
+		st.ScopeList[st.currentScope]["tac"].backpatch(temp_list, st.ScopeList[st.currentScope]["tac"].nextquad  )
+		p[0]["breaklist"] = []
+		p[0]["contlist"] = []
 	pass
 
 def p_iteration_statement3(p):
@@ -2140,26 +2248,27 @@ def p_iteration_statement3(p):
 	p[0]["condition"] = p[5]
 	p[0]["update_expr"] = p[8]
 	p[0]["loop_statement"] = p[12]
-	st.ScopeList[st.currentScope]["tac"].emit(["goto",str(p[7]["quad"])])
-	tac.labels.append(str(p[7]["quad"]))
-	st.ScopeList[st.currentScope]["tac"].backpatch(p[12]["contlist"], p[7]["quad"]  )
-	if p[8].get("inc",False)  :
-		st.ScopeList[st.currentScope]["tac"].backpatch(p[9]["nextlist"], st.ScopeList[st.currentScope]["tac"].nextquad  )
-		st.ScopeList[st.currentScope]["tac"].expression_emit(p[8]["tac_name"],'',"++", '')
-		st.ScopeList[st.currentScope]["tac"].emit(["goto",str(p[4]["quad"])])
-		tac.labels.append(str(p[4]["quad"]))
-	elif p[8].get("dec",False) :
-		st.ScopeList[st.currentScope]["tac"].backpatch(p[9]["nextlist"], st.ScopeList[st.currentScope]["tac"].nextquad  )
-		st.ScopeList[st.currentScope]["tac"].expression_emit(p[8]["tac_name"],'',"--", '')
-		st.ScopeList[st.currentScope]["tac"].emit(["goto",str(p[4]["quad"])])
-		tac.labels.append(str(p[4]["quad"]))
-	else:
-		st.ScopeList[st.currentScope]["tac"].backpatch(p[9]["nextlist"], p[4]["quad"]  )
-	st.ScopeList[st.currentScope]["tac"].backpatch(p[5]["truelist"], p[11]["quad"]  )
-	temp_list = p[5]["falselist"] + p[12]["breaklist"]
-	st.ScopeList[st.currentScope]["tac"].backpatch(temp_list, st.ScopeList[st.currentScope]["tac"].nextquad  )
-	p[0]["breaklist"] = []
-	p[0]["contlist"] = []
+	if not st.Error :
+		st.ScopeList[st.currentScope]["tac"].emit(["goto",str(p[7]["quad"])])
+		tac.labels.append(str(p[7]["quad"]))
+		st.ScopeList[st.currentScope]["tac"].backpatch(p[12]["contlist"], p[7]["quad"]  )
+		if p[8].get("inc",False)  :
+			st.ScopeList[st.currentScope]["tac"].backpatch(p[9]["nextlist"], st.ScopeList[st.currentScope]["tac"].nextquad  )
+			st.ScopeList[st.currentScope]["tac"].expression_emit(p[8]["tac_name"],'',"++", '')
+			st.ScopeList[st.currentScope]["tac"].emit(["goto",str(p[4]["quad"])])
+			tac.labels.append(str(p[4]["quad"]))
+		elif p[8].get("dec",False) :
+			st.ScopeList[st.currentScope]["tac"].backpatch(p[9]["nextlist"], st.ScopeList[st.currentScope]["tac"].nextquad  )
+			st.ScopeList[st.currentScope]["tac"].expression_emit(p[8]["tac_name"],'',"--", '')
+			st.ScopeList[st.currentScope]["tac"].emit(["goto",str(p[4]["quad"])])
+			tac.labels.append(str(p[4]["quad"]))
+		else:
+			st.ScopeList[st.currentScope]["tac"].backpatch(p[9]["nextlist"], p[4]["quad"]  )
+		st.ScopeList[st.currentScope]["tac"].backpatch(p[5]["truelist"], p[11]["quad"]  )
+		temp_list = p[5]["falselist"] + p[12]["breaklist"]
+		st.ScopeList[st.currentScope]["tac"].backpatch(temp_list, st.ScopeList[st.currentScope]["tac"].nextquad  )
+		p[0]["breaklist"] = []
+		p[0]["contlist"] = []
 	pass
 
 def p_for_init_statement(p):
@@ -2172,18 +2281,20 @@ def p_jump_statement1(p):
 	"jump_statement : BREAK ';'"
 	create_child("None", p[2])
 	p[0] = dict()
-	p[0]["breaklist"] = [st.ScopeList[st.currentScope]["tac"].getnext()]
-	st.ScopeList[st.currentScope]["tac"].emit(["goto",""])
-	p[0]["contlist"] = []
+	if not st.Error :
+		p[0]["breaklist"] = [st.ScopeList[st.currentScope]["tac"].getnext()]
+		st.ScopeList[st.currentScope]["tac"].emit(["goto",""])
+		p[0]["contlist"] = []
 	pass
 
 def p_jump_statement2(p):
 	"jump_statement : CONTINUE ';'"
 	create_child("None", p[2])
 	p[0] = dict()
-	p[0]["contlist"] = [st.ScopeList[st.currentScope]["tac"].getnext()]
-	st.ScopeList[st.currentScope]["tac"].emit(["goto",""])
-	p[0]["breaklist"] = []
+	if not st.Error :
+		p[0]["contlist"] = [st.ScopeList[st.currentScope]["tac"].getnext()]
+		st.ScopeList[st.currentScope]["tac"].emit(["goto",""])
+		p[0]["breaklist"] = []
 	pass
 
 def p_jump_statement3(p):
@@ -2210,9 +2321,11 @@ def p_jump_statement3(p):
 		st.print_error(p.lineno(1), {}, 36, func["name"], ' '. join(func["type"]))
 	else:
 		if expr.get("real_id_type") in ["function", "class"] and expr["tac_name"] == expr["name"] + "_" + expr["myscope"]:
-			st.ScopeList[st.currentScope]["tac"].emit(["ret","pop"])
+			if not st.Error :
+				st.ScopeList[st.currentScope]["tac"].emit(["ret","pop"])
 		else:
-			st.ScopeList[st.currentScope]["tac"].emit(["ret",str(expr["tac_name"])])
+			if not st.Error :
+				st.ScopeList[st.currentScope]["tac"].emit(["ret",str(expr["tac_name"])])
 
 	p[0]["stmt_list"] = [p[1:]]
 	pass
@@ -2265,10 +2378,11 @@ def p_declaration_seq_opt2(p):
 	"declaration_seq_opt : declaration_seq_opt util looping_declaration"
 	add_children(len(list(filter(None, p[1:]))),"declaration_seq_opt")
 	p[0] = p[1] if p[1] else {}
-	if p[1]:
-		p[0]["stmt_list"] += p[3]["stmt_list"]
-	else:
-		p[0]["stmt_list"] = p[3]["stmt_list"]
+	if not st.Error :
+		if p[1]:
+			p[0]["stmt_list"] += p[3]["stmt_list"]
+		else:
+			p[0]["stmt_list"] = p[3]["stmt_list"]
 	pass
 
 def p_declaration_seq_opt3(p):
@@ -2372,20 +2486,22 @@ def p_specialised_block_declaration4(p):
 def p_simple_declaration1(p):
 	"simple_declaration : ';'"
 	p[0] = dict()
-	p[0]["contlist"] = []
-	p[0]["truelist"] = []
-	p[0]["falselist"] = []
-	p[0]["breaklist"] = []
+	if not st.Error :
+		p[0]["contlist"] = []
+		p[0]["truelist"] = []
+		p[0]["falselist"] = []
+		p[0]["breaklist"] = []
 	pass
 
 def p_simple_declaration2(p):
 	"simple_declaration : init_declaration ';'"
 	add_children(len(list(filter(None, p[1:]))) -1,"simple_declaration")
 	p[0] = dict()
-	p[0]["contlist"] = []
-	p[0]["truelist"] = []
-	p[0]["falselist"] = []
-	p[0]["breaklist"] = []
+	if not st.Error :
+		p[0]["contlist"] = []
+		p[0]["truelist"] = []
+		p[0]["falselist"] = []
+		p[0]["breaklist"] = []
 
 
 	if p[1]:
@@ -2417,10 +2533,11 @@ def p_simple_declaration3(p):
 	"simple_declaration : init_declarations ';'"
 	add_children(len(list(filter(None, p[1:]))) - 1,"simple_declaration")
 	p[0] = dict()
-	p[0]["contlist"] = []
-	p[0]["truelist"] = []
-	p[0]["falselist"] = []
-	p[0]["stmt_list"] = []
+	if not st.Error :
+		p[0]["contlist"] = []
+		p[0]["truelist"] = []
+		p[0]["falselist"] = []
+		p[0]["stmt_list"] = []
 	if p[1]:
 		for decl in p[1]:
 			if "is_decl" not in decl.keys():
@@ -3349,7 +3466,8 @@ def p_func_definition1(p):
 	"func_definition : assignment_expression function_try_block"
 	add_children(len(list(filter(None, p[1:]))),"func_definition")
 	p[0] = p[1] if p[1] else {}
-	p[0]["stmt_list"] = p[0].get("stmt_list",[]) + p[2]["stmt_list"]
+	if not st.Error :
+		p[0]["stmt_list"] = p[0].get("stmt_list",[]) + p[2]["stmt_list"]
 	pass
 
 def p_func_definition2(p):
@@ -3357,45 +3475,50 @@ def p_func_definition2(p):
 	add_children(len(list(filter(None, p[1:]))),"func_definition")
 
 	p[0] = p[1] if p[1] else {}
-	p[0]["stmt_list"] = p[0].get("stmt_list",[]) + p[3]["stmt_list"]
-	st.ScopeList[st.currentScope]["tac"].emit(["end", p[0]["name"]])
+	if not st.Error :
+		p[0]["stmt_list"] = p[0].get("stmt_list",[]) + p[3]["stmt_list"]
+		st.ScopeList[st.currentScope]["tac"].emit(["end", p[0]["name"]])
 	pass
 
 def p_func_definition3(p):
 	"func_definition : decl_specifier_prefix func_definition"
 	add_children(len(list(filter(None, p[1:]))),"func_definition")
 	p[0] = p[1] if p[1] else {}
-	p[0]["stmt_list"] = p[0].get("stmt_list",[]) + p[2]["stmt_list"]
+	if not st.Error :
+		p[0]["stmt_list"] = p[0].get("stmt_list",[]) + p[2]["stmt_list"]
 	pass
 
 def p_ctor_definition1(p):
 	"ctor_definition : constructor_head function_try_block"
 	add_children(len(list(filter(None, p[1:]))),"ctor_definition")
 	p[0] = p[1] if p[1] else {}
-	if p[1]:
-		p[0]["stmt_list"] += p[2]["stmt_list"]
-	else:
-		p[0]["stmt_list"] = p[2]["stmt_list"]
+	if not st.Error :
+		if p[1]:
+			p[0]["stmt_list"] += p[2]["stmt_list"]
+		else:
+			p[0]["stmt_list"] = p[2]["stmt_list"]
 	pass
 
 def p_ctor_definition2(p):
 	"ctor_definition : constructor_head function_body"
 	add_children(len(list(filter(None, p[1:]))),"ctor_definition")
 	p[0] = p[1] if p[1] else {}
-	if p[1]:
-		p[0]["stmt_list"] += p[2]["stmt_list"]
-	else:
-		p[0]["stmt_list"] = p[2]["stmt_list"]
+	if not st.Error :
+		if p[1]:
+			p[0]["stmt_list"] += p[2]["stmt_list"]
+		else:
+			p[0]["stmt_list"] = p[2]["stmt_list"]
 	pass
 
 def p_ctor_definition3(p):
 	"ctor_definition : decl_specifier_prefix ctor_definition"
 	add_children(len(list(filter(None, p[1:]))),"ctor_definition")
 	p[0] = p[1] if p[1] else {}
-	if p[1]:
-		p[0]["stmt_list"] += p[2]["stmt_list"]
-	else:
-		p[0]["stmt_list"] = p[2]["stmt_list"]
+	if not st.Error :
+		if p[1]:
+			p[0]["stmt_list"] += p[2]["stmt_list"]
+		else:
+			p[0]["stmt_list"] = p[2]["stmt_list"]
 	pass
 
 def p_constructor_head1(p):
@@ -3414,20 +3537,22 @@ def p_function_try_block(p):
 	create_child("None",p[1])
 	add_children(len(list(filter(None, p[1:]))),"function_try_block")
 	p[0] = p[2] if p[2] else {}
-	if p[1]:
-		p[0]["stmt_list"] += p[3]["stmt_list"]
-	else:
-		p[0]["stmt_list"] = p[3]["stmt_list"]
+	if not st.Error :
+		if p[1]:
+			p[0]["stmt_list"] += p[3]["stmt_list"]
+		else:
+			p[0]["stmt_list"] = p[3]["stmt_list"]
 	pass
 
 def p_function_block(p):
 	"function_block : ctor_initializer_opt function_body"
 	add_children(len(list(filter(None, p[1:]))),"function_block")
 	p[0] = p[1] if p[1] else {}
-	if p[1]:
-		p[0]["stmt_list"] += p[2]["stmt_list"]
-	else:
-		p[0]["stmt_list"] = p[2]["stmt_list"]
+	if not st.Error :
+		if p[1]:
+			p[0]["stmt_list"] += p[2]["stmt_list"]
+		else:
+			p[0]["stmt_list"] = p[2]["stmt_list"]
 	pass
 
 def p_function_body(p):
@@ -3695,7 +3820,8 @@ def p_member_specification_opt2(p):
 	"member_specification_opt : member_specification_opt util looping_member_declaration"
 	add_children(len(list(filter(None, p[1:]))),"member_specification_opt")
 	p[0] = p[1] if p[1] else {}
-	p[0]["stmt_list"] = p[0].get("stmt_list",[]) + p[3]["stmt_list"]
+	if not st.Error :
+		p[0]["stmt_list"] = p[0].get("stmt_list",[]) + p[3]["stmt_list"]
 	pass
 
 def p_member_specification_opt3(p):
@@ -4202,23 +4328,28 @@ def p_empty(p):
 def p_marker_N(p):
 	"marker_N : empty"
 	p[0] = dict()
-	p[0]["nextlist"] = [st.ScopeList[st.currentScope]["tac"].getnext()]
-	st.ScopeList[st.currentScope]["tac"].emit(["goto",""])
+	if not st.Error :
+		p[0]["nextlist"] = [st.ScopeList[st.currentScope]["tac"].getnext()]
+		st.ScopeList[st.currentScope]["tac"].emit(["goto",""])
 	pass
 
 
 def p_marker_M(p):
 	'marker_M : empty'
-	p[0] = dict()
-	p[0]["quad"] = st.ScopeList[st.currentScope]["tac"].getnext()
+	if not st.Error :
+		p[0] = dict()
+		p[0]["quad"] = st.ScopeList[st.currentScope]["tac"].getnext()
 	pass
 
-def p_marker_F(p):
+def p_marker_F(p): 
 	"marker_F : empty"
-	func = st.function_list[-1]
-	st.ScopeList[st.currentScope]["tac"].emit(["function", func["name"], ":" ] )
-	for param in func["parameters"]:
-		st.ScopeList[st.currentScope]["tac"].emit(["param",str(param["name"]) + "_" + str(func["name"])])
+	if not st.Error :
+		func = st.function_list[-1]
+		print(func)
+		st.ScopeList[st.currentScope]["tac"].emit(["function", func["name"], ":" ] )
+		for param in func["parameters"]:
+			st.ScopeList[st.currentScope]["tac"].emit(["param", str(" ".join(param["type"])),str(param["name"]) + "_" + str(func["name"])])
+	pass
 
 # Error rule for syntax errors
 def p_error(p):
@@ -4245,6 +4376,7 @@ if __name__ == "__main__":
 	#	filename = sys.argv[1]
 	#else:
 	filename = "../tests/sample_test.cpp"
+	#filename = "../tests/binary_search.cpp"
 	a = open(filename)
 	data = a.read()
 	#data = '''
@@ -4254,11 +4386,12 @@ if __name__ == "__main__":
 	f = open("parse_tree.dat","w")
 	f.write(graph.to_string())
 	print("================================================================================================\n\n")
-	asm = cg.CodeGen(st.ScopeList["global"]["tac"])
-	asm.gen_data_section()
-	asm.parse_tac()
-	asm.print_sections()
-	st.print_tac()
-	#st.print_table()
+	st.print_table()
+	if not st.Error :
+		asm = cg.CodeGen(st.ScopeList["global"]["tac"])
+		st.print_tac()
+		asm.gen_data_section()
+		asm.parse_tac()
+		asm.print_sections()
 	print("================================================================================================\n\n")
 	pass

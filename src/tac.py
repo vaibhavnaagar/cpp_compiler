@@ -33,14 +33,15 @@ class TAC:
 	def print_code(self):
 		for i,c in enumerate(self.code):
 			#print(c)
-			if c[0] in ["if","goto", "function", "end" , "param", "call", "ret"]:
+			if c[0] in ["if","goto", "function", "end" , "param", "call", "ret", "cout"]:
 				print(str(i) + ":  " + " ".join(c))
 			else:
 				print(str(i) , ":  " + str(c[0]) + " " + " := " + " ".join(c[1:]) )
 
 	def expression_emit(self,d,e1,op,e2,etype=''):
 		if op in ['+','-','*','/']:
-			self.emit([d,e1, str(etype[0]) + op,e2])
+			typ = str(etype[0]) if len(etype) >0 else "int"
+			self.emit([d,e1,  typ + op,e2])
 			return
 
 		if op in ["^", "|" , "&", "%"]:
@@ -67,7 +68,15 @@ class TAC:
 
 
 		if op in ["%=","<<=",">>=","&=", "+=", "-=", "/=", "*=", "^=", "|=" , "&=",]:
-			self.expression_emit(d,d,op[:-1],e2,etype)
+			_scope = st.currentScope
+			if len(st.function_list) > 0:
+				_scope = st.function_list[-1]["name"]
+			elif len(st.namespace_list) > 0:
+				_scope = st.namespace_list[-1]["name"]
+			t = self.getnewtemp() + "_" + str(_scope)
+			st.ScopeList["global"]["table"].insertTemp(t, "temporary", _scope, ['int'])
+			self.expression_emit(t,d,op[:-1],e2,etype)
+			self.expression_emit(d,t,'','',etype)
 			return
 
 		if op in [ "+++" , "---", "~"]:

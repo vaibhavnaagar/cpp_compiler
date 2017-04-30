@@ -17,6 +17,7 @@ int main()
 	}
 }*/
 
+/*
 int main(){
 	int a = 0;
 	int b = 1;
@@ -30,6 +31,7 @@ int main(){
   }
   cout << c;
 }
+*/
 
 /*
 int p = 9;
@@ -37,7 +39,7 @@ char letter = 'a';
 char name[2] = "C";
 float* f;
 double d = 2.457;
-
+*/
 
 int test(int x, int y)
  {
@@ -45,22 +47,25 @@ int test(int x, int y)
  	z[1] = 7;
  	return z[1];
  }
+
 int main()
 {
-  int m,n;
-  char c[3] = "ab";
- 	int z[2] = {1};
-	int a[2][2]={0};
-  m = n + 4 +p;
-	a[1][1] = test(1,2) + a[1][0];
-  //cout << "cjejc" << m << eoe;
-  if(m == n){
-    float p = *f;
-    d = 1+ d*2 + p;
+  int c[3] = {3,4,5};
+  int i = 2;
+  int sum = 0;
+  while (i>0)
+  {
+  	c[i] = i;
+  	sum =  sum + c[i];
+  	i--;
+  	sum = test(i,sum) ;
+
+
   }
- 	return 1;
+  cout << "Sum = " << sum;
+	return 0;
  }
-*/
+
 /* int test(int , int );
 
 */
