@@ -626,11 +626,20 @@ def p_postfix_expression2(p):
 			if st.check_func_params(p.lineno(1), p[0], p[2], ["variable", "literal", "array"], decl=True):
 				if not st.Error :
 					for param in p[2]:
-						st.ScopeList[st.currentScope]["tac"].emit(["param",str(param["type"]) ,str(param["tac_name"])])
+						temp = st.ScopeList[st.currentScope]["tac"].getnewtemp()
+						_scope = st.currentScope
+						if len(st.function_list) > 0:
+							_scope = st.function_list[-1]["name"]
+						elif len(st.namespace_list) > 0:
+							_scope = st.namespace_list[-1]["name"]
+						temp = temp + "_" + str(_scope)
+						SymbolTable.insertTemp(temp, "temporary", _scope, param["type"])
+						st.ScopeList[st.currentScope]["tac"].expression_emit(temp,"","=",param["tac_name"],param["type"])
+						param["tac_name"] = temp
+					
+					for param in p[2]:
+						st.ScopeList[st.currentScope]["tac"].emit(["param",st.simple_type_specifier[" ".join(param["type"])]["equiv_type"] ,str(param["tac_name"])])
 
-						#if param.get("real_id_type") in ["function", "class"] and param["tac_name"] == param["name"] + "_" + param["myscope"]:
-						#	st.ScopeList[st.currentScope]["tac"].emit(["param", "pop"])
-						#else:
 					st.ScopeList[st.currentScope]["tac"].emit(["call",p[1]["name"],",",str(len(p[2]))])
 					temp = st.ScopeList[st.currentScope]["tac"].getnewtemp()
 					_scope = st.currentScope
@@ -679,11 +688,21 @@ def p_postfix_expression2(p):
 					if st.check_func_params(p.lineno(1), p[0], p[2], ["variable", "array", "literal"], decl=True):
 						if not st.Error :
 							for param in p[2]:
-								st.ScopeList[st.currentScope]["tac"].emit(["param",str(" ".join(param["type"])),str(param["tac_name"])])
+								temp = st.ScopeList[st.currentScope]["tac"].getnewtemp()
+								_scope = st.currentScope
+								if len(st.function_list) > 0:
+									_scope = st.function_list[-1]["name"]
+								elif len(st.namespace_list) > 0:
+									_scope = st.namespace_list[-1]["name"]
+								temp = temp + "_" + str(_scope)
+								SymbolTable.insertTemp(temp, "temporary", _scope, param["type"])
+								st.ScopeList[st.currentScope]["tac"].expression_emit(temp,"","=",param["tac_name"],param["type"])
+								param["tac_name"] = temp
 
-								#if param.get("real_id_type") in ["function", "class"] and param["tac_name"] == param["name"] + "_" + param["myscope"]:
-								#	st.ScopeList[st.currentScope]["tac"].emit(["param","pop"])
-								#else:
+							
+							for param in p[2]:
+								st.ScopeList[st.currentScope]["tac"].emit(["param",st.simple_type_specifier[" ".join(param["type"])]["equiv_type"] ,str(param["tac_name"])])
+
 							st.ScopeList[st.currentScope]["tac"].emit(["call",p[1]["name"],",",str(len(p[2]))])
 							temp = st.ScopeList[st.currentScope]["tac"].getnewtemp()
 							_scope = st.currentScope
@@ -944,8 +963,8 @@ def p_postfix_expression11(p):
 	if (not set(p[0]["type"]).issubset(st.number_types)) or (p[0].get("id_type") not in ["variable", "array"]):		# Incomplete list
 		st.print_error(p.lineno(1), p[0], 13)
 		return
-
-	p[0]["inc"] = True
+	if not st.Error :
+		p[0]["inc"] = True
 	pass
 
 def p_postfix_expression12(p):
@@ -965,8 +984,8 @@ def p_postfix_expression12(p):
 	if (not set(p[0]["type"]).issubset(st.number_types)) or (p[0].get("id_type") not in ["variable", "array"]):		# Incomplete list
 		st.print_error(p.lineno(1), p[0], 13)
 		return
-
-	p[0]["dec"] = True
+	if not st.Error :
+		p[0]["dec"] = True
 	pass
 
 def p_postfix_expression13(p):
@@ -2319,13 +2338,19 @@ def p_jump_statement3(p):
 	if (st.simple_type_specifier[' '.join(expr["type"])]["equiv_type"] != st.simple_type_specifier[' '.join(func["type"])]["equiv_type"]) \
 	 	or (expr.get("order", []) != func.get("order", [])) or (expr.get("star", 0) != func.get("star", 0)):
 		st.print_error(p.lineno(1), {}, 36, func["name"], ' '. join(func["type"]))
-	else:
-		if expr.get("real_id_type") in ["function", "class"] and expr["tac_name"] == expr["name"] + "_" + expr["myscope"]:
-			if not st.Error :
-				st.ScopeList[st.currentScope]["tac"].emit(["ret","pop"])
-		else:
-			if not st.Error :
-				st.ScopeList[st.currentScope]["tac"].emit(["ret",str(expr["tac_name"])])
+	
+	if not st.Error:
+		temp = st.ScopeList[st.currentScope]["tac"].getnewtemp()
+		_scope = st.currentScope
+		if len(st.function_list) > 0:
+			_scope = st.function_list[-1]["name"]
+		elif len(st.namespace_list) > 0:
+			_scope = st.namespace_list[-1]["name"]
+		p[0]["tac_name"] = temp + "_" + str(_scope)
+		SymbolTable.insertTemp(p[0]["tac_name"], "temporary", _scope, expr["type"])
+		st.ScopeList[st.currentScope]["tac"].expression_emit(p[0]["tac_name"],"","=",str(expr["tac_name"]))
+		st.ScopeList[st.currentScope]["tac"].emit(["ret",p[0]["tac_name"]])
+
 
 	p[0]["stmt_list"] = [p[1:]]
 	pass
@@ -3154,10 +3179,11 @@ def p_linkage_specification2(p):
 def p_init_declarations1(p):
 	"init_declarations : assignment_expression ',' init_declaration"
 	add_children(len(list(filter(None, p[1:]))) -1,"init_declarations")
-	if p[1].get("inc",False):
-		st.ScopeList[st.currentScope]["tac"].expression_emit(p[1]["tac_name"],'',"++", '')
-	if p[1].get("dec",False):
-		st.ScopeList[st.currentScope]["tac"].expression_emit(p[1]["tac_name"],'',"--", '')
+	if not st.Error :	
+		if p[1].get("inc",False):
+			st.ScopeList[st.currentScope]["tac"].expression_emit(p[1]["tac_name"],'',"++", '')
+		if p[1].get("dec",False):
+			st.ScopeList[st.currentScope]["tac"].expression_emit(p[1]["tac_name"],'',"--", '')
 	if p[3].get("is_decl"):
 		st.print_error(p.lineno(1), p[3], 4, p[1]["type"])
 	else:
@@ -3190,11 +3216,12 @@ def p_init_declarations2(p):
 def p_init_declaration(p):
 	"init_declaration : assignment_expression"
 	add_children(len(list(filter(None, p[1:]))),"init_declaration")
-	p[0] = p[1]
-	if p[1].get("inc",False):
-		st.ScopeList[st.currentScope]["tac"].expression_emit(p[1]["tac_name"],'',"++", '')
-	if p[1].get("dec",False):
-		st.ScopeList[st.currentScope]["tac"].expression_emit(p[1]["tac_name"],'',"--", '')
+	if not st.Error :
+		p[0] = p[1]
+		if p[1].get("inc",False):
+			st.ScopeList[st.currentScope]["tac"].expression_emit(p[1]["tac_name"],'',"++", '')
+		if p[1].get("dec",False):
+			st.ScopeList[st.currentScope]["tac"].expression_emit(p[1]["tac_name"],'',"--", '')
 	pass
 
 def p_star_ptr_operator1(p):
@@ -4347,8 +4374,8 @@ def p_marker_F(p):
 		func = st.function_list[-1]
 		print(func)
 		st.ScopeList[st.currentScope]["tac"].emit(["function", func["name"], ":" ] )
-		for param in func["parameters"]:
-			st.ScopeList[st.currentScope]["tac"].emit(["param", str(" ".join(param["type"])),str(param["name"]) + "_" + str(func["name"])])
+		#for param in func["parameters"]:
+		#	st.ScopeList[st.currentScope]["tac"].emit(["param", st.simple_type_specifier[" ".join(param["type"])]["equiv_type"],str(param["name"]) + "_" + str(func["name"])])
 	pass
 
 # Error rule for syntax errors
@@ -4375,8 +4402,8 @@ if __name__ == "__main__":
 	#if(len(sys.argv) == 2):
 	#	filename = sys.argv[1]
 	#else:
-	filename = "../tests/sample_test.cpp"
-	#filename = "../tests/binary_search.cpp"
+	#filename = "../tests/sample_test.cpp"
+	filename = "../tests/binary_search.cpp"
 	a = open(filename)
 	data = a.read()
 	#data = '''
@@ -4386,8 +4413,8 @@ if __name__ == "__main__":
 	f = open("parse_tree.dat","w")
 	f.write(graph.to_string())
 	print("================================================================================================\n\n")
-	st.print_table()
 	if not st.Error :
+		st.print_table()
 		asm = cg.CodeGen(st.ScopeList["global"]["tac"])
 		st.print_tac()
 		asm.gen_data_section()

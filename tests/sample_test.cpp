@@ -43,25 +43,27 @@ double d = 2.457;
 
 int test(int x, int y)
  {
- 	int z[2] = {1,9};
- 	z[1] = 7;
- 	return z[1];
+ 	int a = x;
+ 	return a;
  }
 
 int main()
 {
-  int c[3] = {3,4,5};
-  int i = 2;
-  int sum = 0;
-  while (i>0)
-  {
-  	c[i] = i;
-  	sum =  sum + c[i];
-  	i--;
-  	sum = test(i,sum) ;
+ // int c[3] = {3,4,5};
+  //int i = 2;
+  //int [1] = {1};
+  int sum = 9;
+
+  sum = test(3,sum);
+  //while (i>0)
+  //{
+  //	c[i] = i;
+  //	sum =  sum + c[i];
+  //	i--;
+  //	sum = test(i,sum) ;
 
 
-  }
+  //}
   cout << "Sum = " << sum;
 	return 0;
  }

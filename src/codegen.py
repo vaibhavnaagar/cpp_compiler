@@ -1,6 +1,8 @@
 import symtable as st
 import tac
 from inspect import currentframe, getframeinfo
+from collections import OrderedDict
+
 
 frameinfo = getframeinfo(currentframe())
 literal_decl = []
@@ -15,8 +17,8 @@ class CodeGen:
         self.functions = []         # Fucntion definitions
         self.data = []              # Data section
         self.bss = []               # BSS section
-        self.global_ids = dict()
-        self.local_ids = dict()
+        self.global_ids = OrderedDict()
+        self.local_ids = OrderedDict()
         self.map_type = {str : "char", float : "float", int : "int"}
         self.syscall = {
                     "print_int"     : "1",
@@ -91,20 +93,31 @@ class CodeGen:
             _scope = scope_q.pop(0)
             table = st.ScopeList[_scope]["table"].symtab
             for k in table:
+                offset=(table[k]["offset"] - table[k]["size"])  if table[k]["offset"] > 0 else table[k]["offset"]
                 if table[k]["id_type"] not in ["function", "namespace", "class", "struct", "union",]:
-                    loc = table[k]["tac_name"] if scope_name == "main" else "$sp"
-                    self.local_ids.update({ table[k]["tac_name"] : dict(register=None, location=loc, offset=(table[k]["offset"] - table[k]["size"])  if table[k]["offset"] > 0 else table[k]["offset"], size=table[k]["size"], type=st.simple_type_specifier[" ".join(table[k]["type"])]["equiv_type"]) })
+                    loc = table[k]["tac_name"] if scope_name == "main" else "($sp)"
+                    self.local_ids.update({ table[k]["tac_name"] : dict(register=None, location=loc, offset=table[k]["offset"] , size=table[k]["size"], type=st.simple_type_specifier[" ".join(table[k]["type"])]["equiv_type"]) })
             for s in st.ScopeList:
                 if s != "NULL":
                     if st.ScopeList[s].get("parent") == _scope:
                         scope_q.append(str(s))
+        size = 0
+        for i in reversed(self.local_ids):
+            size = self.local_ids[i]["offset"]
+            break
+        for j in self.local_ids:
+            if self.local_ids[j]['location'] == "($sp)":
+                if self.local_ids[j]["offset"] < 0:
+                    self.local_ids[j]["location"] = str(self.local_ids[j]["offset"] ) + "($sp)"
+                else:
+                    self.local_ids[j]["location"] = str(self.local_ids[j]["offset"] - self.local_ids[j]["size"] ) + "($sp)"
         pass
 
     def check_in_register(self, name):
-        if self.local_ids.get(name,None):
+        if name in self.local_ids:
             return self.local_ids[name].get("register",None)
 
-        if self.global_ids.get(name,None):
+        if name in self.global_ids:
             return self.global_ids[name].get("register",None)
         return None
 
@@ -135,7 +148,8 @@ class CodeGen:
                             self.used_float_regs.append(reg)
                             self.spill_register(reg,code_list)
                             break
-                self.float_regs[reg] = [name]
+                if name != "NULL":
+                    self.float_regs[reg] = [name]
             else:
                 if len(self.unused_gen_regs) > 0:
                     reg = self.unused_gen_regs[0]
@@ -151,10 +165,11 @@ class CodeGen:
                             self.used_gen_regs.append(reg)
                             self.spill_register(reg,code_list)
                             break
-                self.general_regs[reg] = [name]
+                if name != "NULL":
+                    self.general_regs[reg] = [name] 
 
         if name != "NULL":
-            if self.local_ids.get(name,None):
+            if name in self.local_ids:
                 self.local_ids[name]["register"] = reg
                 loc = self.local_ids[name]["location"]
 
@@ -163,23 +178,24 @@ class CodeGen:
                 loc = self.global_ids[name]["location"]
 
 
-            self.load_variable(ltype,ltype,reg,loc,code_list)
+            self.load_variable(ltype,ltype,reg, loc ,code_list)
 
         return reg
 
 
     def spill_register(self, reg, code_list, skip=[]):
-        if self.general_regs.get(reg,None):
+        if reg in self.general_regs:
             for var in self.general_regs[reg]:
                 if var not in skip and var != "NULL":
                     if self.local_ids.get(var,None):
                         loc = self.local_ids[var]["location"]
                     else:
+                        print(self.local_ids)
                         loc = self.global_ids[var]["location"]
                     code_list.append(["sw", reg + ",", loc])
 
 
-        elif self.float_regs.get(reg,None):
+        elif reg in self.float_regs:
             for var in self.float_regs[reg]:
                 if var not in skip:
                     if self.local_ids.get(var,None):
@@ -189,15 +205,37 @@ class CodeGen:
                     code_list.append(["s.s", reg + ",", loc])
 
         else:
-            print("Wrong Register Name")
+            print("Wrong Register Name",reg,self.general_regs)
 
         return
 
     def callee_seq(self,size,code_list):
-        code_list.append(["addi", "$sp", "$sp", str(size)])            #Store return address
-        code_list.append(["sw", "$ra", "0($sp)"])
-        code_list.append(["sw", "$fp", "4($sp)"])
-        code_list.append(["add", "$fp", "0","$sp"])
+        code_list.append(["addi", "$sp" + ",", "$sp" + ",", "-" + str(size)])            #Allocate space for local data
+        code_list.append(["sw", "$ra" + ",", "0($sp)"])                             #Store return address
+        code_list.append(["sw", "$fp" + ",", "4($sp)"])                         #Store Stack pointer
+        code_list.append(["addu", "$fp" + ",", "$0" + ",","$sp"])                    #Update frame pointer
+        return
+
+
+    def return_seq(self,size,code_list):
+        self.clear_regs()
+        code_list.append(["lw", "$ra" + ",", "0($sp)"])                             #Restore return address
+        code_list.append(["lw", "$fp" + ",", "4($sp)"])                             #Restore frame pointer
+        code_list.append(["addi", "$sp" + ",", "$sp" + ",", str(size)])             #Restore stack pointer
+        
+        return
+
+    def clear_regs(self):
+        for reg in self.general_regs:
+            if reg in self.used_gen_regs:
+                self.general_regs[reg] = []
+                self.used_gen_regs.remove(reg)
+                self.unused_gen_regs.append(reg)
+        for reg in self.float_regs:
+            if reg in self.used_float_regs:
+                self.float_regs[reg] = []
+                self.used_float_regs.remove(reg)
+                self.unused_gfloat_regs.append(reg)
         return
 
     def caller_seq(self,name,code_list):
@@ -211,45 +249,84 @@ class CodeGen:
     def parse_tac(self):
         inside_func = False
         is_main = False
+        param_start =False
         for i, quad in enumerate(self.TAC.code):
-            #print(quad)
+          #  print(self.general_regs)
             if quad[0] in ["function"]:
                 inside_func = True
+                self.get_local_ids(quad[1])
+                #print(quad,self.local_ids)
+                #print(quad,self.local_ids,"\n\n")
+
+
                 if quad[1] == "main":
                     code_list = self.main       # reference main code list
                     is_main = True
                 else:
                     code_list = self.functions  # reference functions code list
                     is_main = False
-                    self.callee_seq(quad[1],code_list)
-                    print(self.global_ids)
-                    self.get_local_ids(quad[1])
-                    print(self.local_ids)
-
-
-                    # TODO:  Code for stack space ..............................................
+                    size = 0
+                    for j in reversed(self.local_ids):
+                        size = self.local_ids[j]["offset"]
+                        break
                     code_list.append([quad[1] + ":"])
+                    self.callee_seq(size+8,code_list)
 
-                self.get_local_ids(quad[1])
-                #print(quad[1],self.local_ids)
             else:
                 if not inside_func:     # TAC of Global scope
                     continue
-                if not is_main: # REMEMBER TO REMOVE IT========================================================================>>>>>>>>>>>>>>>>>>>>>>>>>
-                    continue
+                #if not is_main: # REMEMBER TO REMOVE IT========================================================================>>>>>>>>>>>>>>>>>>>>>>>>>
+                #    continue
                 if str(i) in self.labels:
                     self.labels.remove(str(i))
                     code_list.append([self.label + str(i) + ":"])
                 if quad[0] in ["end"]:
                     inside_func = False
+                    size = 0
+                    for i in reversed(self.local_ids):
+                        size = self.local_ids[i]["offset"]
+                        break
+                    self.return_seq(size,code_list)
+                    print(self.general_regs)
                     if is_main:
                         is_main = False
                         code_list.append(["li", "$v0" + ",", self.syscall["exit"]])
                         code_list.append(["syscall"])
                     else:
                         code_list.append(["jr", "$ra"])
-                elif quad[0] in ["param", "call", "ret"]:
+                elif quad[0] == "param":
+                    if param_start == False:
+                        param_start = True
+                        code_list.append(["addu", "$fp" + ",", "$sp" + ",","$0"])
+                        code_list.append(["addu", "$a0" + ",", "$sp" + ",","$0"])                    #Preserve frame pointer
+                    reg = self.get_register(quad[2],quad[1],code_list)
+
+                    code_list.append(["addi", "$a0" + ",", "$a0" + ",","-4"])                    
+                    code_list.append(["sw", reg + ",", "0($a0)"])                    #Push Parameters
                     pass
+                
+                elif quad[0] == "call":
+                    param_start = False
+                    for reg in self.general_regs:
+                        self.spill_register(reg,code_list)
+                    for reg in self.float_regs:
+                        self.spill_register(reg,code_list)                     # Write all registers back 
+                    if int(quad[3])%2 == 1:
+                        code_list.append(["addi", "$a0" + ",", "$a0" + ",", "-4"])                    #Padding as $sp is always multiple of 8
+                    code_list.append(["addu", "$sp" + ",", "$a0" + ",","$0"])
+                    code_list.append(["jal", quad[1]])                    #Update frame pointer
+                    pass
+                
+                elif quad[1] == "^retval":
+                    code_list.append(["addu", "$sp" + ",", "$fp" + ",","$0"])
+                    self.handle_assignment(quad, code_list)
+                    pass
+                
+                elif quad[0] == "ret":
+                    reg = self.check_in_register(quad[1])
+                    code_list.append(["addu", "$v1" + ",", reg + ",","$0"])                    #Update frame pointer
+                    pass
+
                 elif quad[0] == "cout":
                     self.print_stdout(quad[1], quad[2], code_list)
                 elif quad[0] == "if":
@@ -747,6 +824,10 @@ class CodeGen:
             print("main:\n", file=fi)
             for line in self.main:
                 print(" ".join(str(e) for e in line), file=fi)
+            print("\n\n",file=fi)
+            for line in self.functions:
+                print(" ".join(str(e) for e in line),file=fi)
+
             print("\n\n.data\n", file=fi)
             for line in self.data:
                 print(" ".join(str(e) for e in line), file=fi)
@@ -754,10 +835,8 @@ class CodeGen:
             #print(".bss\n")
             for line in self.bss:
                 print(" ".join(str(e) for e in line), file=fi)
-            print("\n\n")
-            print(".functions\n")
-            for line in self.functions:
-                print(" ".join(str(e) for e in line))
+            #print(".functions\n")
+            
         print("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n\n")
 
         pass

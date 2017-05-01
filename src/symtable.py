@@ -314,7 +314,8 @@ def check_datatype(lineno, types, name, id_type):
                 size = 8
             SymTab.addIDAttr(name,"size", size * currtable.symtab[str(name)]["num"])
             if is_parameter:
-                parameter_offset -= (size * currtable.symtab[str(name)]["num"])
+                #parameter_offset -= (size * currtable.symtab[str(name)]["num"])
+                parameter_offset -= 4
                 SymTab.updateIDAttr(name, "offset", parameter_offset)
             else:
                 ScopeList[currentScope]["offset"] += (size * currtable.symtab[str(name)]["num"])
@@ -483,6 +484,7 @@ def augment_scope(lineno, scope1, scope2):
 
 
 def print_error(lineno, id1, errno, *args):
+    global Error
     Error = True
     if errno == 1:
         print(color.cline, lineno, color.cerror + " \'%s\' was not declared in this scope" % id1.get("name"))
