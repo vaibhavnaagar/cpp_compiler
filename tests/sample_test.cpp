@@ -40,10 +40,15 @@ char name[2] = "C";
 float* f;
 double d = 2.457;
 */
+int test2(int x, int y)
+ {
+ 	int a = y;
+ 	return a;
+ }
 
 int test(int x, int y)
  {
- 	int a = x;
+ 	int a = test2(x,y);
  	return a;
  }
 

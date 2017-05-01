@@ -108,10 +108,14 @@ class CodeGen:
         for j in self.local_ids:
             if self.local_ids[j]['location'] == "($sp)":
                 if self.local_ids[j]["offset"] < 0:
-                    self.local_ids[j]["location"] = str(self.local_ids[j]["offset"] ) + "($sp)"
+                    self.local_ids[j]["location"] = str(size - self.local_ids[j]["offset"] ) + "($sp)"
                 else:
-                    self.local_ids[j]["location"] = str(self.local_ids[j]["offset"] - self.local_ids[j]["size"] ) + "($sp)"
+                    self.local_ids[j]["location"] = str(size - self.local_ids[j]["offset"] + self.local_ids[j]["size"] ) + "($sp)"
+        print(size)
+        print(self.local_ids)
+        print("\n\n")
         pass
+
 
     def check_in_register(self, name):
         if name in self.local_ids:
@@ -122,12 +126,20 @@ class CodeGen:
         return None
 
     def get_register(self, name, ltype, code_list, forbid_list=[]):
-
+        print(name)
 
         if self.check_in_register(name) :
             reg = self.check_in_register(name)
             self.spill_register(reg,code_list,[name])
-        
+            if ltype in ["double", "float"]:
+                self.used_float_regs.remove(reg)
+                self.used_float_regs.append(reg)
+            else:
+                self.used_gen_regs.remove(reg)
+                self.used_gen_regs.append(reg)
+
+            print(name,reg)
+            
             return reg
 
 
@@ -180,6 +192,7 @@ class CodeGen:
 
             self.load_variable(ltype,ltype,reg, loc ,code_list)
 
+        print(name,reg)
         return reg
 
 
@@ -212,7 +225,7 @@ class CodeGen:
     def callee_seq(self,size,code_list):
         code_list.append(["addi", "$sp" + ",", "$sp" + ",", "-" + str(size)])            #Allocate space for local data
         code_list.append(["sw", "$ra" + ",", "0($sp)"])                             #Store return address
-        code_list.append(["sw", "$fp" + ",", "4($sp)"])                         #Store Stack pointer
+        code_list.append(["sw", "$fp" + ",", "-4($sp)"])                         #Store Stack pointer
         code_list.append(["addu", "$fp" + ",", "$0" + ",","$sp"])                    #Update frame pointer
         return
 
@@ -220,7 +233,7 @@ class CodeGen:
     def return_seq(self,size,code_list):
         self.clear_regs()
         code_list.append(["lw", "$ra" + ",", "0($sp)"])                             #Restore return address
-        code_list.append(["lw", "$fp" + ",", "4($sp)"])                             #Restore frame pointer
+        code_list.append(["lw", "$fp" + ",", "-4($sp)"])                             #Restore frame pointer
         code_list.append(["addi", "$sp" + ",", "$sp" + ",", str(size)])             #Restore stack pointer
         
         return
@@ -270,13 +283,11 @@ class CodeGen:
                         size = self.local_ids[j]["offset"]
                         break
                     code_list.append([quad[1] + ":"])
-                    self.callee_seq(size+8,code_list)
+                    self.callee_seq(size,code_list)
 
             else:
                 if not inside_func:     # TAC of Global scope
                     continue
-                #if not is_main: # REMEMBER TO REMOVE IT========================================================================>>>>>>>>>>>>>>>>>>>>>>>>>
-                #    continue
                 if str(i) in self.labels:
                     self.labels.remove(str(i))
                     code_list.append([self.label + str(i) + ":"])
@@ -298,6 +309,8 @@ class CodeGen:
                     if param_start == False:
                         param_start = True
                         code_list.append(["addu", "$fp" + ",", "$sp" + ",","$0"])
+                        code_list.append(["addi", "$sp" + ",", "$sp" + ",","-8"])
+
                         code_list.append(["addu", "$a0" + ",", "$sp" + ",","$0"])                    #Preserve frame pointer
                     reg = self.get_register(quad[2],quad[1],code_list)
 
@@ -313,7 +326,7 @@ class CodeGen:
                         self.spill_register(reg,code_list)                     # Write all registers back 
                     if int(quad[3])%2 == 1:
                         code_list.append(["addi", "$a0" + ",", "$a0" + ",", "-4"])                    #Padding as $sp is always multiple of 8
-                    code_list.append(["addu", "$sp" + ",", "$a0" + ",","$0"])
+                    code_list.append(["addi", "$sp" + ",", "$a0" + ",","-4"])
                     code_list.append(["jal", quad[1]])                    #Update frame pointer
                     pass
                 
@@ -346,8 +359,11 @@ class CodeGen:
         if lvalue is None:
             lvalue = self.get_register(quad[0], ltype, code_list)
 
+
         if quad[2] == '':   # simple assignment if quad is like ['var', '7', '', '']
+
             rvalue, var, reg = self.eval_operand(quad[1], code_list)
+            print("HA",quad, rvalue, var, reg)
             if var:
                 if quad[1] == "^retval":
                     rtype = ltype

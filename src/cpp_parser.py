@@ -2143,10 +2143,10 @@ def p_selection_statement1(p):
 	if not st.Error :
 		st.ScopeList[st.currentScope]["tac"].backpatch(p[3]["truelist"], p[5]["quad"]  )
 		st.ScopeList[st.currentScope]["tac"].backpatch(p[3]["truelist"], p[5]["quad"]  )
-		temp_list = list(set(p[3]["falselist"] + p[6]["breaklist"]))
+		temp_list = list(set(p[3].get("falselist", []) + p[6].get("breaklist", [])))
 		st.ScopeList[st.currentScope]["tac"].backpatch(temp_list, st.ScopeList[st.currentScope]["tac"].nextquad  )
-		p[0]["breaklist"] = p[6]["breaklist"]
-		p[0]["contlist"] = p[6]["contlist"]
+		p[0]["breaklist"] = p[6].get("breaklist", [])
+		p[0]["contlist"] = p[6].get("contlist", [])
 
 
 
@@ -4397,13 +4397,13 @@ if __name__ == "__main__":
 	#log = logging.getLogger('ply')
 
 	#sys.exit()
-	#parser = yacc.yacc(errorlog=yacc.NullLogger())
-	parser = yacc.yacc(debug=True)
+	parser = yacc.yacc(errorlog=yacc.NullLogger())
+	#parser = yacc.yacc(debug=True)
 	#if(len(sys.argv) == 2):
 	#	filename = sys.argv[1]
 	#else:
-	#filename = "../tests/sample_test.cpp"
-	filename = "../tests/binary_search.cpp"
+	filename = "../tests/bubble.cpp"
+	#filename = "../tests/binary_search.cpp"
 	a = open(filename)
 	data = a.read()
 	#data = '''

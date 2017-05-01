@@ -199,7 +199,7 @@ class SymTab:
         if currtable.lookup(str(name)):         # No need to check again
             print("[Symbol Table] Entry already exists")
         else:
-            size = 8
+            size = 4
             ScopeList[scope_name]["offset"] += size
             offset = ScopeList[scope_name]["offset"]
             if (types is None) or (len(types) == 0):
