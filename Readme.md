@@ -4,7 +4,7 @@
 ### Compiler Specifications ###
 * Source Language: C++
 * Implementation Language: Python
-* Target Language: x86
+* Target Language: MIPS
 
 ### Tools or packages used ###
 * Python 3.5.2
@@ -12,7 +12,7 @@
 * Pydot 1.2.3
 
 ### Grammar ###
-* E.d. Willink's C++ grammar and lexer written in yacc and flex of C language. 
+* E.d. Willink's C++ grammar and lexer written in yacc and flex of C language.
 
 ### Contributors ###
 * Vaibhav Nagar
