@@ -51,7 +51,8 @@ def add_children(n,name):
 		children = orphan_children[-n:]
 		for child in children:
 			if child == None:
-				print("Error")
+				#print("Error")
+				pass
 			graph.add_edge(pydot.Edge(node_a, child))
 			orphan_children.remove(child)
 		orphan_children.append(node_a)
@@ -289,7 +290,7 @@ def p_nested_id2(p):
 		st.print_error(p.lineno(1), {}, 40, p[0]["name"], "namespace", "::".join(st.scope_transitions[1:] + [p[1]["name"]]))
 	st.is_ns_member = False
 	st.currentScope = st.scope_transitions.pop()
-	print("[PARSER] popped scope: ", st.currentScope, st.scope_transitions)
+	#print("[PARSER] popped scope: ", st.currentScope, st.scope_transitions)
 	pass
 
 def p_scoped_id1(p):
@@ -2026,7 +2027,7 @@ def p_compound_statement1(p):
 	stack_space = st.ScopeList[st.currentScope]["offset"]
 	SymbolTable.endScope()
 	try:
-		print("[PARSER] popped function : %s" % st.function_list[0]["name"])
+		#print("[PARSER] popped function : %s" % st.function_list[0]["name"])
 		SymbolTable.updateIDAttr(st.function_list[-1]["name"], "offset", stack_space)
 		st.function_list.pop()
 	except:
@@ -2331,6 +2332,8 @@ def p_jump_statement3(p):
 	if p[2] is None:
 		if ' '. join(func["type"]) != "void":
 			st.print_error(p.lineno(1), {}, 36, func["name"], ' '. join(func["type"]))
+		if not st.Error:
+			st.ScopeList[st.currentScope]["tac"].emit(["ret", ""])
 		return
 	if type(p[2]) is list:
 		expr = p[2][-1]
@@ -2381,7 +2384,7 @@ def p_compound_declaration1(p):
 		st.currentScope = st.previous_scope
 		st.previous_scope = ""
 	try:
-		print("[PARSER] popped namespace : %s" % st.namespace_list[-1]["name"])
+		#print("[PARSER] popped namespace : %s" % st.namespace_list[-1]["name"])
 		st.namespace_list.pop()
 	except:
 		pass
@@ -4373,7 +4376,7 @@ def p_marker_F(p):
 	"marker_F : empty"
 	if not st.Error :
 		func = st.function_list[-1]
-		print(func)
+		#print(func)
 		st.ScopeList[st.currentScope]["tac"].emit(["function", func["name"], ":" ] )
 		#for param in func["parameters"]:
 		#	st.ScopeList[st.currentScope]["tac"].emit(["param", st.simple_type_specifier[" ".join(param["type"])]["equiv_type"],str(param["name"]) + "_" + str(func["name"])])
@@ -4416,7 +4419,7 @@ if __name__ == "__main__":
 	#graph.write_dot('parse_tree.dot')
 	f = open("parse_tree.dat","w")
 	f.write(graph.to_string())
-	print("================================================================================================\n\n")
+	print("==========================================TAC CODE========================================\n\n")
 	if not st.Error :
 		st.print_table()
 		asm = cg.CodeGen(st.ScopeList["global"]["tac"])

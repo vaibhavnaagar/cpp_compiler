@@ -24,6 +24,8 @@ int odd(int n){
 
 int main(){
   int n = 1001;
+  cout << "N: " << n;
+  cout << "\n";
   int output;
   output = even(n);
   cout << "even: " << output;

@@ -1,0 +1,9 @@
+#!/bin/bash
+
+if [ "$#" -ne 1 ]; then
+    echo "Usage: ./runcpp filename"
+    exit
+fi
+
+python ./src/cpp_parser.py $1
+spim -f ./bin/exe.s

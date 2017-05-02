@@ -90,9 +90,11 @@ int main()
   //int i = 2;
   //int [1] = {1};
   int sum = 9;
-
-  //sum = test(3);
-  int *y;
+  int a[2] = {33, 55};
+  int  l =1;
+  sum = test(a[l]);
+  cout << "sum: " << sum;
+  /*int *y;
   int **x;
   y = &sum;
   x = &y;
@@ -106,7 +108,7 @@ int main()
   int a[3] = {1,2,3};
   int pp;
   pp = a[2];
-  cout << "pp: " << pp;
+  cout << "pp: " << pp;*/
 	return 0;
 }
 

@@ -22,7 +22,7 @@ void newtonRaphson(float x)
 
     float h = func(x) / derivFunc(x);
     //cout << "h1: " << h;
-    printf("The  h is : %f ",h);
+    //printf("The  h is : %f ",h);
 
     if (h < 0.0){
       h = h*(-1.0);
@@ -31,13 +31,13 @@ void newtonRaphson(float x)
     {
         h = func(x)/derivFunc(x);
         //cout << "h2: " << h;
-        printf("The h2 : %f ",h);
+        //printf("The h2 : %f ",h);
 
         x = x - h;
     }
 
-    printf("The value of the root is : %f ",x);
-    //cout << "The value of the root is : " << x;
+    //printf("The value of the root is : %f ",x);
+    cout << "The value of the root is : " << x;
 }
 
 int main()

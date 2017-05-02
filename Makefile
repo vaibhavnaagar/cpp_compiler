@@ -10,6 +10,9 @@ all: $(addprefix ${DIR}/src/, ${PROGS})
 	@echo  "Standalone Lexer: ./bin/cpp_lexer.py ./tests/test1.cpp"
 	@echo  "Parser: 	  ./bin/cpp_parser.py ./tests/test1.cpp"
 	@echo  "Note: Parser will create 'parse_tree.jpeg' in this directory"
+	@chmod +x runcpp
+	@echo "RUN executable in the current directory using command : ./runcpp filename"
+	@echo "Note: Python version should be at least 3.6.0 or use venv"
 
 
 

@@ -101,10 +101,10 @@ class CodeGen:
                 if s != "NULL":
                     if st.ScopeList[s].get("parent") == _scope:
                         scope_q.append(str(s))
-        size = 0
-        for i in reversed(self.local_ids):
-            size = self.local_ids[i]["offset"]
-            break
+        size = self.stack_space
+        #for i in reversed(self.local_ids):
+        #    size = self.local_ids[i]["offset"]
+        #    break
         for j in self.local_ids:
             if self.local_ids[j]['location'] == "($sp)":
                 if self.local_ids[j]["offset"] < 0:
@@ -270,6 +270,7 @@ class CodeGen:
           #  print(self.general_regs)
             if quad[0] in ["function"]:
                 inside_func = True
+                self.stack_space = st.ScopeList[quad[1]]["offset"]
                 self.get_local_ids(quad[1])
                 #print(quad,self.local_ids)
                 #print(quad,self.local_ids,"\n\n")
@@ -281,12 +282,12 @@ class CodeGen:
                 else:
                     code_list = self.functions  # reference functions code list
                     is_main = False
-                    size = 0
-                    for j in reversed(self.local_ids):
-                        size = self.local_ids[j]["offset"]
-                        break
+                    #size = 0
+                    #for j in reversed(self.local_ids):
+                    #    size = self.local_ids[j]["offset"]
+                    #    break
                     code_list.append([quad[1] + ":"])
-                    self.callee_seq(size,code_list)
+                    self.callee_seq(self.stack_space,code_list)
 
             else:
                 if not inside_func:     # TAC of Global scope
@@ -296,10 +297,10 @@ class CodeGen:
                     code_list.append([self.label + str(i) + ":"])
                 if quad[0] in ["end"]:
                     inside_func = False
-                    size = 0
-                    for i in reversed(self.local_ids):
-                        size = self.local_ids[i]["offset"]
-                        break
+                    #size = 0
+                    #for i in reversed(self.local_ids):
+                    #    size = self.local_ids[i]["offset"]
+                    #    break
                     self.return_seq(code_list)
                     if is_main:
                         is_main = False
@@ -343,12 +344,13 @@ class CodeGen:
                     pass
 
                 elif quad[0] == "ret":
-                    qtype = self.local_ids[quad[1]]["type"] if quad[1] in self.local_ids else self.global_ids[quad[1]]["type"]
-                    reg = self.get_register(quad[1], qtype, code_list)
-                    if qtype in ["float", "double"]:
-                        code_list.append(["mov.s", "$f0" + ",", reg])                    #Update frame pointer
-                    else:
-                        code_list.append(["addu", "$v1" + ",", reg + ",","$0"])                    #Update frame pointer
+                    if quad[1] != "":
+                        qtype = self.local_ids[quad[1]]["type"] if quad[1] in self.local_ids else self.global_ids[quad[1]]["type"]
+                        reg = self.get_register(quad[1], qtype, code_list)
+                        if qtype in ["float", "double"]:
+                            code_list.append(["mov.s", "$f0" + ",", reg])                    #Update frame pointer
+                        else:
+                            code_list.append(["addu", "$v1" + ",", reg + ",","$0"])                    #Update frame pointer
                     self.return_seq(code_list)
                     if is_main:
                         code_list.append(["li", "$v0" + ",", self.syscall["exit"]])
@@ -357,7 +359,7 @@ class CodeGen:
                         code_list.append(["jr", "$ra"])
 
                 elif quad[0] == "cout":
-                    print("COUT: ", quad)
+                    #print("COUT: ", quad)
                     self.print_stdout(quad[1], quad[2], code_list)
                 elif quad[0] == "if":
                     self.op_codes(self.label + str(quad[5]), None, quad[1], quad[2], quad[3], code_list)
@@ -897,7 +899,7 @@ class CodeGen:
 
     def print_sections(self):
         print("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n\n")
-        with open('c1.asm', 'w') as fi:
+        with open('./bin/exe.s', 'w') as fi:
             print(".text", file=fi)
             print(".globl   main", file=fi)
             print("main:\n", file=fi)

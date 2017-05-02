@@ -1,6 +1,6 @@
 #include <stdio.h>
-//int a[10] = {23, 5, 3, 56, 77, 37, 47, 10, 88, 1};
-int a[2] = {45,78};
+int a[10] = {23, 5, 3, 56, 77, 37, 47, 10, 88, 1};
+//int a[2] = {45,78};
 void swap(int i,int j){
 	int c=a[i];
 	a[i]=a[j];
@@ -13,8 +13,10 @@ int partition(int pivot,int l,int r){  //Partition the array such that all value
 	int start=l;
 	int end=r;
 	int x=pivot;
-	int ste = a[start];
-	int ene = a[end];
+	int ste;
+	ste = a[start];
+	int ene;
+	ene = a[end];
 
 	//cout << "l: " << l;
 
@@ -47,25 +49,21 @@ int partition(int pivot,int l,int r){  //Partition the array such that all value
 
 void quick_sort(int l,int r){
 	if(l<r){
-		cout << "quick_sort";
-		cout << "l: " << l;
-		cout << "r: " << r;
-		//cout << "\n";
+		int t;
+		t = a[l];
 		int i = partition(a[l],l,r);
-		cout << "quick_sort_partiton";
-		cout << "i: " << i;
 		quick_sort(l,i-1);
 		quick_sort(i+1,r);
 	}
 }
 
 int main(){
-	int n = 2;
+	int n = 10;
 	int t;
 	cout << "n: " << n;
 	cout << "\n";
 	quick_sort(0, n-1);
-	//cout << "Sorted Array: ";
+	cout << "Sorted Array: ";
 	for (int i = 0; i < n; i++){
 		t = a[i];
 		//printf("%d ", t);

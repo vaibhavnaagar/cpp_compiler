@@ -1,0 +1,4 @@
+#!/bin/bash
+
+echo "xxwxw $0 $1"
+echo $1

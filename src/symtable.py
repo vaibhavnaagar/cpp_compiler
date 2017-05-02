@@ -164,7 +164,8 @@ class SymTab:
         currtable = ScopeList[currentScope]["table"]
         #print("[Symbol Table]", currtable.symtab)
         if currtable.lookup(str(name)):         # No need to check again
-            print("[Symbol Table] Entry already exists")
+            #print("[Symbol Table] Entry already exists")
+            pass
         else:
             currtable.symtab[str(name)] = {
                 "name"      : str(name),
@@ -191,7 +192,7 @@ class SymTab:
                 check_specifier(lineno, currtable.symtab[str(name)]["specifier"], name)
                 if types is None:
                     warning = "(warning: Type is None)"
-            print("[Symbol Table] ", warning, " Inserting new identifier: ", name, " type: ", types, "specifier: ", specifiers)
+                #print("[Symbol Table] ", warning, " Inserting new identifier: ", name, " type: ", types, "specifier: ", specifiers)
             #ScopeList[-1]["table"].numVar += 1
 
     def insertTemp(self, name, id_type, scope_name, types):
@@ -199,11 +200,18 @@ class SymTab:
             types = ["int"]
         currtable = ScopeList[scope_name]["table"]
         if currtable.lookup(str(name)):         # No need to check again
-            print("[Symbol Table] Entry already exists")
+            #print("[Symbol Table] Entry already exists")
+            pass
         else:
             size = 4
-            ScopeList[scope_name]["offset"] += size
-            offset = ScopeList[scope_name]["offset"]
+            if ScopeList[currentScope]["scope_type"] not in ["global", "namespace_scope", "class_scope"]:
+                #ScopeList[scope_name]["offset"] += size
+                #offset = ScopeList[scope_name]["offset"]
+                ScopeList[currentScope]["offset"] += size
+                offset = ScopeList[currentScope]["offset"]
+            else:
+                offset = 0
+
             if (types is None) or (len(types) == 0):
                 print("Something is Wrong!!")
             currtable.symtab[str(name)] = {
@@ -239,13 +247,13 @@ class SymTab:
             currtable.symtab[str(name)].update({attribute : value})
         if attribute not in AttrList:
             AttrList.append(attribute)
-        print("[Symbol Table] Adding attribute of identifier: ", name, " attribute: ", attribute, "value: ", value)
+        #print("[Symbol Table] Adding attribute of identifier: ", name, " attribute: ", attribute, "value: ", value)
 
     @staticmethod
     def updateIDAttr(name, attribute, value):
         currtable = ScopeList[currentScope]["table"]
         currtable.symtab[str(name)].update({attribute : value})
-        print("[Symbol Table] Updating attribute of identifier: ", name, " attribute: ", attribute, "value: ", value)
+        #print("[Symbol Table] Updating attribute of identifier: ", name, " attribute: ", attribute, "value: ", value)
 
     def addScopeAttr(self,attribute,value):
         self.scope.update({attribute:value})
@@ -264,7 +272,7 @@ class SymTab:
         #new_scope["tac"].startquad = ScopeList[currentScope]["tac"].nextquad
         currentScope = str(name)
         SymTab()
-        print("[Symbol Table](addScope) Adding New Scope: ", name)
+        #print("[Symbol Table](addScope) Adding New Scope: ", name)
 
     def changeScope(self, name):
         global currentScope
@@ -275,19 +283,20 @@ class SymTab:
         Changes current scope to parent scope  when '}' is received
         """
         global currentScope
-        print("[Symbol Table](endScope) End Scope of: ", currentScope, end='')
+        #print("[Symbol Table](endScope) End Scope of: ", currentScope, end='')
         #print("The scope",currentScope,"nextquad was ", ScopeList[currentScope]["tac"].nextquad )
        # print(ScopeList[currentScope]["tac"].code)
 
         ScopeList[ScopeList[currentScope]["parent"]]["tac"].code += ScopeList[currentScope]["tac"].code
         ScopeList[ScopeList[currentScope]["parent"]]["tac"].nextquad = ScopeList[currentScope]["tac"].nextquad
         ScopeList[ScopeList[currentScope]["parent"]]["tac"].temp_count = 0
-        if ScopeList[currentScope]["parent"] not in ["global", "namespace", "class"]:
+        if ScopeList[ScopeList[currentScope]["parent"]]["scope_type"] not in ["global", "namespace", "class"]:
             ScopeList[ScopeList[currentScope]["parent"]]["offset"]  = ScopeList[currentScope]["offset"]
+
         currentScope = ScopeList[currentScope]["parent"]
         #print("The scope",currentScope,"nextquad is ", ScopeList[currentScope]["tac"].nextquad )
 
-        print(" Current Scope: ", currentScope)
+        #print(" Current Scope: ", currentScope)
         if ScopeList[currentScope] is None:
             print("[Symbol Table] Error: This line should not be printed")
 
@@ -313,15 +322,16 @@ def check_datatype(lineno, types, name, id_type):
         if id_type not in ["function", "class"]:
             size = simple_type_specifier[input_type]["size"]
             if currtable.symtab[str(name)]["star"] > 0:
-                size = 8
+                size = 4
             SymTab.addIDAttr(name,"size", size * currtable.symtab[str(name)]["num"])
-            if is_parameter:
-                #parameter_offset -= (size * currtable.symtab[str(name)]["num"])
-                parameter_offset -= 4
-                SymTab.updateIDAttr(name, "offset", parameter_offset)
-            else:
-                ScopeList[currentScope]["offset"] += (size * currtable.symtab[str(name)]["num"])
-                SymTab.updateIDAttr(name, "offset", ScopeList[currentScope]["offset"])
+            if ScopeList[currentScope]["scope_type"] not in ["global", "namespace_scope", "class_scope"]:
+                if is_parameter:
+                    #parameter_offset -= (size * currtable.symtab[str(name)]["num"])
+                    parameter_offset -= 4
+                    SymTab.updateIDAttr(name, "offset", parameter_offset)
+                else:
+                    ScopeList[currentScope]["offset"] += (size * currtable.symtab[str(name)]["num"])
+                    SymTab.updateIDAttr(name, "offset", ScopeList[currentScope]["offset"])
         return True
     else :
         print_error(lineno, {}, 46)
@@ -619,9 +629,8 @@ def print_error(lineno, id1, errno, *args):
         print(color.cline, lineno, color.cerror + " invalid conversion from \'const char*\' to \'%s\'" % args[0])
     pass
 
-def print_table():
+def print_table(show=False):
     pp = pprint.PrettyPrinter(indent=4)
-    print(AttrList)
     with open("symtab.csv", 'w') as outf:
         writer = csv.DictWriter(outf, AttrList)
         writer.writeheader()
@@ -630,12 +639,13 @@ def print_table():
                 if ScopeList[scope]["table"].symtab:
                     for k in ScopeList[scope]["table"].symtab.keys():
                         writer.writerows([dict(ScopeList[scope]["table"].symtab[k])])
-    for scope in ScopeList.keys():
-        if scope != "NULL":
-            print("Scope Name:", scope, ", ", "Scope Type:", ScopeList[scope]["scope_type"])
-            if ScopeList[scope]["table"].symtab:
-                pp.pprint(ScopeList[scope]["table"].symtab)
-            print("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~")
+    if show:
+        for scope in ScopeList.keys():
+            if scope != "NULL":
+                print("Scope Name:", scope, ", ", "Scope Type:", ScopeList[scope]["scope_type"])
+                if ScopeList[scope]["table"].symtab:
+                    pp.pprint(ScopeList[scope]["table"].symtab)
+                print("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~")
 
 def print_tac():
     ScopeList["global"]["tac"].print_code()
