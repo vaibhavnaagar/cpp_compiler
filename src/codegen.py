@@ -67,7 +67,7 @@ class CodeGen:
 
         # Floating point registers
         self.float_regs = dict()
-        for i in range(24):  self.float_regs.update({ '$f' + str(i) : [] })
+        for i in range(1,24):  self.float_regs.update({ '$f' + str(i) : [] })
 
         # Used-Unused Regs
         self.unused_gen_regs = list(self.general_regs.keys())
@@ -111,9 +111,9 @@ class CodeGen:
                     self.local_ids[j]["location"] = str(size - self.local_ids[j]["offset"] ) + "($sp)"
                 else:
                     self.local_ids[j]["location"] = str(size - self.local_ids[j]["offset"] + self.local_ids[j]["size"] ) + "($sp)"
-        print(size)
-        print(self.local_ids)
-        print("\n\n")
+        #print(size)
+        #print(self.local_ids)
+        #print("\n\n")
         pass
 
 
@@ -125,10 +125,12 @@ class CodeGen:
             return self.global_ids[name].get("register",None)
         return None
 
-    def get_register(self, name, ltype, code_list, forbid_list=[]):
-        print(name)
+    def get_register2(self, name, ltype, code_list, forbid_list=[]):
 
-        if self.check_in_register(name) :
+        pass
+
+    def get_register(self, name, ltype, code_list, forbid_list=[]):
+        """if self.check_in_register(name) :
             reg = self.check_in_register(name)
             self.spill_register(reg,code_list,[name])
             if ltype in ["double", "float"]:
@@ -138,72 +140,73 @@ class CodeGen:
                 self.used_gen_regs.remove(reg)
                 self.used_gen_regs.append(reg)
 
-            print(name,reg)
-            
             return reg
+        else :"""
+        if ltype in ["double", "float"]:
+            if len(self.unused_float_regs) > 0:
+                reg = self.unused_float_regs[0]
+                self.unused_float_regs.remove(reg)
+                self.used_float_regs.append(reg)
 
-
-        else :
-            if ltype in ["double", "float"]:
-                if len(self.unused_float_regs) > 0:
-                    reg = self.unused_float_regs[0]
-                    self.unused_float_regs.remove(reg)
-                    self.used_float_regs.append(reg)
-
-                else:
-                    for l in self.used_float_regs:
-                        if l not in forbid_list:
-                            reg = l
-                            if l in self.unused_float_regs:
-                                self.unused_float_regs.remove(l)
-                            self.used_float_regs.remove(reg)
-                            self.used_float_regs.append(reg)
-                            self.spill_register(reg,code_list)
-                            break
-                if name != "NULL":
-                    self.float_regs[reg] = [name]
             else:
-                if len(self.unused_gen_regs) > 0:
-                    reg = self.unused_gen_regs[0]
-                    self.unused_gen_regs.remove(reg)
-                    self.used_gen_regs.append(reg)
-                else:
-                    for l in self.used_gen_regs:
-                        if l not in forbid_list:
-                            reg = l
-                            if l in self.unused_gen_regs:
-                                self.unused_gen_regs.remove(l)
-                            self.used_gen_regs.remove(reg)
-                            self.used_gen_regs.append(reg)
-                            self.spill_register(reg,code_list)
-                            break
-                if name != "NULL":
-                    self.general_regs[reg] = [name] 
+                print("Float Register FULL !!", frameinfo.lineno)
+                for l in self.used_float_regs:
+                    if l not in forbid_list:
+                        reg = l
+                        if l in self.unused_float_regs:
+                            self.unused_float_regs.remove(l)
+                        self.used_float_regs.remove(reg)
+                        self.used_float_regs.append(reg)
+                        self.spill_register(reg,code_list)
+                        break
+            if name != "NULL":
+                self.float_regs[reg] = [name]
+        else:
+            if len(self.unused_gen_regs) > 0:
+                reg = self.unused_gen_regs[0]
+                self.unused_gen_regs.remove(reg)
+                self.used_gen_regs.append(reg)
+            else:
+                print("INT Register FULL !!", frameinfo.lineno)
+
+                for l in self.used_gen_regs:
+                    if l not in forbid_list:
+                        reg = l
+                        if l in self.unused_gen_regs:
+                            self.unused_gen_regs.remove(l)
+                        self.used_gen_regs.remove(reg)
+                        self.used_gen_regs.append(reg)
+                        self.spill_register(reg,code_list)
+                        break
+            if name != "NULL":
+                self.general_regs[reg] = [name]
 
         if name != "NULL":
             if name in self.local_ids:
                 self.local_ids[name]["register"] = reg
                 loc = self.local_ids[name]["location"]
 
-            else :
+            elif name in self.global_ids:
                 self.global_ids[name]["register"] = reg
                 loc = self.global_ids[name]["location"]
-
+            else:
+                loc = name
 
             self.load_variable(ltype,ltype,reg, loc ,code_list)
-
-        print(name,reg)
+        #print("GET REGISTER: ", reg,name, len(self.unused_gen_regs), "used: ", len(self.used_gen_regs))
         return reg
 
 
     def spill_register(self, reg, code_list, skip=[]):
+        print("SPILL register FULL !!", frameinfo.lineno)
+
         if reg in self.general_regs:
             for var in self.general_regs[reg]:
+                print("spill_register", reg, var)
                 if var not in skip and var != "NULL":
                     if self.local_ids.get(var,None):
                         loc = self.local_ids[var]["location"]
                     else:
-                        print(self.local_ids)
                         loc = self.global_ids[var]["location"]
                     code_list.append(["sw", reg + ",", loc])
 
@@ -230,12 +233,12 @@ class CodeGen:
         return
 
 
-    def return_seq(self,size,code_list):
+    def return_seq(self,code_list):
         self.clear_regs()
         code_list.append(["lw", "$ra" + ",", "0($sp)"])                             #Restore return address
         code_list.append(["lw", "$fp" + ",", "-4($sp)"])                             #Restore frame pointer
-        code_list.append(["addi", "$sp" + ",", "$sp" + ",", str(size)])             #Restore stack pointer
-        
+        #code_list.append(["addi", "$sp" + ",", "$sp" + ",", str(size)])             #Restore stack pointer
+
         return
 
     def clear_regs(self):
@@ -248,7 +251,7 @@ class CodeGen:
             if reg in self.used_float_regs:
                 self.float_regs[reg] = []
                 self.used_float_regs.remove(reg)
-                self.unused_gfloat_regs.append(reg)
+                self.unused_float_regs.append(reg)
         return
 
     def caller_seq(self,name,code_list):
@@ -297,8 +300,7 @@ class CodeGen:
                     for i in reversed(self.local_ids):
                         size = self.local_ids[i]["offset"]
                         break
-                    self.return_seq(size,code_list)
-                    print(self.general_regs)
+                    self.return_seq(code_list)
                     if is_main:
                         is_main = False
                         code_list.append(["li", "$v0" + ",", self.syscall["exit"]])
@@ -309,47 +311,69 @@ class CodeGen:
                     if param_start == False:
                         param_start = True
                         code_list.append(["addu", "$fp" + ",", "$sp" + ",","$0"])
-                        code_list.append(["addi", "$sp" + ",", "$sp" + ",","-8"])
+                        #if not is_main:
+                        #    code_list.append(["addi", "$sp" + ",", "$sp" + ",","-8"])
 
-                        code_list.append(["addu", "$a0" + ",", "$sp" + ",","$0"])                    #Preserve frame pointer
+                        code_list.append(["addi", "$a0" + ",", "$sp" + ",","-8"])                    #Preserve frame pointer
                     reg = self.get_register(quad[2],quad[1],code_list)
-
-                    code_list.append(["addi", "$a0" + ",", "$a0" + ",","-4"])                    
-                    code_list.append(["sw", reg + ",", "0($a0)"])                    #Push Parameters
+                    if quad[1] in ["float", "double"]:
+                        code_list.append(["swc1", reg + ",", "0($a0)"])                    #Push Parameters
+                    else:
+                        code_list.append(["sw", reg + ",", "0($a0)"])                    #Push Parameters
+                    code_list.append(["addi", "$a0" + ",", "$a0" + ",","-4"])
                     pass
-                
+
                 elif quad[0] == "call":
                     param_start = False
-                    for reg in self.general_regs:
+                    """for reg in self.general_regs:
                         self.spill_register(reg,code_list)
                     for reg in self.float_regs:
-                        self.spill_register(reg,code_list)                     # Write all registers back 
-                    if int(quad[3])%2 == 1:
-                        code_list.append(["addi", "$a0" + ",", "$a0" + ",", "-4"])                    #Padding as $sp is always multiple of 8
-                    code_list.append(["addi", "$sp" + ",", "$a0" + ",","-4"])
+                        self.spill_register(reg,code_list)                     # Write all registers back
+                    """
+                    #if int(quad[3])%2 == 1:
+                    #    code_list.append(["addi", "$a0" + ",", "$a0" + ",", "-4"])                    #Padding as $sp is always multiple of 8
+                    code_list.append(["addu", "$sp" + ",", "$a0" + ",","$0"])
+                    #code_list.append(["addi", "$sp" + ",", "$a0" + ",","-4"])
                     code_list.append(["jal", quad[1]])                    #Update frame pointer
                     pass
-                
+
                 elif quad[1] == "^retval":
                     code_list.append(["addu", "$sp" + ",", "$fp" + ",","$0"])
                     self.handle_assignment(quad, code_list)
                     pass
-                
+
                 elif quad[0] == "ret":
-                    reg = self.check_in_register(quad[1])
-                    code_list.append(["addu", "$v1" + ",", reg + ",","$0"])                    #Update frame pointer
-                    pass
+                    qtype = self.local_ids[quad[1]]["type"] if quad[1] in self.local_ids else self.global_ids[quad[1]]["type"]
+                    reg = self.get_register(quad[1], qtype, code_list)
+                    if qtype in ["float", "double"]:
+                        code_list.append(["mov.s", "$f0" + ",", reg])                    #Update frame pointer
+                    else:
+                        code_list.append(["addu", "$v1" + ",", reg + ",","$0"])                    #Update frame pointer
+                    self.return_seq(code_list)
+                    if is_main:
+                        code_list.append(["li", "$v0" + ",", self.syscall["exit"]])
+                        code_list.append(["syscall"])
+                    else:
+                        code_list.append(["jr", "$ra"])
 
                 elif quad[0] == "cout":
+                    print("COUT: ", quad)
                     self.print_stdout(quad[1], quad[2], code_list)
                 elif quad[0] == "if":
                     self.op_codes(self.label + str(quad[5]), None, quad[1], quad[2], quad[3], code_list)
                 elif quad[0] == "goto":
-                    label = self.label + str(quad[1])
+                    line = eval(quad[1])
+                    while self.TAC.code[line][0] == "goto":
+                        print(quad)
+                        line = eval(self.TAC.code[line][1])
+                    label = self.label + str(line)
                     code_list.append(["b", label])
                 else:   # Assignment
                     self.handle_assignment(quad, code_list)
-                    pass
+                self.unused_gen_regs += self.used_gen_regs
+                self.used_gen_regs = list()
+                self.unused_float_regs += self.used_float_regs
+                self.used_float_regs = list()
         pass
 
     def handle_assignment(self, quad, code_list):
@@ -362,8 +386,13 @@ class CodeGen:
 
         if quad[2] == '':   # simple assignment if quad is like ['var', '7', '', '']
 
-            rvalue, var, reg = self.eval_operand(quad[1], code_list)
-            print("HA",quad, rvalue, var, reg)
+            if quad[1] == '^retval':
+                if ltype in ["float", "double"]:
+                    rvalue, var, reg = quad[1],True,"$f0"
+                else:
+                    rvalue, var, reg = quad[1],True,"$v1"
+            else:
+                rvalue, var, reg = self.eval_operand(quad[1], code_list)
             if var:
                 if quad[1] == "^retval":
                     rtype = ltype
@@ -374,6 +403,7 @@ class CodeGen:
                         self.write_back(ltype, lvalue, rtype, reg, code_list)
                     else:
                         self.move_variable(ltype, rtype, lvalue, reg, code_list)
+                        self.write_back(ltype, op, ltype, lvalue, code_list)
                 else:
                     if optype == "write_back":
                         reg = self.get_register(rvalue, rtype, code_list)
@@ -384,8 +414,16 @@ class CodeGen:
                         else:
                             loc = self.global_ids[rvalue]["location"]
                         self.load_variable(ltype, rtype, lvalue, loc, code_list)
+                        self.write_back(ltype, op, ltype, lvalue, code_list)
+
             else:
-                self.load_immediate(ltype, type(rvalue), lvalue, quad[1], code_list)
+                if optype == "write_back":
+                    reg = self.get_register("NULL", self.map_type[type(rvalue)], code_list)
+                    self.load_immediate(ltype, type(rvalue), reg, rvalue, code_list)
+                    self.write_back(ltype, lvalue, ltype, reg, code_list)
+                else:
+                    self.load_immediate(ltype, type(rvalue), lvalue, rvalue, code_list)
+                    self.write_back(ltype, op, ltype, lvalue, code_list)
         else:
             if optype == "write_back":
                 print("Something is Wrong", frameinfo.filename, frameinfo.lineno)
@@ -396,20 +434,40 @@ class CodeGen:
                 self.add_int(ltype, lvalue, ltype, lvalue, "int", "-1", code_list, imm="get_r2")
             else:
                 self.op_codes(lvalue, ltype, quad[1], quad[2], quad[3], code_list)
+            self.write_back(ltype, op, ltype, lvalue, code_list)
         pass
 
     def write_back(self, ltype, lvalue, rtype, rvalue, code_list):
+        #print("write_back", ltype, lvalue, rtype, rvalue)
         reg = str(rvalue)
         if ltype in ["float", "double"]:
             if rtype not in ["float", "double"]:    # $s or $t type register
                 reg = self.get_register("NULL", "float", code_list)
                 self.move_variable("float", rtype, reg, rvalue, code_list)
-            code_list.append(["s.s", reg + ",", lvalue])
+            loc = lvalue
+            if "$" not in lvalue:
+                if lvalue in self.local_ids:
+                    loc = self.local_ids[lvalue]["location"]
+                else:
+                    loc = self.global_ids[lvalue]["location"]
+            code_list.append(["s.s", reg + ",", loc])
+            self.used_float_regs.remove(reg)
+            self.unused_float_regs.append(reg)
         else:
             if rtype in ["float", "double"]:
                 reg = self.get_register("NULL", "int", code_list)
                 self.move_variable("int", rtype, reg, rvalue, code_list)
-            code_list.append(["sw", reg + ",", lvalue])
+            loc = lvalue
+            #print(reg, lvalue)
+            if "$" not in lvalue:
+                if lvalue in self.local_ids:
+                    loc = self.local_ids[lvalue]["location"]
+                else:
+                    loc = self.global_ids[lvalue]["location"]
+            code_list.append(["sw", reg + ",", loc])
+            self.used_gen_regs.remove(reg)
+            self.unused_gen_regs.append(reg)
+        #print("============================", ltype, lvalue, rtype, rvalue, len(self.unused_gen_regs))
         pass
 
     def eval_lvalue(self, op, code_list):
@@ -516,11 +574,11 @@ class CodeGen:
 
         if optype1 not in ["float", "double"]:
             reg1 = self.get_register("NULL", "float", code_list)
-            self.move_variable("float", optype1, reg1, op1)
+            self.move_variable("float", optype1, reg1, op1, code_list)
 
         if optype2 not in ["float", "double"]:
             reg2 = self.get_register("NULL", "float", code_list)
-            self.move_variable("float", optype2, reg2, op2)
+            self.move_variable("float", optype2, reg2, op2, code_list)
 
         opcode1 = self.relops[relop][1]
         opcode2 = self.relops[relop][2]
@@ -590,21 +648,21 @@ class CodeGen:
         reg2 = rvalue2
 
         if imm in ["get_r1", "get_r1r2"]: # rvalue1 not in register
-            rtype1 = "float"
             reg1 = self.get_register("NULL", "float", code_list)
             self.load_immediate("float", rtype1, reg1, rvalue1, code_list)
+            rtype1 = "float"
         if imm in ["get_r2", "get_r1r2"]: # rvalue2 not in register
-            rtype2 = "float"
             reg2 = self.get_register("NULL", "float", code_list)
             self.load_immediate("float", rtype2, reg2, rvalue2, code_list)
+            rtype2 = "float"
 
         if rtype1 not in ["float", "double"]:
             reg1 = self.get_register("NULL", "float", code_list)
-            self.move_variable("float", rtype1, reg1, rvalue1)
+            self.move_variable("float", rtype1, reg1, rvalue1, code_list)
 
         if rtype2 not in ["float", "double"]:
             reg2 = self.get_register("NULL", "float", code_list)
-            self.move_variable("float", rtype2, reg2, rvalue2)
+            self.move_variable("float", rtype2, reg2, rvalue2, code_list)
 
         if ltype in ["float", "double"]:    # lvalue must be $f type register
             code_list.append([opcode, lvalue + ",", reg1 + ",", reg2])
@@ -617,9 +675,6 @@ class CodeGen:
 
     def eval_operand(self, op, code_list):
         reg = None
-        if op == '^retval':
-            return op,True,"$v1"
-
         try:
             op = eval(op)
             var = False
@@ -640,7 +695,7 @@ class CodeGen:
                 op, offset = op.split("+")
                 reg = self.deref_array(op, offset, code_list)
             else:
-                reg = self.check_in_register(op)
+                reg = None
         return op, var, reg
 
     def deref_array(self, arr, offset, code_list):
@@ -693,7 +748,7 @@ class CodeGen:
 
     def load_variable(self, ltype, rtype, op1, op2, code_list):
         if (ltype != rtype) and not (ltype in ["pointer"]):
-            reg = get_register(op2, rtype, code_list)
+            reg = self.get_register(op2, rtype, code_list)
             self.load_variable(rtype, rtype, reg, op2, code_list)
             self.move_variable(ltype, rtype, op1, reg, code_list)
         else:
@@ -708,6 +763,7 @@ class CodeGen:
         pass
 
     def load_immediate(self, ltype, rtype, op1, op2, code_list):
+        #print("--------------------", str(op2), ltype, rtype, op1, op2)
         if ltype in ["float", "double"]:    # $f type regiser
             if rtype in [int, "int"]:
                 op2 = float(op2)
@@ -718,8 +774,12 @@ class CodeGen:
             else:
                 code_list.append(["li.s", op1 + ",", str(op2)])
         else:                               # $s,$t type register
-            op2 = int(op2) if rtype is float else op2
-            if rtype in [int, str, "int", "char"]:
+            #print("load_immediate", rtype, op2)
+            if rtype in [str, "char"]:
+                code_list.append(["li", op1 + ",", "'" + str(op2) + "'"])
+            else:
+                op2 = int(op2) if rtype is float else op2
+                #print(["li", op1 + ",", str(op2)])
                 code_list.append(["li", op1 + ",", str(op2)])
         pass
 
@@ -727,15 +787,16 @@ class CodeGen:
         key = "string" if ptype == "char" else ptype
         code_list.append(["li", "$v0" + ",", self.syscall["print_" + key]])
         if ptype in ["int"]:
-            reg = self.check_in_register(op)
+            """reg = self.check_in_register(op)
             if reg:
                 code_list.append(["move", "$a0" + ",", reg])
+            else:"""
+            if op in self.local_ids:
+                loc = self.local_ids[op]["location"]
             else:
-                if op in self.local_ids:
-                    loc = self.local_ids[op]["location"]
-                else:
-                    loc = self.global_ids[op]["location"]
-                code_list.append(["lw", "$a0" + ",", op])
+                loc = self.global_ids[op]["location"]
+
+            code_list.append(["lw", "$a0" + ",", loc])
         elif ptype in ["float"]:
             op = self.get_register(op, ptype, code_list)
             code_list.append(["mov.s", "$f12" + ",", op])
@@ -743,11 +804,13 @@ class CodeGen:
             op = self.get_register(op, ptype, code_list)
             code_list.append(["mov.d", "$f12" + ",", op])       # Not sure
         elif ptype in ["char"]:
-            reg = self.check_in_register(op)
+
+            """reg = self.check_in_register(op)
             if reg:
                 skip = list(self.general_regs[reg])
                 skip.remove(op)
                 self.spill_register(reg, code_list, skip)
+            """
             if op in self.local_ids:
                 loc = self.local_ids[op]["location"]
             else:
@@ -834,7 +897,7 @@ class CodeGen:
 
     def print_sections(self):
         print("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n\n")
-        with open('c.asm', 'w') as fi:
+        with open('c1.asm', 'w') as fi:
             print(".text", file=fi)
             print(".globl   main", file=fi)
             print("main:\n", file=fi)
@@ -852,7 +915,7 @@ class CodeGen:
             for line in self.bss:
                 print(" ".join(str(e) for e in line), file=fi)
             #print(".functions\n")
-            
+
         print("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n\n")
 
         pass

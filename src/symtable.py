@@ -195,6 +195,8 @@ class SymTab:
             #ScopeList[-1]["table"].numVar += 1
 
     def insertTemp(self, name, id_type, scope_name, types):
+        if simple_type_specifier[' '.join(types)]["equiv_type"] in ["bool"]:
+            types = ["int"]
         currtable = ScopeList[scope_name]["table"]
         if currtable.lookup(str(name)):         # No need to check again
             print("[Symbol Table] Entry already exists")

@@ -12,3 +12,6 @@ __pycache__
 *.csv
 *.asm
 *.out
+venv/*
+venv
+.python-version

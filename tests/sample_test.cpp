@@ -22,7 +22,7 @@ int main(){
 	int a = 0;
 	int b = 1;
 	int c, i;
-	int n = 1;
+	int n = 5;
   for (i = 2; i <= n; i++)
   {
      c = a + b;
@@ -30,9 +30,16 @@ int main(){
      b = c;
   }
   cout << c;
-}
-*/
+  int x;
+  float y;
+  y = 3;
+  x = 2.3 + y + 34;
+  cout << "x: " << x;
+  cout << "y: " << y;
 
+}
+
+*/
 /*
 int p = 9;
 char letter = 'a';
@@ -40,15 +47,40 @@ char name[2] = "C";
 float* f;
 double d = 2.457;
 */
-int test2(int x, int y)
+/*
+int test(int n)
  {
- 	int a = y;
+   if (n == 0){
+     return 1;
+   }
+ 	int a = 1+ 4;
+
  	return a;
  }
 
-int test(int x, int y)
+int main()
+{
+ // int c[3] = {3,4,5};
+  //int i = 2;
+  //int [1] = {1};
+  int sum = 9;
+  int n =5;
+  sum = test(n);
+ cout << "sum: " << sum;
+}
+*//*
+int test2(int x, int y)
  {
- 	int a = test2(x,y);
+ 	int a = y;
+  cout << "test2-a: " << a;
+  cout << "test2-x: " << x;
+  cout << "test2-y: " << y;
+ 	return a;
+}
+*/
+int test(int x)
+ {
+ 	int a = x; //test2(x,y);
  	return a;
  }
 
@@ -59,19 +91,24 @@ int main()
   //int [1] = {1};
   int sum = 9;
 
-  sum = test(3,sum);
-  //while (i>0)
-  //{
-  //	c[i] = i;
-  //	sum =  sum + c[i];
-  //	i--;
-  //	sum = test(i,sum) ;
+  //sum = test(3);
+  int *y;
+  int **x;
+  y = &sum;
+  x = &y;
+  **x = 450;
 
-
-  //}
+  int z;
+  z = sum*100;
+  z += **x + *y;
+  cout << "z: " << z;
   cout << "Sum = " << sum;
+  int a[3] = {1,2,3};
+  int pp;
+  pp = a[2];
+  cout << "pp: " << pp;
 	return 0;
- }
+}
 
 /* int test(int , int );
 

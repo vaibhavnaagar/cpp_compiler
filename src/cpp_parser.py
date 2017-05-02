@@ -8,7 +8,7 @@
 # *  Date:           19-Nov-1999
 # Template feature is removed from the grammar to remove reduce-reduce conflicts.
 #-----------------------------------------------------------------------------
-import sys
+import sys, os
 import cpp_lexer as lex
 import ply.yacc as yacc
 import pydot
@@ -108,7 +108,7 @@ def expression_semantic(lineno, p0, p1, p2, p3):
 	else:
 		p0 = p1
 
-	
+
 
 	p0["name"] = ' '.join([p1["name"], p2, p3["name"]])
 	p0["type"],p0["star"] = st.expression_type(lineno, p1["type"], p1.get("star", 0) , p3["type"], p3.get("star", 0), op=str(p2))
@@ -636,7 +636,7 @@ def p_postfix_expression2(p):
 						SymbolTable.insertTemp(temp, "temporary", _scope, param["type"])
 						st.ScopeList[st.currentScope]["tac"].expression_emit(temp,"","=",param["tac_name"],param["type"])
 						param["tac_name"] = temp
-					
+
 					for param in p[2]:
 						st.ScopeList[st.currentScope]["tac"].emit(["param",st.simple_type_specifier[" ".join(param["type"])]["equiv_type"] ,str(param["tac_name"])])
 
@@ -699,7 +699,7 @@ def p_postfix_expression2(p):
 								st.ScopeList[st.currentScope]["tac"].expression_emit(temp,"","=",param["tac_name"],param["type"])
 								param["tac_name"] = temp
 
-							
+
 							for param in p[2]:
 								st.ScopeList[st.currentScope]["tac"].emit(["param",st.simple_type_specifier[" ".join(param["type"])]["equiv_type"] ,str(param["tac_name"])])
 
@@ -841,7 +841,7 @@ def p_postfix_expression6(p):
 				if p[3]["id_type"] in ["literal"]:
 					st.ScopeList[st.currentScope]["tac"].expression_emit(p[0]["index"],p[0]["index"],"+",str(product*p[3]["value"]),["int"])
 
-	 
+
 				else:
 					_scope = st.currentScope
 					if len(st.function_list) > 0:
@@ -858,8 +858,8 @@ def p_postfix_expression6(p):
 				if not st.Error :
 					size = st.simple_type_specifier[" ".join(p[0]["type"])]["size"]
 					st.ScopeList[st.currentScope]["tac"].expression_emit(p[0]["index"],p[0]["index"],"*",str(size),["int"])
-					p[0]["tac_name"] =  "$" + p[0]["tac_name"] + "+" + p[0]["index"] 
-				
+					p[0]["tac_name"] =  "$" + p[0]["tac_name"] + "+" + p[0]["index"]
+
 				p[0]["real_id_type"] = p[0]["id_type"]
 				p[0]["id_type"] = "variable"		# Array is completely dereferenced to a single memory location
 	pass
@@ -1105,7 +1105,7 @@ def p_unary_expression3(p):
 
 	if (not set(p[0]["type"]).issubset(st.number_types)) or (p[0].get("id_type") not in ["variable", "array"]):		# Incomplete list
 		st.print_error(p.lineno(1), p[0], 13)
-	
+
 	if not st.Error :
 		st.ScopeList[st.currentScope]["tac"].expression_emit(p[0]["tac_name"],'',p[1], '')
 	pass
@@ -1131,7 +1131,7 @@ def p_unary_expression4(p):
 				else:
 					p[0]["star"] -= 1
 					if not st.Error :
-						p[0]["tac_name"] = "*" + p[0]["tac_name"] 
+						p[0]["tac_name"] = "*" + p[0]["tac_name"]
 			elif p[1] == '&':
 				p[0]["star"] += 1
 				if not st.Error :
@@ -1634,6 +1634,7 @@ def p_assignment_expression1(p):
 	"assignment_expression : conditional_expression"
 	add_children(len(list(filter(None, p[1:]))),"assignment_expression")
 	p[0] = p[1]
+	if p[0] is None: return
 	if p[0]["id_type"] == "function" and p[0]["is_defined"] is False:
 		st.function_list.append(p[0])
 	pass
@@ -2165,8 +2166,8 @@ def p_selection_statement2(p):
 		st.ScopeList[st.currentScope]["tac"].backpatch(p[3]["truelist"], p[5]["quad"]  )
 		st.ScopeList[st.currentScope]["tac"].backpatch(p[3]["falselist"], p[9]["quad"]  )
 		st.ScopeList[st.currentScope]["tac"].backpatch(p[8]["nextlist"], st.ScopeList[st.currentScope]["tac"].nextquad  )
-		p[0]["breaklist"] = list(set(p[6]["breaklist"] + p[10]["breaklist"]))
-		p[0]["contlist"] = list(set(p[6]["contlist"] + p[10]["contlist"]))
+		p[0]["breaklist"] = list(set(p[6].get("breaklist", []) + p[10].get("breaklist", [])))
+		p[0]["contlist"] = list(set(p[6].get("contlist", []) + p[10].get("contlist", [])))
 
 	#temp_list = list(set(p[3]["falselist"] + p[6]["breaklist"]))
 	#st.ScopeList[st.currentScope]["tac"].backpatch(temp_list, st.ScopeList[st.currentScope]["tac"].nextquad  )
@@ -2234,7 +2235,7 @@ def p_iteration_statement1(p):
 		st.ScopeList[st.currentScope]["tac"].backpatch(p[4]["truelist"], p[6]["quad"]  )
 		st.ScopeList[st.currentScope]["tac"].emit(["goto",str(p[3]["quad"])])
 		tac.labels.append(str(p[3]["quad"]))
-		temp_list = p[4]["falselist"] + p[7]["breaklist"]
+		temp_list = p[4].get("falselist", []) + p[7].get("breaklist", [])
 		st.ScopeList[st.currentScope]["tac"].backpatch(temp_list, st.ScopeList[st.currentScope]["tac"].nextquad  )
 		p[0]["breaklist"] = []
 		p[0]["contlist"] = []
@@ -2252,7 +2253,7 @@ def p_iteration_statement2(p):
 		st.ScopeList[st.currentScope]["tac"].backpatch(p[4]["nextlist"], p[7]["quad"]  )
 		st.ScopeList[st.currentScope]["tac"].backpatch(p[3]["contlist"], p[7]["quad"]  )
 		st.ScopeList[st.currentScope]["tac"].backpatch(p[8]["truelist"], p[2]["quad"]  )
-		temp_list = p[8]["falselist"] + p[3]["breaklist"]
+		temp_list = p[8].get("falselist", []) + p[3].get("breaklist", [])
 		st.ScopeList[st.currentScope]["tac"].backpatch(temp_list, st.ScopeList[st.currentScope]["tac"].nextquad  )
 		p[0]["breaklist"] = []
 		p[0]["contlist"] = []
@@ -2284,7 +2285,7 @@ def p_iteration_statement3(p):
 		else:
 			st.ScopeList[st.currentScope]["tac"].backpatch(p[9]["nextlist"], p[4]["quad"]  )
 		st.ScopeList[st.currentScope]["tac"].backpatch(p[5]["truelist"], p[11]["quad"]  )
-		temp_list = p[5]["falselist"] + p[12]["breaklist"]
+		temp_list = p[5].get("falselist", []) + p[12].get("breaklist", [])
 		st.ScopeList[st.currentScope]["tac"].backpatch(temp_list, st.ScopeList[st.currentScope]["tac"].nextquad  )
 		p[0]["breaklist"] = []
 		p[0]["contlist"] = []
@@ -2338,7 +2339,7 @@ def p_jump_statement3(p):
 	if (st.simple_type_specifier[' '.join(expr["type"])]["equiv_type"] != st.simple_type_specifier[' '.join(func["type"])]["equiv_type"]) \
 	 	or (expr.get("order", []) != func.get("order", [])) or (expr.get("star", 0) != func.get("star", 0)):
 		st.print_error(p.lineno(1), {}, 36, func["name"], ' '. join(func["type"]))
-	
+
 	if not st.Error:
 		temp = st.ScopeList[st.currentScope]["tac"].getnewtemp()
 		_scope = st.currentScope
@@ -3179,7 +3180,7 @@ def p_linkage_specification2(p):
 def p_init_declarations1(p):
 	"init_declarations : assignment_expression ',' init_declaration"
 	add_children(len(list(filter(None, p[1:]))) -1,"init_declarations")
-	if not st.Error :	
+	if not st.Error :
 		if p[1].get("inc",False):
 			st.ScopeList[st.currentScope]["tac"].expression_emit(p[1]["tac_name"],'',"++", '')
 		if p[1].get("dec",False):
@@ -4368,7 +4369,7 @@ def p_marker_M(p):
 		p[0]["quad"] = st.ScopeList[st.currentScope]["tac"].getnext()
 	pass
 
-def p_marker_F(p): 
+def p_marker_F(p):
 	"marker_F : empty"
 	if not st.Error :
 		func = st.function_list[-1]
@@ -4399,11 +4400,14 @@ if __name__ == "__main__":
 	#sys.exit()
 	parser = yacc.yacc(errorlog=yacc.NullLogger())
 	#parser = yacc.yacc(debug=True)
-	#if(len(sys.argv) == 2):
-	#	filename = sys.argv[1]
-	#else:
-	filename = "../tests/bubble.cpp"
+	if len(sys.argv) > 1:
+		filename = sys.argv[1]
+	else:
+		filename = "../tests/bubble.cpp"
 	#filename = "../tests/binary_search.cpp"
+
+
+
 	a = open(filename)
 	data = a.read()
 	#data = '''

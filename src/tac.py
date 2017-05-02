@@ -76,7 +76,7 @@ class TAC:
 			t = self.getnewtemp() + "_" + str(_scope)
 			st.ScopeList["global"]["table"].insertTemp(t, "temporary", _scope, ['int'])
 			self.expression_emit(t,d,op[:-1],e2,etype)
-			self.expression_emit(d,t,'','',etype)
+			self.emit([d,t,'',''])
 			return
 
 		if op in [ "+++" , "---", "~"]:
