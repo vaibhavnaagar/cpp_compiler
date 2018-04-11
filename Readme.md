@@ -1,5 +1,12 @@
-# C++ Compiler#
-> CS335 (Compiler Design)
+# C++ Compiler
+> Compiler Design
+
+### How to use ###
+* Run `make` command to build code binaries
+* Use CPP compiler by running command:
+```
+./runcpp filename
+```
 
 ### Compiler Specifications ###
 * Source Language: C++
@@ -17,7 +24,3 @@
 ### Contributors ###
 * Vaibhav Nagar
 * Tushant Mittal
-
-### Mentors ###
-* Prof. Amey Karkare
-* Nimisha Agarwal
